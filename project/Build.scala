@@ -1,3 +1,4 @@
+import org.scoverage.coveralls.CoverallsPlugin
 import play.PlayImport.PlayKeys
 import sbt._
 import sbt.Keys._
@@ -5,6 +6,7 @@ import com.typesafe.sbteclipse.plugin.EclipsePlugin._
 import bintray.Plugin._
 import sbtrelease.ReleasePlugin
 import sbtrelease.ReleasePlugin._
+import CoverallsPlugin.CoverallsKeys._
 
 object Version {
   val jsonZipper    = "1.2"
@@ -73,7 +75,9 @@ object Dependencies {
 
 object Build extends Build {
 
-  val QBRepositories = Seq(
+  coverallsTokenFile := "repo-token.txt"
+
+  val Repositories = Seq(
     "Typesafe repository"           at "http://repo.typesafe.com/typesafe/releases/",
     "mandubian maven bintray"       at "http://dl.bintray.com/mandubian/maven",
     "Sonatype OSS Snapshots"        at "https://oss.sonatype.org/content/repositories/snapshots",
@@ -107,7 +111,7 @@ object Build extends Build {
     .settings(buildSettings: _*)
 .settings(releaseSettings: _*)
   .settings(
-    resolvers ++= QBRepositories,
+    resolvers ++= Repositories,
     retrieveManaged := true,
     libraryDependencies ++= Dependencies.qbSchema,
     testFrameworks += new TestFramework("org.scalameter.ScalaMeterFramework"),
