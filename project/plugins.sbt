@@ -16,7 +16,7 @@ resolvers += Classpaths.sbtPluginReleases
 // Use the Play sbt plugin for Play projects
 addSbtPlugin("com.typesafe.play" % "sbt-plugin" % "2.3.3")
 
-addSbtPlugin("me.lessis" % "bintray-sbt" % "0.1.2")
+addSbtPlugin("me.lessis" % "bintray-sbt" % "0.2.1")
 
 addSbtPlugin("org.scoverage" % "sbt-scoverage" % "1.0.4")
 

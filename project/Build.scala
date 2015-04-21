@@ -1,8 +1,6 @@
 import org.scoverage.coveralls.CoverallsPlugin
-import play.PlayImport.PlayKeys
 import sbt._
 import sbt.Keys._
-import com.typesafe.sbteclipse.plugin.EclipsePlugin._
 import bintray.Plugin._
 import sbtrelease.ReleasePlugin
 import sbtrelease.ReleasePlugin._
@@ -51,7 +49,7 @@ object Library {
 object Dependencies {
   import Library._
 
-  val qbSchema = List(
+  val core = List(
     playJson,
     jsonZipper,
     scalaz,
@@ -61,7 +59,7 @@ object Dependencies {
     jtoValidationCore,
     jtoValidationJson,
     jsonAnnotations,
-  scalaXml
+    scalaXml
   )
 
   val qbPlay = List(
@@ -74,8 +72,6 @@ object Dependencies {
 }
 
 object Build extends Build {
-
-  coverallsTokenFile := "repo-token.txt"
 
   val Repositories = Seq(
     "Typesafe repository"           at "http://repo.typesafe.com/typesafe/releases/",
@@ -96,26 +92,25 @@ object Build extends Build {
       Keys.parallelExecution in Test := false
     )
 
-  // TODO: remove setting
-  val buildSettings = Project.defaultSettings ++ commonSettings
+  val releaseSettings = ReleasePlugin.releaseSettings ++ bintrayPublishSettings ++ Seq(
+    publishMavenStyle := true,
+    publishTo := (publishTo in bintray.Keys.bintray).value, // set it globally so that sbt-release plugin does not freak out.
+    bintray.Keys.bintrayOrganization in bintray.Keys.bintray := None,
+    bintray.Keys.packageLabels in bintray.Keys.bintray := Seq("json", "json-schema", "play", "scala"),
+    ReleaseKeys.crossBuild := true
+  )
 
-  // TODO: fix release settings
-//  val releaseSettings = ReleasePlugin.releaseSettings ++ bintrayPublishSettings ++ Seq(
-//      publishMavenStyle := true,
-//      publishTo := (publishTo in bintray.Keys.bintray).value, // set it globally so that sbt-release plugin does not freak out.
-//      bintray.Keys.bintrayOrganization in bintray.Keys.bintray := Some("qbproject"),
-//      ReleaseKeys.crossBuild := true
-//  )
+  val buildSettings = Defaults.coreDefaultSettings ++ commonSettings
 
   lazy val schemaProject = Project("play-json-schema-validator", file("."))
     .settings(buildSettings: _*)
-.settings(releaseSettings: _*)
-  .settings(
-    resolvers ++= Repositories,
-    retrieveManaged := true,
-    libraryDependencies ++= Dependencies.qbSchema,
-    testFrameworks += new TestFramework("org.scalameter.ScalaMeterFramework"),
-    addCompilerPlugin("org.scalamacros" % "paradise" % "2.0.1" cross CrossVersion.full)
-  )
+    .settings(releaseSettings: _*)
+    .settings(
+      resolvers ++= Repositories,
+      retrieveManaged := true,
+      libraryDependencies ++= Dependencies.core,
+      testFrameworks += new TestFramework("org.scalameter.ScalaMeterFramework"),
+      addCompilerPlugin("org.scalamacros" % "paradise" % "2.0.1" cross CrossVersion.full)
+    )
 
 }
