@@ -35,28 +35,36 @@ trait JSONSchemaWrites {
     case b: QBBoolean => booleanWriter.writes(b).as[JsObject]
     case a: QBArray => arrayWriter.writes(a).as[JsObject]
     case o: QBClass => objectWriter.writes(o).as[JsObject]
+    case r: QBRef => refWriter.writes(r).as[JsObject]
   }
 
-  implicit def booleanWriter: Writes[QBBoolean] = OWrites[QBBoolean] { bool =>
+  implicit val booleanWriter: Writes[QBBoolean] = OWrites[QBBoolean] { bool =>
     Json.obj("type" -> "boolean") ++ Json.obj(bool.rules.toList.map(writeRule(_)).flatten: _*)
   }
 
-  implicit def stringWriter: Writes[QBString] = OWrites[QBString] { str =>
+  implicit val stringWriter: Writes[QBString] = OWrites[QBString] { str =>
     Json.obj("type" -> "string") ++ Json.obj(str.rules.toList.map(writeRule(_)).flatten: _*)
   }
 
-  implicit def integerWriter: Writes[QBInteger] = OWrites[QBInteger] { int =>
+  implicit val integerWriter: Writes[QBInteger] = OWrites[QBInteger] { int =>
     Json.obj("type" -> "integer") ++ Json.obj(int.rules.toList.map(writeRule(_)).flatten: _*)
   }
 
-  implicit def numberWriter: Writes[QBNumber] = OWrites[QBNumber] { num =>
+  implicit val numberWriter: Writes[QBNumber] = OWrites[QBNumber] { num =>
     Json.obj("type" -> "number") ++ Json.obj(num.rules.toList.map(writeRule(_)).flatten: _*)
   }
 
-  implicit def arrayWriter: Writes[QBArray] = OWrites[QBArray] { arr =>
+  implicit val arrayWriter: Writes[QBArray] = OWrites[QBArray] { arr =>
     Json.obj("type" -> "array",
       "items" -> Json.toJson(arr.items)) ++ Json.obj(arr .rules.toList.map(writeRule(_)).flatten: _*)
   }
+
+  implicit val refWriter: Writes[QBRef] = OWrites[QBRef] { ref =>
+    Json.obj(
+      "$ref" -> JsString(ref.pointer.path)
+    )
+  }
+
 
   /**
    * Extensions whose result gets merged into the written property like, for instance, the type:
@@ -69,14 +77,29 @@ trait JSONSchemaWrites {
    */
   def extensions: List[QBClass => JsObject] = List()
 
-  implicit def objectWriter: Writes[QBClass] = OWrites[QBClass] { obj =>
+  implicit val objectWriter: Writes[QBClass] = OWrites[QBClass] { obj =>
     {
       val written = Json.obj(
         "type" -> "object",
-        "properties" -> JsObject(obj.attributes.map(attr => attr.name ->
-          propertyExtensions.foldLeft(Json.toJson(attr.qbType).as[JsObject])((obj, extension) =>
-            obj.deepMerge(extension(attr))))),
-        "additionalProperties" -> JsBoolean(false)) ++ Json.obj(obj.rules.toList.map(writeRule(_)).flatten: _*)
+        "properties" -> JsObject(
+          obj.attributes.map(attr =>
+            attr.name ->
+              propertyExtensions.foldLeft(Json.toJson(attr.qbType).as[JsObject])((obj, extension) =>
+                obj.deepMerge(extension(attr))
+              )
+          )
+        ),
+        "additionalProperties" -> JsBoolean(false), // TODO
+        "definitions" -> JsObject(obj.definitions.toList.map(t =>
+          t._1 -> Json.toJson(t._2)
+        )),
+        "meta" -> JsObject(obj.meta.toList.map(t =>
+          t._1 -> Json.toJson(t._2)
+        ))
+      ).deepMerge(Json.obj(obj.rules.toList.map(writeRule(_)).flatten: _*))
+
+      println(">>" + written)
+
       extensions.foldLeft(written)((o, extension) => 
         o.deepMerge(extension(obj)))
     }

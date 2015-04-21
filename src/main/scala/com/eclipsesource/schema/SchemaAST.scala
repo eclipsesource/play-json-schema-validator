@@ -16,8 +16,6 @@ object QBType {
 
 }
 
-//case class QBRef() extends QBType
-
 /**
  * Marker for all primitive QB types, which are numbers, strings and booleans.
  *
@@ -30,33 +28,6 @@ trait QBPrimitiveType[A <: JsValue] extends QBType with CompositeRule[A]
  * Marker for base types.
  */
 sealed trait QBBaseType
-
-/**
- * QBObject trait.
- */
-trait QBClass extends QBType with QBBaseType with CompositeRule[JsObject] {
-
-  /**
-   * @inheritdoc
-   *
-   * @return a set of validation rules
-   */
-//  def rules: Set[ValidationRule[JsObject]]
-
-  /**
-   * The fields of the object
-   *
-   * @return a sequence of QBAttributes
-   */
-  def attributes: Seq[QBAttribute]
-
-  // TODO: documentation
-  def apply(attributeName: String): QBType = {
-    attributes.find(_.name == attributeName).get.qbType
-  }
-
-  override def toString = "object"
-}
 
 trait QBConstrainedClass extends QBType with ValidationRule[JsObject] {
   def possibleSchemas: Seq[QBClass]
@@ -74,23 +45,31 @@ case class QBAnyOf(possibleSchemas: Seq[QBClass]) extends QBConstrainedClass {
   override def rule: Rule[JsValue, JsValue] = QBAnyOfRule(possibleSchemas).rule
 }
 
+case class JSONPointer(path: String)
+
+// TODO: pointer is a JSONSPointer, see http://tools.ietf.org/html/draft-pbryan-zyp-json-pointer-02
+abstract class QBRef(val pointer: JSONPointer) extends QBType with QBBaseType {
+  def resolve: QBType
+}
 
 /**
  * QBObject constructor.
  *
- * @param attrs
+ * @param attributes
  *             the attributes of an object
  * @param rules
  *             optional rules an object must fulfill
  */
-// This ain't a case class because we want fields to be evaluated lazily in order to being able to create
-// recursive schemas
-class QBClassImpl(attrs: () => Seq[QBAttribute], val rules: Set[ValidationRule[JsObject]] = Set.empty) extends QBClass {
-  override val attributes = attrs()
-  override def equals(other: Any): Boolean = other match {
-    case that: QBClassImpl => that.attributes == attributes
-    case _ => false
-  }
+case class QBClass(
+  attributes: Seq[QBAttribute],
+  rules: Set[ValidationRule[JsObject]] = Set.empty,
+  definitions: Map[String, QBType] = Map.empty,
+  meta: Map[String, String] = Map.empty
+) extends QBType with CompositeRule[JsObject] {
+
+    def apply(attributeName: String): QBType = {
+      attributes.find(_.name == attributeName).get.qbType
+    }
 }
 
 /**
@@ -105,7 +84,7 @@ object QBClassImpl {
    *           the attributes making up the object
    * @return the constructed object
    */
-  def apply(attributes: => Seq[QBAttribute]) = new QBClassImpl(() => attributes, Set.empty)
+  def apply(attributes: => Seq[QBAttribute]) = new QBClass(attributes, Set.empty)
 
   /**
    * Creates an QBObject.
@@ -117,7 +96,10 @@ object QBClassImpl {
    * @return the constructed object
    */
   def apply(attributes: => Seq[QBAttribute], rules: Set[ValidationRule[JsObject]]) =
-    new QBClassImpl(() => attributes, rules)
+    new QBClass(attributes, rules)
+
+  def apply(attributes: => Seq[QBAttribute], rules: Set[ValidationRule[JsObject]], meta: Seq[QBAttribute]) =
+    new QBClass(attributes, rules)
 }
 
 /**

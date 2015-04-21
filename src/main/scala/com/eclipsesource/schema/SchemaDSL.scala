@@ -2,7 +2,9 @@ package com.eclipsesource.schema
 
 import java.util.regex.Pattern
 
+import play.api.data.mapping.Path
 import play.api.libs.json._
+import shapeless._
 
 /**
  * QB DSL.
@@ -13,6 +15,20 @@ trait SchemaDSL {
   implicit def tuple2attribute(tuple: (String, QBType)) = tuple._2 match {
     case annotatedType: AnnotatedQBType => QBAttribute(tuple._1, annotatedType.qbType, annotatedType.annotations)
     case _ => QBAttribute(tuple._1, tuple._2)
+  }
+
+  case class HasDefinitions(definitions: Map[String, QBClass]) {
+    def apply(name: String) = new QBRef(
+      JSONPointer(s"#/definitions/$name")
+    ) {
+      def resolve: QBType = definitions.getOrElse(name, sys.error(s"no such field $name"))
+    }
+  }
+
+
+  def definitions(definitions: Map[String, QBClass])(schema: => HasDefinitions => QBClass) = {
+    val obj = schema(HasDefinitions(definitions))
+    obj.copy(definitions = definitions)
   }
 
   /**

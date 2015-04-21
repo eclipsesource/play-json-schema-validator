@@ -156,19 +156,19 @@ trait BaseSchemaOps {
    *               the update function that is called if the predicate is fulfilled
    * @return the updated QB type
    */
-  def updateIf(qbType: QBType)(predicate: QBType => Boolean)(modifier: QBType => QBType): QBType = {
+  def updateIf[A <: QBType](qbType: QBType)(predicate: QBType => Boolean)(modifier: A => QBType): QBType = {
     qbType match {
       case cls: QBClass =>
-        val updatedQBClass = QBClassImpl(cls.attributes.map { attr =>
-          QBAttribute(attr.name, updateIf(attr.qbType)(predicate)(modifier))
+        val updatedQBClass = cls.copy(attributes = cls.attributes.map { attr =>
+          QBAttribute(attr.name, updateIf[A](attr.qbType)(predicate)(modifier))
         })
         if (predicate(cls)) {
-          modifier(updatedQBClass)
+          modifier(updatedQBClass.as[A])
         } else {
           updatedQBClass
         }
-      case arr: QBArray => QBArrayImpl(updateIf(arr.items)(predicate)(modifier))
-      case q if predicate(q) => modifier(q)
+      case arr: QBArray => QBArrayImpl(updateIf[A](arr.items)(predicate)(modifier))
+      case q if predicate(q) => modifier(q.as[A])
       case _ => qbType
     }
   }

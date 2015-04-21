@@ -29,6 +29,7 @@ trait SchemaOps extends BaseSchemaOps { self =>
      *           the expected type
      * @return the resolved sub-schema
      */
+    // TODO: provider without type parameter
     def resolve[A <: QBType](path: QBStringPath): A = resolvePath[A](schema)(path)
 
     /**
@@ -283,7 +284,7 @@ trait SchemaOps extends BaseSchemaOps { self =>
      *           the type that needs to be matched in order for the update function to be executed
      * @return the updated schema
      */
-    def updateByType[A <: QBType : ClassTag](updateFn: QBType => QBType): QBClass = {
+    def updateByType[A <: QBType : ClassTag](updateFn: A => QBType): QBClass = {
       val clazz = implicitly[ClassTag[A]].runtimeClass
       updateIf(schema)(qbType => clazz.isInstance(qbType))(updateFn).asInstanceOf[QBClass]
     }
@@ -344,5 +345,9 @@ trait SchemaOps extends BaseSchemaOps { self =>
         attr.annotations.exists(_.isInstanceOf[QBOptionalAnnotation])
       )
     }
+
+    def expand: QBClass = {
+      updateByType[QBRef](_.resolve)
+     }
   }
 }

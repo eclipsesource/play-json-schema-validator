@@ -7,7 +7,7 @@ import play.api.data.validation.ValidationError
 import play.api.libs.json._
 
 import scala.reflect.ClassTag
-import scalaz.{Failure => Fail, Success => Succ, Validation => Vali, _}
+import scalaz._
 import Scalaz._
 
 package object schema
@@ -16,12 +16,6 @@ package object schema
   with JSONSchemaWrites
   with JSONSchemaAnnotationWrites
   with JSONSchemaReads {
-
-//  object Schema
-//    extends SchemaOps
-//    with SchemaDSL
-//    with JSONSchemaReads
-//    with JSONSchemaAnnotationWrites
 
   val isQBString = (qbType: QBType) => qbType.isInstanceOf[QBString]
   val isQBNumber = (qbType: QBType) => qbType.isInstanceOf[QBNumber]

@@ -1,7 +1,7 @@
 package com.eclipsesource.schema
 
 import com.eclipsesource.schema._
-import com.eclipsesource.schema.SchemaMacros._
+import com.eclipsesource.schema.SchemaMacro._
 import org.specs2.mutable.Specification
 
 class MacroSpec extends Specification {

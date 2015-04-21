@@ -1,10 +1,6 @@
 package com.eclipsesource.schema
 
-import scala.annotation.StaticAnnotation
-import scala.collection.SeqLike
-import scala.collection.generic.SeqFactory
 import scala.language.experimental.macros
-import com.eclipsesource.schema._
 import scala.reflect.macros.blackbox
 
 object SchemaMacro {
@@ -60,9 +56,9 @@ object SchemaMacro {
       val lifted = qbLiftable(arr.items)
       q"${symbolOf[QBArrayImpl].companion}($lifted)"
     }
-    lazy implicit val qbClassLiftable: Liftable[QBClassImpl] = Liftable[QBClassImpl] { cls =>
+    lazy implicit val qbClassLiftable: Liftable[QBClass] = Liftable[QBClass] { cls =>
       val lifted = cls.attributes.map(attr => attr.name -> qbLiftable(attr.qbType)).toList
-      q"""${symbolOf[QBClassImpl].companion}(List(..$lifted))"""
+      q"""${symbolOf[QBClass].companion}(List(..$lifted))"""
     }
 
     lazy implicit val qbLiftable = Liftable[QBType] {
@@ -71,7 +67,7 @@ object SchemaMacro {
       case b: QBBooleanImpl => qbBooleanLiftable(b)
       case n: QBNumberImpl => qbNumberLiftable(n)
       case a: QBArrayImpl => qbArrayLiftable(a)
-      case c: QBClassImpl => qbClassLiftable(c)
+      case c: QBClass => qbClassLiftable(c)
     }
 
     val weakType = weakTypeOf[T]
@@ -89,7 +85,7 @@ object SchemaMacro {
     }
 
     c.Expr[QBClass] {
-      q"""${symbolOf[QBClassImpl].companion}(List(..$schemaFields))"""
+      q"""${symbolOf[QBClass].companion}(List(..$schemaFields))"""
     }
   }
 

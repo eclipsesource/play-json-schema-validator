@@ -10,7 +10,7 @@ import com.eclipsesource.schema._
 @RunWith(classOf[JUnitRunner])
 object JSONSchemaWritesSpec extends Specification {
 
-  "QBSchema" should {
+  "Schema writes" should {
 
     "to JSON schema with min rule" in {
       val qbSchema = qbClass(
@@ -90,6 +90,25 @@ object JSONSchemaWritesSpec extends Specification {
       val schema: QBType = j.get
       (jsonSchema \ "age" \ "minimum").toString must contain("10")
       (jsonSchema \ "age" \ "exclusiveMinimum ").toString must contain("true")
+    }
+
+    "serialize references" in {
+      val schema = definitions(Map(
+        "address" -> qbClass(
+          "street_address" -> qbString
+        )
+      ))
+      { defs => qbClass(
+        "billing_address" -> defs("address"),
+        "shipping_address" -> defs("address")
+      )
+      }
+
+
+      val jsonSchema = Json.toJson(schema)
+      println(Json.prettyPrint(jsonSchema))
+      //      jsonSchema \ "billing_address" \ "address" \ ""
+      true must beTrue
     }
   }
 
