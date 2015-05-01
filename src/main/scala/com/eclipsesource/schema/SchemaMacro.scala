@@ -22,7 +22,7 @@ object SchemaMacro {
         case "Boolean"   => QBBooleanImpl(Set())
         case arr if universeType.baseClasses.contains(seqSym) =>
           val itemType = qbType(universeType, universeType.resultType.typeArgs.head.toString)
-          QBArrayImpl(itemType)
+          QBArray(() => itemType, None)
         case cls =>
 
           val fields = universeType.decls.collectFirst {
@@ -33,9 +33,16 @@ object SchemaMacro {
             val name = field.name
             val returnType = universeType.decl(name).typeSignature
             val attrType = qbType(returnType, returnType.resultType.toString)
-            QBAttribute(name.toString, attrType)
+            name.toString -> attrType
+//            QBAttribute(name.toString, attrType)
           }
-          QBClassImpl(attributes)
+          obj(attributes:_*)
+//          QBClass(attributes.map(attr =>
+//            attr.copy(qbType = attr.qbType match {
+//              case obj: QBClass => obj.copy(parent = Some(this))
+//              case t => t
+//            })
+//          ), None)
       }
     }
 
@@ -52,9 +59,9 @@ object SchemaMacro {
     implicit val qbBooleanLiftable = Liftable[QBBooleanImpl] { b =>
       q"${symbolOf[QBBooleanImpl].companion}()"
     }
-    lazy implicit val qbArrayLiftable: Liftable[QBArrayImpl] = Liftable[QBArrayImpl] { (arr: QBArrayImpl) =>
+    lazy implicit val qbArrayLiftable: Liftable[QBArray] = Liftable[QBArray] { (arr: QBArray) =>
       val lifted = qbLiftable(arr.items)
-      q"${symbolOf[QBArrayImpl].companion}($lifted)"
+      q"${symbolOf[QBArray].companion}($lifted)"
     }
     lazy implicit val qbClassLiftable: Liftable[QBClass] = Liftable[QBClass] { cls =>
       val lifted = cls.attributes.map(attr => attr.name -> qbLiftable(attr.qbType)).toList
@@ -66,7 +73,7 @@ object SchemaMacro {
       case i: QBIntegerImpl => qbIntegerLiftable(i)
       case b: QBBooleanImpl => qbBooleanLiftable(b)
       case n: QBNumberImpl => qbNumberLiftable(n)
-      case a: QBArrayImpl => qbArrayLiftable(a)
+      case a: QBArray => qbArrayLiftable(a)
       case c: QBClass => qbClassLiftable(c)
     }
 

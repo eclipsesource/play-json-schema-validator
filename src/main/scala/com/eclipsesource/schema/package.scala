@@ -7,7 +7,7 @@ import play.api.data.validation.ValidationError
 import play.api.libs.json._
 
 import scala.reflect.ClassTag
-import scalaz._
+import scalaz.{Success => _, Failure => _, _}
 import Scalaz._
 
 package object schema
@@ -55,12 +55,14 @@ package object schema
     }
   }
 
-  val optionalRule2 = RuleProvider {
-    case (_, annotations) if annotations.exists(_.isInstanceOf[QBOptionalAnnotation]) => Rule.fromMapping[JsValue, JsValue] {
-      case undefined: JsUndefined  => annotations.find(isQBOptionalAnnotation).collectFirst {
-        case QBOptionalAnnotation(maybeFallback) => maybeFallback.fold(Success(JsAbsent: JsValue))(value => Success(value))
+  val optionalRule2: Function[((QBType, Seq[QBAnnotation])), Rule[JsValue, JsValue]] = RuleProvider {
+    case (_, annotations) if { /*println(s"hey $annotations");*/ annotations.exists(_.isInstanceOf[QBOptionalAnnotation]) } => Rule.fromMapping[JsValue, JsValue] {
+      case undefined: JsUndefined  =>
+        annotations.find(isQBOptionalAnnotation).collectFirst {
+        case QBOptionalAnnotation(maybeFallback) =>
+          maybeFallback.fold(Success(JsAbsent: JsValue))(value => Success(value))
       }.get
-      case js => Success(js)
+      case js => println("!"); Success(js)
     }
   }
 
@@ -68,17 +70,17 @@ package object schema
     case (qbType: ValidationRule[_], _) => qbType.rule
   }
 
-  val rule: Function[(QBType, Seq[QBAnnotation]), Rule[JsValue, JsValue]] = defaultRule2.orElse(optionalRule2)
+//  val rule: Function[(QBType, Seq[QBAnnotation]), Rule[JsValue, JsValue]] = defaultRule2.orElse(optionalRule2)
 
   val annotationRule: ((QBType, Seq[QBAnnotation])) => Rule[JsValue, JsValue] = {
-    (rule |@| validationRule2) { _ compose _}
+    (optionalRule2 |@| validationRule2) { _ compose _}
   }
 
-  val annotationRule2: ((QBType, Seq[QBAnnotation])) => Rule[JsValue, JsValue] = { foo =>
-    val x = rule(foo)
-    val y = validationRule2(foo)
-    x.compose(y)
-  }
+//  val annotationRule2: ((QBType, Seq[QBAnnotation])) => Rule[JsValue, JsValue] = { foo =>
+//    val x = rule(foo)
+//    val y = validationRule2(foo)
+//    x.compose(y)
+//  }
 
    case object JsAbsent extends JsUndefined("qb.accepted")
 

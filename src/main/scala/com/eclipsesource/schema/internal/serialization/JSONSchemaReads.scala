@@ -71,8 +71,9 @@ trait JSONSchemaReads {
   }
 
   implicit def arrayReader: Reads[QBArray] = {
+    // TODO: parent?
     (__ \ "type").read(equals("array")) andKeep
-      (__ \ "items").read[QBType].map(QBArrayImpl(_))
+      (__ \ "items").read[QBType].map(i => QBArray(() => i, None))
   }
 
   implicit def objectReader: Reads[QBClass] = {
@@ -83,13 +84,12 @@ trait JSONSchemaReads {
         val (properties, required) = objectSchema
         properties.map { property =>
           if (required.contains(property._1)) {
-            QBAttribute(property._1, property._2)
+            (property._1, property._2, List())
           } else {
-            QBAttribute(property._1, property._2, List(QBOptionalAnnotation()))
+            (property._1, property._2, List(QBOptionalAnnotation()))
           }
         }.toList
-      }
-      .map(QBClassImpl(_))
+      }.map((tuples: List[(String, QBType, List[QBOptionalAnnotation])]) => obj(tuples))
   }
 
 }

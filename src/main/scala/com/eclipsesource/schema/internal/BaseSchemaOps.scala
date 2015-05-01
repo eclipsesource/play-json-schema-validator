@@ -31,6 +31,7 @@ trait BaseSchemaOps {
     def build(initialValue: QBType) = {
       if (descriptions.nonEmpty) {
         val (obj, fieldName) = descriptions.head
+        // TODO: recheck parent,
         val init = updateAttributeByPath(obj)(fieldName, _ => QBAttribute(fieldName, initialValue))
         descriptions.tail.foldLeft(init)((updated, desc) => {
           updateAttributeByPath(desc._1)(desc._2, _ => QBAttribute(desc._2, updated))
@@ -160,6 +161,7 @@ trait BaseSchemaOps {
     qbType match {
       case cls: QBClass =>
         val updatedQBClass = cls.copy(attributes = cls.attributes.map { attr =>
+          // TODO check parent
           QBAttribute(attr.name, updateIf[A](attr.qbType)(predicate)(modifier))
         })
         if (predicate(cls)) {
@@ -167,7 +169,8 @@ trait BaseSchemaOps {
         } else {
           updatedQBClass
         }
-      case arr: QBArray => QBArrayImpl(updateIf[A](arr.items)(predicate)(modifier))
+        // TODO: check parent
+      case arr: QBArray => QBArray(() => updateIf[A](arr.items)(predicate)(modifier), None)
       case q if predicate(q) => modifier(q.as[A])
       case _ => qbType
     }
@@ -199,11 +202,12 @@ trait BaseSchemaOps {
   def updateAttributeIf(qbType: QBClass)(predicate: QBAttribute => Boolean)(modifier: QBAttribute => QBAttribute): QBClass = {
     updateIf(qbType, {
       case obj: QBClass =>
-        QBClassImpl(obj.attributes.collect {
+        obj.copy(attributes = obj.attributes.collect {
           case attr if predicate(attr) =>
             val modifiedAttribute = modifier(attr)
             modifiedAttribute.copy(qbType = modifiedAttribute.qbType)
           case attr if attr.qbType.isInstanceOf[QBClass] =>
+            // TODO check parent
             QBAttribute(attr.name, updateAttributeIf(attr.qbType.as[QBClass])(predicate)(modifier), attr.annotations)
           case attr => attr
         })
@@ -230,7 +234,7 @@ trait BaseSchemaOps {
       val currentAttribute = attribute(cls, attributeName)
       cls.attributes.indexOf(currentAttribute) match {
         case -1  => fail("field.does.not.exist [" + attributeName + "]")
-        case idx => QBClassImpl(cls.attributes.updated(idx, modifier(currentAttribute)))
+        case idx => cls.copy(attributes = cls.attributes.updated(idx, modifier(currentAttribute)))
       }
     })
   }
@@ -357,7 +361,7 @@ trait BaseSchemaOps {
    */
   def retain(root: QBClass)(path: QBStringPath, attributes: Seq[String]): QBClass =
     updateByPath[QBClass](root, path, cls => {
-      QBClassImpl(cls.attributes.filter(field => attributes.contains(field.name)))
+      cls.copy(attributes = cls.attributes.filter(field => attributes.contains(field.name)))
     })
 
   /**
@@ -372,9 +376,9 @@ trait BaseSchemaOps {
    *
    * @return the QB class definition with the renamed attribute
    */
-  // TODO: duplicate check
+  // TODO: duplicate check, TEST
   def renameAttribute(root: QBClass)(path: QBStringPath, newAttributeName: String): QBClass =
-    updateAttributeByPath(root)(path, attr => QBAttribute(newAttributeName, attr.qbType, attr.annotations))
+    updateAttributeByPath(root)(path, attr => attr.copy(name = newAttributeName))
 
   /**
    * Makes all values referenced by the given list of paths
@@ -429,7 +433,7 @@ trait BaseSchemaOps {
   def add(schema: QBClass)(path: QBStringPath, attributes: Seq[QBAttribute]): QBClass = {
     val fieldNames = attributes.map(_.name)
     updateByPath[QBClass](schema, path, cls =>
-      QBClassImpl(cls.attributes.filterNot(fd => fieldNames.contains(fd.name)) ++ attributes))
+      cls.copy(attributes = cls.attributes.filterNot(fd => fieldNames.contains(fd.name)) ++ attributes))
   }
 
   /**
@@ -445,7 +449,7 @@ trait BaseSchemaOps {
       val objPath = if (path.size > 1) path.init else List("")
       val attributeName = if (path.size == 1) path.head else path.last
       updateByPath[QBClass](obj, objPath, cls => {
-        QBClassImpl(cls.attributes.filterNot(_ == attribute(cls, attributeName)))
+        cls.copy(attributes = cls.attributes.filterNot(_ == attribute(cls, attributeName)))
       })
     })
 

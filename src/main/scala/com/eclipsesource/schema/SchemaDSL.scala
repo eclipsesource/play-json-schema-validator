@@ -1,5 +1,6 @@
 package com.eclipsesource.schema
 
+import java.net.URI
 import java.util.regex.Pattern
 
 import play.api.data.mapping.Path
@@ -12,44 +13,47 @@ import shapeless._
 trait SchemaDSL {
 
   implicit def wrapper2doubleRule(rule: DoubleRuleWrapper) = rule.rule
-  implicit def tuple2attribute(tuple: (String, QBType)) = tuple._2 match {
-    case annotatedType: AnnotatedQBType => QBAttribute(tuple._1, annotatedType.qbType, annotatedType.annotations)
-    case _ => QBAttribute(tuple._1, tuple._2)
-  }
 
   case class HasDefinitions(definitions: Map[String, QBClass]) {
-    def apply(name: String) = new QBRef(
-      JSONPointer(s"#/definitions/$name")
-    ) {
-      def resolve: QBType = definitions.getOrElse(name, sys.error(s"no such field $name"))
-    }
+    def apply(name: String) = QBRef(JSONPointer(s"#/definitions/$name"), None)
+//      def resolve: QBType = definitions.getOrElse(name, sys.error(s"no such field $name"))
+//    }
   }
-
 
   def definitions(definitions: Map[String, QBClass])(schema: => HasDefinitions => QBClass) = {
     val obj = schema(HasDefinitions(definitions))
     obj.copy(definitions = definitions)
   }
 
+  def $ref: QBRef = QBRef(JSONPointer("#"), None)
+
+  def $ref(relativePath: String): QBRef = QBRef( JSONPointer(relativePath), None)
+
+//  def $ref(uri: URI) = ???
+//  def $ref(path: String) = new QBRef(JSONPointer(path))
+  def obj = QBClass(Seq.empty, None)
+  def tuple = QBTuple2Impl(() => (qbInteger, qbInteger), None)
   /**
    * Classes.
    */
   def qbClass(els: List[(String, QBType)])(): QBClass =
-    buildClass(els)
+    buildClass(els, None)
 
   def qbClass(els: (String, QBType)*): QBClass =
-    buildClass(els.toList)
+    buildClass(els.toList, None)
 
   def qbClass(els: List[(String, QBType)], rules: ValidationRule[JsObject]*): QBClass =
-    buildClass(els, rules.toSet)
+    buildClass(els, None, rules.toSet)
 
-  def oneOf(schemas: QBClass*): QBConstrainedClass = new QBOneOf(schemas)
-  def allOf(values: QBClass*): QBConstrainedClass= new QBAllOf(values)
-  def anyOf(values: QBClass*): QBConstrainedClass = new QBAnyOf(values)
+  // TODO remove
+  implicit def tuple2attribute(tuple: (String, QBType)) = tuple._2 match {
+    case annotatedType: AnnotatedQBType => QBAttribute(tuple._1, annotatedType.qbType, annotatedType.annotations)
+    case _ => QBAttribute(tuple._1, tuple._2)
+  }
 
-  private def buildClass(attributes: List[(String, QBType)], rules: Set[ValidationRule[JsObject]] = Set.empty): QBClass = {
+  private def buildClass(attributes: List[(String, QBType)], parent: Option[() => QBContainer], rules: Set[ValidationRule[JsObject]] = Set.empty): QBClass = {
     findDuplicates(attributes.map(_._1))(identity) match {
-      case Nil => QBClassImpl(attributes.toList.map(tuple2attribute), rules)
+      case Nil => QBClass(attributes.toList.map(tuple2attribute), parent, rules)
       case duplicates => throw new RuntimeException("qb.duplicate.fields - " + duplicates.mkString(","))
     }
   }
@@ -58,11 +62,18 @@ trait SchemaDSL {
     (list.groupBy(criterion) filter { case (_, l) => l.size > 1 } keys).toSeq
   }
 
+  def oneOf(schemas: QBClass*): QBConstrainedClass = new QBOneOf(schemas)
+  def allOf(values: QBClass*): QBConstrainedClass= new QBAllOf(values)
+  def anyOf(values: QBClass*): QBConstrainedClass = new QBAnyOf(values)
+
+
   /**
    * Array Rules
    */
-  def qbList(dataType: => QBType): QBArray = QBArrayImpl(dataType)
-  def qbList(dataType: => QBType, rules: ValidationRule[JsArray]*): QBArray = QBArrayImpl(dataType, rules.toSet)
+  // TODO: check parents
+  def qbList(dataType: => QBType): QBArray = QBArray(() => dataType, None)
+  def qbList(dataType: => QBType, rules: ValidationRule[JsArray]*): QBArray = QBArray(() => dataType, None, rules.toSet)
+
 
   /**
    * String Rules
@@ -179,10 +190,4 @@ trait SchemaDSL {
 
   def id(qbType: QBType): AnnotatedQBType =
     AnnotatedQBType(qbType, List(QBIdAnnotation()))
-
-  def foreignKey(qbType: QBType): AnnotatedQBType = qbType match {
-    case q: AnnotatedQBType => q.copy(annotations = QBForeignKeyAnnotation() :: q.annotations)
-    case _ => AnnotatedQBType(qbType, List(QBForeignKeyAnnotation()))
-  }
-
 }
