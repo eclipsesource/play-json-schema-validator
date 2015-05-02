@@ -59,7 +59,7 @@ trait BaseSchemaOps {
    *         a RuntimeException is thrown
    */
   def attribute(cls: QBClass, attributeName: String): QBAttribute = {
-    cls.attributes.find(_.name == attributeName).getOrElse(fail("field.does.not.exist [" + attributeName + "]"))
+    cls.properties.find(_.name == attributeName).getOrElse(fail("field.does.not.exist [" + attributeName + "]"))
   }
 
   /**
@@ -84,7 +84,7 @@ trait BaseSchemaOps {
           if (pathHead.isEmpty) {
             (buildDescription, resolvable)
           } else {
-            val field = resolvable.attributes.find(_.name == pathHead).getOrElse(fail("field.does.not.exist [" + pathHead + "]"))
+            val field = resolvable.properties.find(_.name == pathHead).getOrElse(fail("field.does.not.exist [" + pathHead + "]"))
             field.qbType match {
               case cls: QBClass => _resolve(pathTail, cls, buildDescription + (resolvable, pathHead))
               case otherType => (buildDescription, otherType)
@@ -110,7 +110,7 @@ trait BaseSchemaOps {
           if (pathHead.isEmpty) {
             attribute
           } else {
-            val attr = resolvable.attributes.find(_.name == pathHead).getOrElse(fail("field.does.not.exist [" + pathHead + "]"))
+            val attr = resolvable.properties.find(_.name == pathHead).getOrElse(fail("field.does.not.exist [" + pathHead + "]"))
             attr.qbType match {
               case cls: QBClass => _resolve(pathTail, Some(attr), cls)
               case otherType => Some(attr)
@@ -160,7 +160,7 @@ trait BaseSchemaOps {
   def updateIf[A <: QBType](qbType: QBType)(predicate: QBType => Boolean)(modifier: A => QBType): QBType = {
     qbType match {
       case cls: QBClass =>
-        val updatedQBClass = cls.copy(attributes = cls.attributes.map { attr =>
+        val updatedQBClass = cls.copy(properties = cls.properties.map { attr =>
           // TODO check parent
           QBAttribute(attr.name, updateIf[A](attr.qbType)(predicate)(modifier))
         })
@@ -202,7 +202,7 @@ trait BaseSchemaOps {
   def updateAttributeIf(qbType: QBClass)(predicate: QBAttribute => Boolean)(modifier: QBAttribute => QBAttribute): QBClass = {
     updateIf(qbType, {
       case obj: QBClass =>
-        obj.copy(attributes = obj.attributes.collect {
+        obj.copy(properties = obj.properties.collect {
           case attr if predicate(attr) =>
             val modifiedAttribute = modifier(attr)
             modifiedAttribute.copy(qbType = modifiedAttribute.qbType)
@@ -232,9 +232,9 @@ trait BaseSchemaOps {
     val attributeName = path.last
     updateByPath[QBClass](resolvable, parentPath, cls => {
       val currentAttribute = attribute(cls, attributeName)
-      cls.attributes.indexOf(currentAttribute) match {
+      cls.properties.indexOf(currentAttribute) match {
         case -1  => fail("field.does.not.exist [" + attributeName + "]")
-        case idx => cls.copy(attributes = cls.attributes.updated(idx, modifier(currentAttribute)))
+        case idx => cls.copy(properties = cls.properties.updated(idx, modifier(currentAttribute)))
       }
     })
   }
@@ -255,7 +255,7 @@ trait BaseSchemaOps {
   def adapt(schema: QBType, path: JsPath, adapter: (JsPath, QBType) => JsResult[JsValue]): JsResult[JsValue] = {
     schema match {
       case obj: QBClass =>
-        val fields = obj.attributes.map(fd => fd.name -> adapt(fd.qbType, path \ fd.name, adapter))
+        val fields = obj.properties.map(fd => fd.name -> adapt(fd.qbType, path \ fd.name, adapter))
           JsSuccess(JsObject(fields.collect {
             case (fieldName, JsSuccess(res, _)) if !res.isInstanceOf[JsUndefined] =>
               (fieldName, res)
@@ -287,7 +287,7 @@ trait BaseSchemaOps {
 
     def _collapse(obj: QBClass, result: B)(modifier: QBAttribute => B): B = {
       val clazz = implicitly[ClassTag[A]].runtimeClass
-      obj.attributes.foldLeft(result)((res, attr) => attr.qbType match {
+      obj.properties.foldLeft(result)((res, attr) => attr.qbType match {
         case cls: QBClass if clazz.isInstance(cls) =>
           _collapse(cls, res |+| modifier(attr))(modifier)
         case cls: QBClass =>
@@ -318,7 +318,7 @@ trait BaseSchemaOps {
   def collapseWithPath[B : Monoid](matcher: QBType => Boolean)(schema: QBClass)(modifier: (QBAttribute, JsPath) => B): B = {
 
     def _collapseWithPath(matcher: QBType => Boolean)(obj: QBClass, path: JsPath, result: B)(modifier: (QBAttribute, JsPath) => B): B = {
-      obj.attributes.foldLeft(result)((res, attr) => attr.qbType match {
+      obj.properties.foldLeft(result)((res, attr) => attr.qbType match {
         case obj: QBClass if matcher(obj) =>
           _collapseWithPath(matcher)(obj, path \ attr.name, res |+| modifier(attr, path \ attr.name))(modifier)
         case obj: QBClass =>
@@ -361,7 +361,7 @@ trait BaseSchemaOps {
    */
   def retain(root: QBClass)(path: QBStringPath, attributes: Seq[String]): QBClass =
     updateByPath[QBClass](root, path, cls => {
-      cls.copy(attributes = cls.attributes.filter(field => attributes.contains(field.name)))
+      cls.copy(properties = cls.properties.filter(field => attributes.contains(field.name)))
     })
 
   /**
@@ -433,7 +433,7 @@ trait BaseSchemaOps {
   def add(schema: QBClass)(path: QBStringPath, attributes: Seq[QBAttribute]): QBClass = {
     val fieldNames = attributes.map(_.name)
     updateByPath[QBClass](schema, path, cls =>
-      cls.copy(attributes = cls.attributes.filterNot(fd => fieldNames.contains(fd.name)) ++ attributes))
+      cls.copy(properties = cls.properties.filterNot(fd => fieldNames.contains(fd.name)) ++ attributes))
   }
 
   /**
@@ -449,7 +449,7 @@ trait BaseSchemaOps {
       val objPath = if (path.size > 1) path.init else List("")
       val attributeName = if (path.size == 1) path.head else path.last
       updateByPath[QBClass](obj, objPath, cls => {
-        cls.copy(attributes = cls.attributes.filterNot(_ == attribute(cls, attributeName)))
+        cls.copy(properties = cls.properties.filterNot(_ == attribute(cls, attributeName)))
       })
     })
 
@@ -464,7 +464,7 @@ trait BaseSchemaOps {
    * @return the merged QB class definition
    */
   // TODO: duplicate check
-  def merge(schema: QBClass, otherSchema: QBClass) = add(schema)(emptyPath, otherSchema.attributes)
+  def merge(schema: QBClass, otherSchema: QBClass) = add(schema)(emptyPath, otherSchema.properties)
 
   /**
    * Removes all attributes from the first schema that are also part of the second given schema.
@@ -476,7 +476,7 @@ trait BaseSchemaOps {
    *
    * @return the first QB class definition without any attributes that are contained in the second
    */
-  def extract(cls: QBClass, otherCls: QBClass) = remove(cls, otherCls.attributes.map(field => string2QBPath(field.name)))
+  def extract(cls: QBClass, otherCls: QBClass) = remove(cls, otherCls.properties.map(field => string2QBPath(field.name)))
 
   /**
    * Compares the schemas with each other.

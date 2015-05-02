@@ -28,14 +28,15 @@ trait JSONSchemaWrites {
     case kv: KeyValueRule[_] => List(kv.key -> kv.value)
   }
 
-  implicit def qbTypeWriter: Writes[QBType] = OWrites[QBType] {
-    case s: QBString => stringWriter.writes(s).as[JsObject]
-    case i: QBInteger => integerWriter.writes(i).as[JsObject]
-    case n: QBNumber => numberWriter.writes(n).as[JsObject]
-    case b: QBBoolean => booleanWriter.writes(b).as[JsObject]
-    case a: QBArray => arrayWriter.writes(a).as[JsObject]
-    case o: QBClass => objectWriter.writes(o).as[JsObject]
-    case r: QBRef => refWriter.writes(r).as[JsObject]
+  implicit def qbTypeWriter: Writes[QBType] = Writes[QBType] {
+    case s: QBString => stringWriter.writes(s)
+    case i: QBInteger => integerWriter.writes(i)
+    case n: QBNumber => numberWriter.writes(n)
+    case b: QBBoolean => booleanWriter.writes(b)
+    case t: QBTuple2 => tupleWriter.writes(t)
+    case a: QBArray => arrayWriter.writes(a)
+    case o: QBClass => objectWriter.writes(o)
+    case r: QBRef => refWriter.writes(r)
   }
 
   implicit val booleanWriter: Writes[QBBoolean] = OWrites[QBBoolean] { bool =>
@@ -54,15 +55,20 @@ trait JSONSchemaWrites {
     Json.obj("type" -> "number") ++ Json.obj(num.rules.toList.map(writeRule(_)).flatten: _*)
   }
 
-  implicit val arrayWriter: Writes[QBArray] = OWrites[QBArray] { arr =>
-    Json.obj("type" -> "array",
-      "items" -> Json.toJson(arr.items)) ++ Json.obj(arr .rules.toList.map(writeRule(_)).flatten: _*)
+  implicit val arrayWriter: Writes[QBArray] = Writes[QBArray] { arr =>
+    Json.toJson(arr.items)
   }
 
-  implicit val refWriter: Writes[QBRef] = OWrites[QBRef] { ref =>
-    Json.obj(
-      "$ref" -> JsString(ref.pointer.path)
-    )
+  implicit val tupleWriter: Writes[QBTuple2] = Writes[QBTuple2] { arr =>
+    Json.toJson(arr.qbTypes)
+  }
+
+  implicit val refWriter: Writes[QBRef] = Writes[QBRef] { ref =>
+    if (ref.isAttribute) {
+      JsString(ref.pointer.path)
+    } else {
+      Json.obj("$ref" -> JsString(ref.pointer.path))
+    }
   }
 
 
@@ -70,7 +76,7 @@ trait JSONSchemaWrites {
    * Extensions whose result gets merged into the written property like, for instance, the type:
    */
   def propertyExtensions: List[QBAttribute => JsObject] = List()
-  
+
   /**
    * Extensions which act on a object and produce a result which contains 
    * information about multiple fields. For instance, required property.
@@ -78,31 +84,43 @@ trait JSONSchemaWrites {
   def extensions: List[QBClass => JsObject] = List()
 
   implicit val objectWriter: Writes[QBClass] = OWrites[QBClass] { obj =>
-    {
-      val written = Json.obj(
-        "type" -> "object",
-        "properties" -> JsObject(
-          obj.attributes.map(attr =>
+  {
+   val o: JsObject = if (obj.properties.exists(_.name == "properties")) {
+     Json.obj(
+       "type" -> "object"
+     )
+   } else if (obj.properties.exists(_.name == "items")) {
+     Json.obj(
+       "type" -> "array"
+     )
+   } else {
+     Json.obj()
+   }
+
+    val written = o.deepMerge(
+        //          Json.obj("properties" ->
+        JsObject(
+          obj.properties.map(attr =>
             attr.name ->
-              propertyExtensions.foldLeft(Json.toJson(attr.qbType).as[JsObject])((obj, extension) =>
-                obj.deepMerge(extension(attr))
+              propertyExtensions.foldLeft(Json.toJson(attr.qbType))((json, extension) =>
+                json match {
+                  case o: JsObject => o.deepMerge(extension(attr))
+                  case x => x
+                }
               )
           )
-        ),
-        "additionalProperties" -> JsBoolean(false), // TODO
-        "definitions" -> JsObject(obj.definitions.toList.map(t =>
-          t._1 -> Json.toJson(t._2)
-        )),
-        "meta" -> JsObject(obj.meta.toList.map(t =>
-          t._1 -> Json.toJson(t._2)
-        ))
+        )
       ).deepMerge(Json.obj(obj.rules.toList.map(writeRule(_)).flatten: _*))
 
-      println(">>" + written)
+//    println(">>" + written)
 
-      extensions.foldLeft(written)((o, extension) => 
-        o.deepMerge(extension(obj)))
-    }
+    val written2 = extensions.foldLeft(written)((o, extension) =>
+      o.deepMerge(extension(obj)))
+
+//    println(">>" + written2)
+
+    written2
+  }
   }
 
 }

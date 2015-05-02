@@ -31,9 +31,21 @@ case class JsValueProcessor(ruleProvider: ((QBType, Seq[QBAnnotation])) => Rule[
     (input, schema) match {
       case (jsObject: JsObject, qbObject: QBClass)   =>
         atObject(qbObject, jsObject, context)
+      case (_, qbObject: QBClass) if qbObject.properties.exists(_.name == "$ref") =>
+        println("detected ref: "  + qbObject.properties)
+        val refType = qbObject.properties.find(_.name == "$ref").get.qbType
+//        println(s"refType is $refType")
+//        println(s"value is $input")
+        process(qbObject.properties.find(_.name == "$ref").get.qbType, input, context.copy(parent = Some(qbObject)))
+      case (_, qbObject: QBClass) if qbObject.properties.exists(_.name == "items") =>
+//        println("detected ref: "  + qbObject.properties)
+        val refType = qbObject.properties.find(_.name == "items").get.qbType
+        //        println(s"refType is $refType")
+        //        println(s"value is $input")
+        process(refType, input, context.copy(parent = Some(qbObject), path = context.path \ "items"))
       case (jsArray:  JsArray, qbArray: QBArray)   =>
         atArray(qbArray, jsArray, context)
-        // TODO handle generic case with n-arity tuples
+      // TODO handle generic case with n-arity tuples
       case (jsArray: JsArray, qbTuple: QBTuple2) =>
         atTuple(qbTuple, jsArray, context)
       case (_: JsObject, _: QBConstrainedClass) =>
@@ -48,13 +60,14 @@ case class JsValueProcessor(ruleProvider: ((QBType, Seq[QBAnnotation])) => Rule[
         validate(schema, input, context)
       case (_, ref: QBRef) =>
         val isRecursive = context.visited.contains(ref) || ref.pointer.path == "#"
-        println(s"reference is $ref")
+//        println(s"reference is $ref")
+//        println(s"parent is ${context.parent}")
         val resolvedSchema = context.parent.flatMap(p => p.resolveRef(ref))
 //        println("Resolved schema:" + resolvedSchema)
         resolvedSchema.fold[VA[JsValue]](
           Failure(List(context.path -> List(ValidationError(s"Ref at ${context.path} did not resolve"))))
         )( r => (r, input) match {
-            // TODO: we need to handle arrays here too
+          // TODO: we need to handle arrays here too
           case (_: QBClass, JsObject(_)) => process(r, input, context.copy(visited = context.visited + ref))
           case (_: QBClass, _) if isRecursive => Success(input)
           case _ => process(r, input, context.copy(visited = context.visited + ref))
@@ -83,20 +96,22 @@ case class JsValueProcessor(ruleProvider: ((QBType, Seq[QBAnnotation])) => Rule[
    */
   def atObject(schema: QBClass, obj: => JsObject, context: Context): VA[JsValue] = {
 
-    val fields: Seq[(String, VA[JsValue])] = schema.attributes.map { attr =>
+    val propertiesProperty = schema.properties.find(_.name == "properties").get
+
+    val fields: Seq[(String, VA[JsValue])] = propertiesProperty.qbType.as[QBClass].properties.map { attr =>
       val value = obj \ attr.name
       attr.name -> process(attr.qbType, value, context.copy(
         path = context.path \ attr.name,
         parent = Some(schema),
         annotations = attr.annotations
-        )
+      )
       )
     }
 
     val (successFields, undefineds) = fields.foldLeft(List.empty[(String, JsValue)], Seq.empty[(Path, Seq[ValidationError])])((acc, f) => f._2 match {
       case Failure(err) => (acc._1, err ++ acc._2)
       case Success(JsAbsent) => acc
-      case Success(undefined: JsUndefined) => (acc._1, acc._2 :+ (context.path \ f._1, Seq(ValidationError(undefined.error))))
+      case Success(undefined: JsUndefined) => (acc._1, acc._2 :+(context.path \ f._1, Seq(ValidationError(undefined.error))))
       case Success(value) => ((f._1 -> value) :: acc._1, acc._2)
     })
 
@@ -134,8 +149,8 @@ case class JsValueProcessor(ruleProvider: ((QBType, Seq[QBAnnotation])) => Rule[
 
     val p1: VA[JsValue] = process(schema.items._1, array.value(0), context.copy(path = context.path \ 0, parent = Some(schema)))
     val p2: VA[JsValue] = process(schema.items._2, array.value(1), context.copy(path = context.path \ 1, parent = Some(schema)))
-//    println(s"p1: $p1")
-//    println(s"p2: $p2")
+    //    println(s"p1: $p1")
+    //    println(s"p2: $p2")
     val elements = Seq(p1, p2)
 
     if (elements.exists(_.isFailure)) {

@@ -101,7 +101,7 @@ package object schema
 
   implicit class QBClassExtensionOps(qbClass: QBClass) {
     def hasAttribute(attributeName: String) ={
-      qbClass.attributes.exists(_.name == attributeName)
+      qbClass.properties.exists(_.name == attributeName)
     }
   }
 }

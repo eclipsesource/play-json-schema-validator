@@ -18,7 +18,10 @@ trait JSONSchemaReads {
     case "number" => numberReader.asInstanceOf[Reads[QBType]]
     case "array" => arrayReader.asInstanceOf[Reads[QBType]]
     case "object" => objectReader.asInstanceOf[Reads[QBType]]
-    case _ => UnReadable.asInstanceOf[Reads[QBType]]
+  }.or {
+    (__ \ "$ref").read[String].flatMap {
+      case ref => refReader.asInstanceOf[Reads[QBType]]
+    }
   }
 
   implicit def booleanReader: Reads[QBBoolean] = {
@@ -77,10 +80,10 @@ trait JSONSchemaReads {
   }
 
   implicit def objectReader: Reads[QBClass] = {
-    (__ \ "type").read(equals("object")) andKeep (
+    (__ \ "type").readNullable[String].map(_ == "object") andKeep (
       (__ \ "properties").read[Map[String, QBType]] and
       ((__ \ "required").read[List[String]] orElse Reads.pure(List.empty))).tupled
-      .map { objectSchema =>
+      .map { (objectSchema: (Map[String, QBType], List[String])) =>
         val (properties, required) = objectSchema
         properties.map { property =>
           if (required.contains(property._1)) {
@@ -89,7 +92,14 @@ trait JSONSchemaReads {
             (property._1, property._2, List(QBOptionalAnnotation()))
           }
         }.toList
-      }.map((tuples: List[(String, QBType, List[QBOptionalAnnotation])]) => obj(tuples))
+      }.map((tuples: List[(String, QBType, List[QBOptionalAnnotation])]) => { println(s"tuples are + $tuples"); obj("properties" -> obj(tuples)) } )
   }
 
+  implicit val refReader: Reads[QBClass] = {
+    (__ \ "$ref").read[String].map(path => {
+      println("path during read is " + path)
+      obj("$ref" -> $ref(path))
+    }
+    )
+  }
 }

@@ -1,5 +1,7 @@
 package com.eclipsesource.schema
 
+import java.net.URLDecoder
+
 import play.api.data.mapping.Rule
 import play.api.libs.json._
 
@@ -31,32 +33,45 @@ trait QBContainer extends QBType with Containee {
   def resolvePath(path: String): Option[QBType]
 
   private def toSegments(pointer: String): List[String] = {
-    println(s"pointer is $pointer")
+//    println(s"pointer is $pointer")
     pointer.split("/").toList.map(segment => {
       // perform escaping
-      val escaped = segment.replace("~1", "/").replace("~0", "~")
-      println("escaped segment: " + escaped)
+      val escaped = URLDecoder.decode(segment, "UTF-8").replace("~1", "/").replace("~0", "~")
+//      println("escaped segment: " + escaped)
       escaped
     })
   }
 
 
+  private def root: QBContainer = {
+    var p: QBContainer = this
+    while (p.parent.isDefined) {
+      p = p.parent.get()
+    }
+    p
+  }
+
   def resolveRef(ref: QBRef): Option[QBType] = {
     val segments = toSegments(ref.pointer.path)
+//    println("mah segments are " + segments)
     segments.headOption match {
-      case Some("#") => resolveRef(this, segments.tail)
+      case Some("#") => resolveRef(root, segments.tail)
       case _ => resolveRef(this, segments)
     }
   }
 
   private def resolveRef(current: QBContainer, segments: List[String]): Option[QBType] = {
+//    println(s"current $current")
     segments match {
       case Nil => Some(current)
       case attribute :: Nil =>
         current.resolvePath(attribute)
       case segment :: rem =>
         current.resolvePath(segment).flatMap {
+          // TODO: ugly
           case obj: QBClass => resolveRef(obj, rem)
+          case obj: QBArray => resolveRef(obj, rem)
+          case obj: QBTuple2 => resolveRef(obj, rem)
           case notFound => None
         }
     }
@@ -65,6 +80,8 @@ trait QBContainer extends QBType with Containee {
   private[schema] def updateParent(t: QBType, newParent: => QBContainer): QBType = {
     t match {
       case obj: QBClass => obj.copy(parent = Some(() => newParent))
+      case arr: QBArray => arr.copy(parent = Some(() => newParent))
+      case tuple: QBTuple2Impl => tuple.copy(parent = Some(() => newParent))
       case ref: QBRef => ref.copy(parent = Some(() => newParent))
       case x => x
     }
@@ -110,32 +127,33 @@ case class JSONPointer(path: String)
 
 
 // TODO: pointer is a JSONSPointer, see http://tools.ietf.org/html/draft-pbryan-zyp-json-pointer-02
-case class QBRef(pointer: JSONPointer, parent: Option[() => QBContainer]) extends QBType with Containee
+case class QBRef(pointer: JSONPointer, parent: Option[() => QBContainer], isAttribute: Boolean = false) extends QBType with Containee
+
+
+
 
 /**
  * QBObject constructor.
  *
- * @param attributes
+ * @param properties
  *             the attributes of an object
  * @param rules
  *             optional rules an object must fulfill
  */
 case class QBClass(
-                    attributes: Seq[QBAttribute],
+                    properties: Seq[QBAttribute],
                     parent: Option[() => QBContainer],
-                    rules: Set[ValidationRule[JsObject]] = Set.empty,
-                    definitions: Map[String, QBType] = Map.empty,
-                    meta: Map[String, String] = Map.empty
+                    rules: Set[ValidationRule[JsObject]] = Set.empty
                     ) extends QBContainer with CompositeRule[JsObject] {
 
   def apply(attrs: (String, QBType)*) = {
-    lazy val newParent = QBClass(updatedAttributes, parent, rules, definitions, meta)
+    lazy val newParent = QBClass(updatedAttributes, parent, rules)
     lazy val updatedAttributes: Seq[QBAttribute] = createAttributes(attrs, newParent)
     newParent
   }
 
   def apply(attrs: List[(String, QBType, List[QBAnnotation])]) = {
-    lazy val newParent = QBClass(updatedAttributes, parent, rules, definitions, meta)
+    lazy val newParent = QBClass(updatedAttributes, parent, rules)
     lazy val updatedAttributes: Seq[QBAttribute] = createAttributesWithAnnotations(attrs, newParent)
     newParent
   }
@@ -144,18 +162,10 @@ case class QBClass(
     (list.groupBy(criterion) filter { case (_, l) => l.size > 1 } keys).toSeq
   }
 
-  private def root: QBContainer = {
-    var p: QBContainer = this
-    while (p.parent.isDefined) {
-      p = p.parent.get()
-    }
-    p
-  }
-
-  override def qbTypes: Seq[QBType] = attributes.map(_.qbType)
+  override def qbTypes: Seq[QBType] = properties.map(_.qbType)
 
   override def resolvePath(attributeName: String): Option[QBType] = {
-    attributes.find(_.name == attributeName).map(_.qbType)
+    properties.find(_.name == attributeName).map(_.qbType)
   }
 }
 
@@ -182,13 +192,18 @@ case class QBTuple2Impl(t: () => (QBType, QBType), parent: Option[() => QBContai
 
   // TODO: replace string with node trait
   override def resolvePath(index: String): Option[QBType] = {
-    val idx = index.replace("items/", "").toInt
-    if (idx == 0) {
-      Some(t()._1)
-    } else if (idx == 1) {
-      Some(t()._2)
-    } else {
-      None
+    println("INDEX " + index)
+    index match {
+      case "items" => Some(this)
+      case n =>
+        val idx = index.toInt
+        if (idx == 0) {
+          Some(t()._1)
+        } else if (idx == 1) {
+          Some(t()._2)
+        } else {
+          None
+        }
     }
   }
 

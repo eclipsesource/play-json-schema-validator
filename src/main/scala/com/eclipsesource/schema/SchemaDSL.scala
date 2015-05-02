@@ -22,16 +22,22 @@ trait SchemaDSL {
 
   def definitions(definitions: Map[String, QBClass])(schema: => HasDefinitions => QBClass) = {
     val obj = schema(HasDefinitions(definitions))
-    obj.copy(definitions = definitions)
+    // TODO: remove method
+    obj
+//    obj.copy(definitions = definitions)
   }
 
-  def $ref: QBRef = QBRef(JSONPointer("#"), None)
+//  def $ref = $ref("#")
 
   def $ref(relativePath: String): QBRef = QBRef( JSONPointer(relativePath), None)
+
 
 //  def $ref(uri: URI) = ???
 //  def $ref(path: String) = new QBRef(JSONPointer(path))
   def obj = QBClass(Seq.empty, None)
+
+  def properties(props: (String, QBType)*) = obj(props:_*)
+
   def tuple = QBTuple2Impl(() => (qbInteger, qbInteger), None)
   /**
    * Classes.

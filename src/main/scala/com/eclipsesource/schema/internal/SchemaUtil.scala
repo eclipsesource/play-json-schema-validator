@@ -32,7 +32,7 @@ object SchemaUtil {
 
   def prettyPrint(qbType: QBType, printAnnotations: Boolean = false, indent: Int = 0): String = qbType match {
     case obj: QBClass => "{\n" +
-      obj.attributes.map { field =>
+      obj.properties.map { field =>
         " " * (indent + 2)  + field.name + ": " + (if (printAnnotations) field.annotations.mkString(",") else "") +
           prettyPrint(field.qbType, printAnnotations, indent + 2) + "\n"}.mkString +
         " " * indent + "}"

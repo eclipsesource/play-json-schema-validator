@@ -64,7 +64,7 @@ object SchemaMacro {
       q"${symbolOf[QBArray].companion}($lifted)"
     }
     lazy implicit val qbClassLiftable: Liftable[QBClass] = Liftable[QBClass] { cls =>
-      val lifted = cls.attributes.map(attr => attr.name -> qbLiftable(attr.qbType)).toList
+      val lifted = cls.properties.map(attr => attr.name -> qbLiftable(attr.qbType)).toList
       q"""${symbolOf[QBClass].companion}(List(..$lifted))"""
     }
 
