@@ -25,13 +25,20 @@ trait JSONSchemaAnnotationWrites extends JSONSchemaWrites {
   }
 
   def optionalExtension(obj: QBClass): JsObject = {
-    val required = allNonOptionalAttributes(obj.attributes)
-    Json.obj("required" -> JsArray(required))
+    val required = allNonOptionalAttributes(obj.properties)
+    if (required.isEmpty) {
+      Json.obj()
+    } else {
+      Json.obj("required" -> JsArray(required))
+    }
   }
 
   def allNonOptionalAttributes(fields: Seq[QBAttribute]): Seq[JsString] =
-    fields
-      .filterNot(_.annotations.exists(_.isInstanceOf[QBOptionalAnnotation]))
-      .map(_.name).map(JsString)
+  // TODO
+    fields.find(_.name == "properties").fold(Seq.empty[JsString])(attr =>
+      attr.qbType.as[QBClass].properties
+        .filterNot(_.annotations.exists(_.isInstanceOf[QBOptionalAnnotation]))
+        .map(_.name).map(JsString)
+    )
 }
 
