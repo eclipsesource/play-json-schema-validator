@@ -345,31 +345,5 @@ trait SchemaOps extends BaseSchemaOps { self =>
         attr.annotations.exists(_.isInstanceOf[QBOptionalAnnotation])
       )
     }
-
-    def expand(): QBClass = {
-      expand(Set())
-    }
-
-    def expand(visited: Set[QBRef]): QBClass = {
-      val orig = schema
-      var _visited = visited
-      val expanded = updateByType[QBRef](ref => {
-        val resolved: Option[QBType] = schema.resolveRef(ref)
-//        if (_visited.contains(ref)) {
-//          throw new RuntimeException("circular reference detected")
-//        } else {
-//          _visited = _visited + ref
-//        }
-        resolved.getOrElse(throw new RuntimeException("Invalid schema !!TODO!! (only applies to local refs!)"))
-      })
-//      println(orig)
-//      println(expanded)
-//      if (orig != expanded) {
-//        expanded.expand(_visited)
-//      } else {
-//        expanded
-//      }
-      expanded
-     }
   }
 }

@@ -15,34 +15,29 @@ object SchemaMacro {
     def qbType(universeType: c.universe.Type, typeAsString: String): QBType = {
       typeAsString match {
         case "String"     => QBStringImpl(Set())
-        case "Int"        => QBIntegerImpl(Set())
-        case "Integer"    => QBIntegerImpl(Set())
+        case "Int"        => QBIntegerImpl()
+        case "Integer"    => QBIntegerImpl()
         case "Double"     => QBNumberImpl(Set())
         case "BigDecimal" => QBNumberImpl(Set())
         case "Boolean"   => QBBooleanImpl(Set())
         case arr if universeType.baseClasses.contains(seqSym) =>
           val itemType = qbType(universeType, universeType.resultType.typeArgs.head.toString)
-          QBArray(() => itemType, None)
+          QBArray(() => itemType)
         case cls =>
 
           val fields = universeType.decls.collectFirst {
             case m: MethodSymbol if m.isPrimaryConstructor ⇒ m
           }.get.paramLists.head
 
-          val attributes = fields.map { field =>
+          val attributes: List[(String, QBType)] = fields.map { field =>
             val name = field.name
             val returnType = universeType.decl(name).typeSignature
             val attrType = qbType(returnType, returnType.resultType.toString)
             name.toString -> attrType
-//            QBAttribute(name.toString, attrType)
           }
-          obj(attributes:_*)
-//          QBClass(attributes.map(attr =>
-//            attr.copy(qbType = attr.qbType match {
-//              case obj: QBClass => obj.copy(parent = Some(this))
-//              case t => t
-//            })
-//          ), None)
+
+          // TODO annotations missing
+          QBClass(attributes.map(attr => QBAttribute(attr._1, attr._2)))
       }
     }
 

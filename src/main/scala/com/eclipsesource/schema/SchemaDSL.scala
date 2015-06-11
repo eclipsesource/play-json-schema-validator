@@ -12,44 +12,56 @@ import shapeless._
  */
 trait SchemaDSL {
 
+  val properties = "properties"
+
   implicit def wrapper2doubleRule(rule: DoubleRuleWrapper) = rule.rule
 
   case class HasDefinitions(definitions: Map[String, QBClass]) {
-    def apply(name: String) = QBRef(JSONPointer(s"#/definitions/$name"), None)
+    def apply(name: String) = QBRef(JSONPointer(s"#/definitions/$name"))
 //      def resolve: QBType = definitions.getOrElse(name, sys.error(s"no such field $name"))
 //    }
   }
 
   def definitions(definitions: Map[String, QBClass])(schema: => HasDefinitions => QBClass) = {
     val obj = schema(HasDefinitions(definitions))
-    // TODO: remove method
+//    TODO: remove method
     obj
 //    obj.copy(definitions = definitions)
   }
 
 //  def $ref = $ref("#")
 
-  def $ref(relativePath: String): QBRef = QBRef( JSONPointer(relativePath), None)
+  def $ref(path: String): QBRef = {
+    if (path.startsWith("http")) {
+      QBRef( JSONPointer(path),  isAttribute = false, isRemote = true)
+    } else {
+      QBRef( JSONPointer(path))
+    }
+  }
 
+  def obj: QBClass = QBClass(Seq.empty)
 
-//  def $ref(uri: URI) = ???
-//  def $ref(path: String) = new QBRef(JSONPointer(path))
-  def obj = QBClass(Seq.empty, None)
+  // TODO: fix arbitrary types
+  def tuple1(t: QBType, additionalItems: Option[QBType] = Some(QBClass(Seq.empty))) =
+    QBTuple(() => Seq(t), 1, additionalItems, Set.empty, None)
+  def tuple2(t1: QBType, t2: QBType, additionalItems: Option[QBType] = Some(QBClass(Seq.empty))) =
+    QBTuple(() => Seq(t1, t2), 2, additionalItems, Set.empty, None)
+  def tuple3(t1: QBType, t2: QBType, t3: QBType, additionalItems: Option[QBType] = Some(QBClass(Seq.empty))) =
+    QBTuple(() => Seq(t1, t2, t3), 3, additionalItems, Set.empty, None)
+  def tuple(types: Seq[QBType], additionalItems: Option[QBType]= Some(obj)) =
+    QBTuple(() => types, types.size, additionalItems, Set.empty, None)
 
-  def properties(props: (String, QBType)*) = obj(props:_*)
-
-  def tuple = QBTuple2Impl(() => (qbInteger, qbInteger), None)
   /**
    * Classes.
    */
   def qbClass(els: List[(String, QBType)])(): QBClass =
-    buildClass(els, None)
+    buildClass(els)
 
   def qbClass(els: (String, QBType)*): QBClass =
-    buildClass(els.toList, None)
+    buildClass(els.toList)
 
-  def qbClass(els: List[(String, QBType)], rules: ValidationRule[JsObject]*): QBClass =
-    buildClass(els, None, rules.toSet)
+  def qbClass(els: List[(String, QBType)], rules: ValidationRule*): QBClass =
+    buildClass(els, rules.toSet)
 
   // TODO remove
   implicit def tuple2attribute(tuple: (String, QBType)) = tuple._2 match {
@@ -57,9 +69,9 @@ trait SchemaDSL {
     case _ => QBAttribute(tuple._1, tuple._2)
   }
 
-  private def buildClass(attributes: List[(String, QBType)], parent: Option[() => QBContainer], rules: Set[ValidationRule[JsObject]] = Set.empty): QBClass = {
+  private def buildClass(attributes: List[(String, QBType)], rules: Set[ValidationRule] = Set.empty): QBClass = {
     findDuplicates(attributes.map(_._1))(identity) match {
-      case Nil => QBClass(attributes.toList.map(tuple2attribute), parent, rules)
+      case Nil => QBClass(attributes.toList.map(tuple2attribute), rules)
       case duplicates => throw new RuntimeException("qb.duplicate.fields - " + duplicates.mkString(","))
     }
   }
@@ -68,23 +80,25 @@ trait SchemaDSL {
     (list.groupBy(criterion) filter { case (_, l) => l.size > 1 } keys).toSeq
   }
 
-  def oneOf(schemas: QBClass*): QBConstrainedClass = new QBOneOf(schemas)
-  def allOf(values: QBClass*): QBConstrainedClass= new QBAllOf(values)
-  def anyOf(values: QBClass*): QBConstrainedClass = new QBAnyOf(values)
+  def oneOf(schemas: QBClass*): QBClass = QBClass(Seq("oneOf" -> tuple(schemas)))
+  def allOf(values: QBClass*): QBClass= QBClass(Seq("allOf" -> tuple(values)), Set[ValidationRule](QBAllOfRule(values)))
+  def anyOf(values: QBClass*): QBClass = QBClass(Seq("anyOf" -> tuple(values)), Set[ValidationRule](QBAnyOfRule(values)))
 
 
   /**
    * Array Rules
    */
   // TODO: check parents
-  def qbList(dataType: => QBType): QBArray = QBArray(() => dataType, None)
-  def qbList(dataType: => QBType, rules: ValidationRule[JsArray]*): QBArray = QBArray(() => dataType, None, rules.toSet)
+  def qbList(dataType: => QBType): QBArray =
+    QBArray(() => dataType)
+  def qbList(dataType: => QBType, rules: ValidationRule*): QBArray =
+    QBArray(() => dataType, rules.toSet)
 
 
   /**
    * String Rules
    */
-  def qbString(rules: ValidationRule[JsString]*): QBString = QBStringImpl(rules.toSet)
+  def qbString(rules: ValidationRule*): QBString = QBStringImpl(rules.toSet)
   def qbString = QBStringImpl()
 
   def qbText = qbString
@@ -92,8 +106,8 @@ trait SchemaDSL {
 
   def minLength(n: Int): MinLengthRule = new MinLengthRule(n)
   def maxLength(n: Int): MaxLengthRule = new MaxLengthRule(n)
-  def length(lower: Int, upper: Int): ValidationRule[JsString] = new CompositeRule[JsString] {
-    val rules: Set[ValidationRule[JsString]] = Set(minLength(lower), maxLength(upper))
+  def length(lower: Int, upper: Int): ValidationRule = new CompositeRule {
+    val rules: Set[ValidationRule] = Set(minLength(lower), maxLength(upper))
   }
 
   def qbEnum(values: String*) = qbString(new EnumRule(values.toList))
@@ -111,11 +125,14 @@ trait SchemaDSL {
    * Number Rules
    */
   def qbNumber: QBNumberImpl = QBNumberImpl()
-  def qbNumber(rules: ValidationRule[JsNumber]*): QBNumber = QBNumberImpl(rules.toSet)
+  def qbNumber(rules: ValidationRule*): QBNumber = QBNumberImpl(rules.toSet)
 
   def min(n: Double) = MinRule(n, false)
   def min(n: Int): DoubleRuleWrapper = DoubleRuleWrapper(MinRule(n, false))
 
+
+  def maximum(n: Int) = qbInteger(max(n))
+  def maximum(n: Double) = qbNumber(max(n))
   def max(n: Double) = MaxRule(n, false)
   def max(n: Int) = DoubleRuleWrapper(MaxRule(n, false))
 
@@ -128,12 +145,12 @@ trait SchemaDSL {
   def multipleOf(n: Double): MultipleOfRule = MultipleOfRule(n)
   def multipleOf(n: Int) = DoubleRuleWrapper(MultipleOfRule(n))
 
-  def range(lower: Double, upper: Double): ValidationRule[JsNumber] = new CompositeRule[JsNumber] {
-    val rules: Set[ValidationRule[JsNumber]] = Set(min(lower), max(upper))
+  def range(lower: Double, upper: Double): ValidationRule = new CompositeRule {
+    val rules: Set[ValidationRule] = Set(min(lower), max(upper))
   }
 
-  def range(lower: Int, upper: Int) = DoubleRuleWrapper(new CompositeRule[JsNumber] {
-    val rules: Set[ValidationRule[JsNumber]] = Set(min(lower.toDouble), max(upper.toDouble))
+  def range(lower: Int, upper: Int) = DoubleRuleWrapper(new CompositeRule {
+    val rules: Set[ValidationRule] = Set(min(lower.toDouble), max(upper.toDouble))
   })
 
   def qbInteger: QBIntegerImpl = QBIntegerImpl()
@@ -147,15 +164,15 @@ trait SchemaDSL {
   /**
    * Array Rules
    */
-  def unique: ValidationRule[JsArray] = UniquenessRule()
-  def minItems(minItems: Int): ValidationRule[JsArray] = MinItemsRule(minItems)
-  def maxItems(maxItems: Int): ValidationRule[JsArray] = MaxItemsRule(maxItems)
+  def unique: ValidationRule = UniquenessRule()
+  def minItems(minItems: Int): ValidationRule = MinItemsRule(minItems)
+  def maxItems(maxItems: Int): ValidationRule = MaxItemsRule(maxItems)
 
   /**
    * Object Rules
    */
-  def minProperties(min: Int) = MinPropertiesRule(min)
-  def maxProperties(max: Int) = MaxPropertiesRule(max)
+//  def minProperties(min: Int) = MinPropertiesRule(min)
+//  def maxProperties(max: Int) = MaxPropertiesRule(max)
 
   def qbId = qbString
 

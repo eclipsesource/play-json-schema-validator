@@ -1,6 +1,6 @@
 package com.eclipsesource
 
-import com.eclipsesource.schema.internal.SchemaUtil
+import com.eclipsesource.schema.internal.{JsAbsent, SchemaUtil}
 import com.eclipsesource.schema.internal.serialization.{JSONSchemaAnnotationWrites, JSONSchemaReads, JSONSchemaWrites}
 import play.api.data.mapping._
 import play.api.data.validation.ValidationError
@@ -56,24 +56,25 @@ package object schema
   }
 
   val optionalRule2: Function[((QBType, Seq[QBAnnotation])), Rule[JsValue, JsValue]] = RuleProvider {
-    case (_, annotations) if { /*println(s"hey $annotations");*/ annotations.exists(_.isInstanceOf[QBOptionalAnnotation]) } => Rule.fromMapping[JsValue, JsValue] {
+    case (schema, annotations) if { /*println(s"Annotations $annotations"); */  annotations.exists(_.isInstanceOf[QBOptionalAnnotation]) } => Rule.fromMapping[JsValue, JsValue] {
       case undefined: JsUndefined  =>
         annotations.find(isQBOptionalAnnotation).collectFirst {
         case QBOptionalAnnotation(maybeFallback) =>
           maybeFallback.fold(Success(JsAbsent: JsValue))(value => Success(value))
       }.get
-      case js => println("!"); Success(js)
+      case js => Success(js)
     }
   }
 
   val validationRule2: Function[((QBType, Seq[QBAnnotation])), Rule[JsValue, JsValue]]  = RuleProvider {
-    case (qbType: ValidationRule[_], _) => qbType.rule
+    case (qbType: ValidationRule, _) => qbType.rule
   }
 
 //  val rule: Function[(QBType, Seq[QBAnnotation]), Rule[JsValue, JsValue]] = defaultRule2.orElse(optionalRule2)
 
   val annotationRule: ((QBType, Seq[QBAnnotation])) => Rule[JsValue, JsValue] = {
     (optionalRule2 |@| validationRule2) { _ compose _}
+//    validationRule2
   }
 
 //  val annotationRule2: ((QBType, Seq[QBAnnotation])) => Rule[JsValue, JsValue] = { foo =>
@@ -82,7 +83,6 @@ package object schema
 //    x.compose(y)
 //  }
 
-   case object JsAbsent extends JsUndefined("qb.accepted")
 
   implicit class JsObjectExtensions(jsObject: JsObject) {
     def get(fieldName: String): Option[JsValue] = {

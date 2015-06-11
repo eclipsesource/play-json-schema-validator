@@ -36,7 +36,7 @@ trait JSONSchemaAnnotationWrites extends JSONSchemaWrites {
   def allNonOptionalAttributes(fields: Seq[QBAttribute]): Seq[JsString] =
   // TODO
     fields.find(_.name == "properties").fold(Seq.empty[JsString])(attr =>
-      attr.qbType.as[QBClass].properties
+      attr.qbType.asInstanceOf[QBClass].properties
         .filterNot(_.annotations.exists(_.isInstanceOf[QBOptionalAnnotation]))
         .map(_.name).map(JsString)
     )
