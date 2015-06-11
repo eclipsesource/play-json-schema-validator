@@ -9,6 +9,7 @@ import CoverallsPlugin.CoverallsKeys._
 object Version {
   val jsonZipper    = "1.2"
   val play          = "2.3.3"
+  val playTest     = "2.3.3"
   val openCsv       = "2.1"
   val reactiveMongo = "0.10.5.0.akka23"
   val scalaz        = "7.0.6"
@@ -35,6 +36,7 @@ object Library {
   val akkaActor     = "com.typesafe.akka" %% "akka-actor"             % Version.akka
   val play          = "com.typesafe.play" %% "play"                   % Version.play
   val playJson      = "com.typesafe.play" %% "play-json"              % Version.play
+  val playWs        = "com.typesafe.play" %% "play-ws"                % Version.play
   val scalaLogging  = "com.typesafe.scala-logging" %% "scala-logging" % Version.scalaLogging
   val playTest      = "com.typesafe.play" %% "play-test"              % Version.play           % "test"
   val scalameter    = "com.storm-enroute" %% "scalameter"             % Version.scalameter     % "test"
@@ -50,6 +52,8 @@ object Dependencies {
   import Library._
 
   val core = List(
+    playWs,
+    playTest,
     playJson,
     jsonZipper,
     scalaz,

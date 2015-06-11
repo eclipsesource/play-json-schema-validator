@@ -2,6 +2,7 @@ package com.eclipsesource.schema
 
 import java.util.regex.Pattern
 
+import com.eclipsesource.schema.internal.RefResolver
 import play.api.data.mapping._
 import play.api.data.mapping.json.Rules
 import play.api.data.validation.ValidationError
@@ -16,10 +17,8 @@ import scala.collection.immutable.HashSet
 /**
  * Definition of a basic validation rule.
  *
- * @tparam A
- *                     the type of the argument that needs to be validated
  */
-trait ValidationRule[A <: JsValue] {
+trait ValidationRule {
 
   /**
    * Validates the given object and returns the validation status
@@ -29,7 +28,7 @@ trait ValidationRule[A <: JsValue] {
    * @return
    *         a validation result that may succeed or fail
    */
-  def validate(data: A): VA[JsValue] = rule.validate(data)
+  def validate(data: JsValue): VA[JsValue] = rule.validate(data)
 
   //  def rule: Rule[A, A]
 
@@ -37,20 +36,23 @@ trait ValidationRule[A <: JsValue] {
   def rule: Rule[JsValue, JsValue]
 }
 
+sealed trait SchemaBasedValidationRule extends ValidationRule {
+  def schemas: Seq[QBType]
+  def copy(schemas: Seq[QBType]): SchemaBasedValidationRule
+}
+
 /**
  * Definition of a validation rule that consists of multiple different validation rules.
  *
- * @tparam A
- *           the type of the argument that needs to be validated
  */
-trait CompositeRule[A <: JsValue] extends ValidationRule[A] {
+trait CompositeRule extends ValidationRule {
 
   /**
    * Returns all rules that make up the composite rule.
    *
    * @return a set of validation rules
    */
-  def rules: Set[ValidationRule[A]]
+  def rules: Set[ValidationRule]
 
   val successRule = Rule[JsValue, JsValue] { js => Success(js)}
 
@@ -77,7 +79,7 @@ trait CompositeRule[A <: JsValue] extends ValidationRule[A] {
  * @param factor
  *           a factor of the number to be validated, if this rule should validate successfully
  */
-case class MultipleOfRule(factor: Double) extends ValidationRule[JsNumber] {
+case class MultipleOfRule(factor: Double) extends ValidationRule {
 
   val rule: Rule[JsValue, JsValue] = CatchUndefinedRule {
     case number: JsNumber =>
@@ -88,6 +90,20 @@ case class MultipleOfRule(factor: Double) extends ValidationRule[JsNumber] {
           List(ValidationError("qb.number.multiple-of",
             Json.obj("factor" -> factor), "number" -> number)
           )
+        )
+      }
+  }
+}
+
+case class IsIntegerRule() extends ValidationRule {
+
+  val rule: Rule[JsValue, JsValue] = CatchUndefinedRule {
+    case number: JsNumber =>
+      if (number.value.isValidInt) {
+        Success(number)
+      } else {
+        Failure(
+          List(ValidationError("qb.invalid.int"))
         )
       }
   }
@@ -117,7 +133,7 @@ case class CatchUndefinedRule(pf: PartialFunction[JsValue, Validation[Validation
  * @param isExclusive
  *            if true, the check also succeeds if the number to be checked is equal to the minimum
  */
-case class MinRule(min: BigDecimal, isExclusive: Boolean) extends ValidationRule[JsNumber] {
+case class MinRule(min: BigDecimal, isExclusive: Boolean) extends ValidationRule {
 
   val rule: Rule[JsValue, JsValue] = CatchUndefinedRule {
     case number: JsNumber =>
@@ -151,7 +167,7 @@ case class MinRule(min: BigDecimal, isExclusive: Boolean) extends ValidationRule
  * @param isExclusive
  *            if true, the check also succeeds if the number to be checked is equal to the maximum
  */
-case class MaxRule(max: BigDecimal, isExclusive: Boolean) extends ValidationRule[JsNumber] {
+case class MaxRule(max: BigDecimal, isExclusive: Boolean) extends ValidationRule {
 
   val rule: Rule[JsValue, JsValue] = Rule.fromMapping {
     case number: JsNumber =>
@@ -185,7 +201,7 @@ case class MaxRule(max: BigDecimal, isExclusive: Boolean) extends ValidationRule
  * @param rule
 *             the wrapped number rule
  */
-case class DoubleRuleWrapper(rule: ValidationRule[JsNumber])
+case class DoubleRuleWrapper(rule: ValidationRule)
 
 //----------------------------------------------------------
 // 	String Rules
@@ -197,7 +213,7 @@ case class DoubleRuleWrapper(rule: ValidationRule[JsNumber])
  * @param minLength
  *           the minimum length of the string
  */
-case class MinLengthRule(minLength: Int) extends ValidationRule[JsString] {
+case class MinLengthRule(minLength: Int) extends ValidationRule {
 
   val rule: Rule[JsValue, JsValue] = CatchUndefinedRule {
     case string: JsString =>
@@ -221,7 +237,7 @@ case class MinLengthRule(minLength: Int) extends ValidationRule[JsString] {
  * @param maxLength
  *           the maximum length of the string that must not be exceeded
  */
-case class MaxLengthRule(maxLength: Int) extends ValidationRule[JsString] {
+case class MaxLengthRule(maxLength: Int) extends ValidationRule {
 
   val rule: Rule[JsValue, JsValue] = CatchUndefinedRule {
     case string: JsString  =>
@@ -245,7 +261,7 @@ case class MaxLengthRule(maxLength: Int) extends ValidationRule[JsString] {
  * @param pattern
  *           the regular expression to be matched
  */
-case class RegexRule(pattern: Pattern, errorMessage: String = "") extends ValidationRule[JsString] {
+case class RegexRule(pattern: Pattern, errorMessage: String = "") extends ValidationRule {
 
   val rule: Rule[JsValue, JsValue] = Rule.fromMapping({
     case string: JsString =>
@@ -275,7 +291,7 @@ object RegexRule {
  * @param enum
  *           the valid strings
  */
-case class EnumRule(enum: List[String]) extends ValidationRule[JsString] {
+case class EnumRule(enum: List[String]) extends ValidationRule {
   val values = HashSet(enum:_ *)
 
   val rule: Rule[JsValue, JsValue] = CatchUndefinedRule{
@@ -301,7 +317,7 @@ case class EnumRule(enum: List[String]) extends ValidationRule[JsString] {
 /**
  * Rule that checks whether all items of an array are unique.
  */
-case class UniquenessRule() extends ValidationRule[JsArray] {
+case class UniquenessRule() extends ValidationRule {
 
   val rule: Rule[JsValue, JsValue] = Rule.fromMapping {
     case array: JsArray =>
@@ -323,7 +339,7 @@ case class UniquenessRule() extends ValidationRule[JsArray] {
 /**
  * Array rule that checks whether an array has at least the specified number of elements.
  */
-case class MinItemsRule(minItems: Int) extends ValidationRule[JsArray] {
+case class MinItemsRule(minItems: Int) extends ValidationRule {
 
   val rule: Rule[JsValue, JsValue] = Rule.fromMapping {
     case array: JsArray =>
@@ -345,7 +361,7 @@ case class MinItemsRule(minItems: Int) extends ValidationRule[JsArray] {
 /**
  * Array rule that checks whether an array has at most the specified number of elements.
  */
-case class MaxItemsRule(maxItems: Int) extends ValidationRule[JsArray] {
+case class MaxItemsRule(maxItems: Int) extends ValidationRule {
 
   val rule: Rule[JsValue, JsValue] = Rule.fromMapping {
     case array: JsArray =>
@@ -376,23 +392,24 @@ case class MaxItemsRule(maxItems: Int) extends ValidationRule[JsArray] {
  *                all possible schemas
  */
 // TODO: include validation result in validation error
-case class QBAnyOfRule(schemas: Seq[QBClass]) extends ValidationRule[JsObject] {
+case class QBAnyOfRule(schemas: Seq[QBType]) extends SchemaBasedValidationRule {
 
   val rule: Rule[JsValue, JsValue] = Rule.fromMapping {
-    case obj: JsObject =>
-      val allValidationResults = schemas.map(Validator.validate(_)(obj))
+    case json =>
+      val allValidationResults = schemas.map(Validator.validate(_)(json))
       val maybeSuccess = allValidationResults.find(_.isSuccess)
-      maybeSuccess.map(success => Success(obj)).getOrElse(
+      maybeSuccess.map(success => Success(json)).getOrElse(
         Failure(
           List(
             ValidationError("qb.obj.any-of",
-              Json.obj("schemas" -> Json.arr(schemas.map(_.prettyPrint)), "object" -> obj)
+              Json.obj("schemas" -> Json.arr(schemas.map(_.prettyPrint)), "object" -> json)
             )
           )
         )
       )
-    case _ => Failure(List(ValidationError("qb.object.expected")))
   }
+
+  override def copy(schemas: Seq[QBType]): SchemaBasedValidationRule = QBAnyOfRule(schemas)
 }
 
 /**
@@ -401,7 +418,7 @@ case class QBAnyOfRule(schemas: Seq[QBClass]) extends ValidationRule[JsObject] {
  * @param schemas
  *                all possible schemas
  */
-case class QBOneOfRule(schemas: Seq[QBClass]) extends ValidationRule[JsObject] {
+case class QBOneOfRule(schemas: Seq[QBType]) extends SchemaBasedValidationRule {
 
   val rule: Rule[JsValue, JsValue] = Rule.fromMapping {
     case obj: JsObject =>
@@ -422,6 +439,8 @@ case class QBOneOfRule(schemas: Seq[QBClass]) extends ValidationRule[JsObject] {
       }
     case _ => Failure(List(ValidationError("qb.obj.expected")))
   }
+
+  override def copy(schemas: Seq[QBType]): SchemaBasedValidationRule = QBOneOfRule(schemas)
 }
 
 /**
@@ -430,25 +449,27 @@ case class QBOneOfRule(schemas: Seq[QBClass]) extends ValidationRule[JsObject] {
  * @param schemas
  *                all possible schemas
  */
-case class QBAllOfRule(schemas: Seq[QBClass]) extends ValidationRule[JsObject] {
+// TODO ValidationRule type parameter seems to be obsolete anyways..
+case class QBAllOfRule(schemas: Seq[QBType]) extends SchemaBasedValidationRule {
 
   val rule: Rule[JsValue, JsValue] = Rule.fromMapping {
-    case obj: JsObject =>
-      val allValidationResults = schemas.map(schema => Validator.validate(schema)(obj))
+    case json =>
+      val allValidationResults = schemas.map(schema => Validator.validate(schema)(json))
       val allMatch = allValidationResults.forall(_.isSuccess)
       if (allMatch) {
-        Success(obj)
+        Success(json)
       } else {
         Failure(
           List(
             ValidationError("qb.obj.all-of",
-              Json.obj("schemas" -> Json.arr(schemas.map(_.prettyPrint)), "object" -> obj)
+              Json.obj("schemas" -> Json.toJson(schemas.map(_.prettyPrint)), "object" -> json)
             )
           )
         )
       }
-    case _ => Failure(List(ValidationError("qb.object.expected")))
   }
+
+  override def copy(schemas: Seq[QBType]): SchemaBasedValidationRule = QBAllOfRule(schemas)
 }
 
 /**
@@ -457,7 +478,7 @@ case class QBAllOfRule(schemas: Seq[QBClass]) extends ValidationRule[JsObject] {
  * @param minProperties
  *            the minimum number of properties
  */
-case class MinPropertiesRule(minProperties: Int) extends ValidationRule[JsObject] {
+case class MinPropertiesRule(minProperties: Int) extends ValidationRule {
 
   val rule: Rule[JsValue, JsValue] = Rule.fromMapping {
     case obj: JsObject =>
@@ -483,7 +504,7 @@ case class MinPropertiesRule(minProperties: Int) extends ValidationRule[JsObject
  * @param maxProperties
  *            the minimum number of properties
  */
-case class MaxPropertiesRule(maxProperties: Int) extends ValidationRule[JsObject] {
+case class MaxPropertiesRule(maxProperties: Int) extends ValidationRule {
 
   val rule: Rule[JsValue, JsValue] = Rule.fromMapping {
     case obj: JsObject =>
@@ -503,7 +524,7 @@ case class MaxPropertiesRule(maxProperties: Int) extends ValidationRule[JsObject
 
 }
 
-case class KeyValueRule[A <: JsValue](key: String, value: String) extends ValidationRule[A] {
+case class KeyValueRule[A <: JsValue](key: String, value: String) extends ValidationRule {
 
   override val rule: Rule[JsValue, JsValue] = Rule.fromMapping { Success(_) }
 
@@ -518,7 +539,7 @@ case class KeyValueRule[A <: JsValue](key: String, value: String) extends Valida
  * @tparam A
  *           the type to be validated
  */
-trait FormatRule[A <: JsValue] extends ValidationRule[A] {
+trait FormatRule[A <: JsValue] extends ValidationRule {
   def format: String
 }
 

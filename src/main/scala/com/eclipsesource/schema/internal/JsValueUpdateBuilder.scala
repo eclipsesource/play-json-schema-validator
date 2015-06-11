@@ -90,6 +90,6 @@ case class JsValueUpdateBuilder(schema: QBType, mappings: List[(QBType => Boolea
    */
   def go(input: JsObject): JsObject = {
 
-    processor.process(schema, input, Context(Path, None, Seq.empty, Set.empty)).get.asInstanceOf[JsObject]
+    processor.process(schema, input, Context(Path, schema, Seq.empty, Set.empty)).get.asInstanceOf[JsObject]
   }
 }

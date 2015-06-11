@@ -165,13 +165,13 @@ trait BaseSchemaOps {
           QBAttribute(attr.name, updateIf[A](attr.qbType)(predicate)(modifier))
         })
         if (predicate(cls)) {
-          modifier(updatedQBClass.as[A])
+          modifier(updatedQBClass.asInstanceOf[A])
         } else {
           updatedQBClass
         }
         // TODO: check parent
-      case arr: QBArray => QBArray(() => updateIf[A](arr.items)(predicate)(modifier), None)
-      case q if predicate(q) => modifier(q.as[A])
+      case arr: QBArray => QBArray(() => updateIf[A](arr.items)(predicate)(modifier))
+      case q if predicate(q) => modifier(q.asInstanceOf[A])
       case _ => qbType
     }
   }
@@ -208,10 +208,10 @@ trait BaseSchemaOps {
             modifiedAttribute.copy(qbType = modifiedAttribute.qbType)
           case attr if attr.qbType.isInstanceOf[QBClass] =>
             // TODO check parent
-            QBAttribute(attr.name, updateAttributeIf(attr.qbType.as[QBClass])(predicate)(modifier), attr.annotations)
+            QBAttribute(attr.name, updateAttributeIf(attr.qbType.asInstanceOf[QBClass])(predicate)(modifier), attr.annotations)
           case attr => attr
         })
-    }).as[QBClass]
+    }).asInstanceOf[QBClass]
   }
 
   /**

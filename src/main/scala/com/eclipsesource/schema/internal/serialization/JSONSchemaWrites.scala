@@ -15,7 +15,7 @@ trait JSONSchemaWrites {
   val ExclusiveMaximum = "exclusiveMaximum"
   val MultipleOf = "multipleOf"
 
-  def writeRule(rule: ValidationRule[_]): Seq[(String, JsValueWrapper)] = rule match {
+  def writeRule(rule: ValidationRule): Seq[(String, JsValueWrapper)] = rule match {
     case MinLengthRule(min) => List("minLength" -> min)
     case MaxLengthRule(max) => List("maxLength" -> JsNumber(max))
     case MinRule(min, isExclusive) => List(ExclusiveMinimum -> isExclusive, MinimumId -> JsNumber(min))
@@ -24,8 +24,12 @@ trait JSONSchemaWrites {
     case RegexRule(pat, _) => List(PatternId -> JsString(pat.pattern()))
     case EnumRule(values) => List("enum" -> JsArray(values.map(JsString)))
     case f: FormatRule[_] => List("format" -> JsString(f.format))
-    case c: CompositeRule[_] => c.rules.toList.flatMap(writeRule(_))
+    case c: CompositeRule => c.rules.toList.flatMap(writeRule)
     case kv: KeyValueRule[_] => List(kv.key -> kv.value)
+      // TODO: empty?
+    case allOf: QBAllOfRule => List("allOf" -> Json.toJson(allOf.schemas))
+    case anyOf: QBAnyOfRule => List("anyOf" -> Json.toJson(anyOf.schemas))
+    case _ => List()
   }
 
   implicit def qbTypeWriter: Writes[QBType] = Writes[QBType] {
@@ -33,34 +37,62 @@ trait JSONSchemaWrites {
     case i: QBInteger => integerWriter.writes(i)
     case n: QBNumber => numberWriter.writes(n)
     case b: QBBoolean => booleanWriter.writes(b)
-    case t: QBTuple2 => tupleWriter.writes(t)
+    case t: QBTuple => tupleWriter.writes(t)
     case a: QBArray => arrayWriter.writes(a)
     case o: QBClass => objectWriter.writes(o)
     case r: QBRef => refWriter.writes(r)
+    case c: QBBooleanConstant => constantWriter.writes(c)
+    case a: QBArrayConstant => Json.toJson(a.seq)
+    case n: QBNull => nullWriter.writes(n)
   }
 
+
+ lazy val nullWriter: Writes[QBNull] = OWrites[QBNull] { nll =>
+   Json.obj("type" -> "null")
+ }
+
   implicit val booleanWriter: Writes[QBBoolean] = OWrites[QBBoolean] { bool =>
-    Json.obj("type" -> "boolean") ++ Json.obj(bool.rules.toList.map(writeRule(_)).flatten: _*)
+    Json.obj("type" -> "boolean") ++ Json.obj(bool.rules.toList.map(writeRule).flatten: _*)
   }
 
   implicit val stringWriter: Writes[QBString] = OWrites[QBString] { str =>
-    Json.obj("type" -> "string") ++ Json.obj(str.rules.toList.map(writeRule(_)).flatten: _*)
+    Json.obj("type" -> "string") ++ Json.obj(str.rules.toList.map(writeRule).flatten: _*)
   }
 
   implicit val integerWriter: Writes[QBInteger] = OWrites[QBInteger] { int =>
-    Json.obj("type" -> "integer") ++ Json.obj(int.rules.toList.map(writeRule(_)).flatten: _*)
+    Json.obj("type" -> "integer") ++ Json.obj(int.rules.toList.map(writeRule).flatten: _*)
   }
 
   implicit val numberWriter: Writes[QBNumber] = OWrites[QBNumber] { num =>
-    Json.obj("type" -> "number") ++ Json.obj(num.rules.toList.map(writeRule(_)).flatten: _*)
+    Json.obj("type" -> "number") ++ Json.obj(num.rules.toList.map(writeRule).flatten: _*)
   }
 
+  // TODO: do arrays have additionalitems?
   implicit val arrayWriter: Writes[QBArray] = Writes[QBArray] { arr =>
-    Json.toJson(arr.items)
+    Json.obj(
+      "items" -> Json.toJson(arr.items)
+    // TODO: write any other props, too
+    ).deepMerge(
+      arr.resolutionScope.fold(Json.obj())(id =>
+        Json.obj("id" -> id)
+      )
+    )
+//      .deepMerge(
+//        arr.additionalItems.fold(Json.obj())(items =>
+//          Json.obj("additionalItems" -> items)
+//        )
+//      )
   }
 
-  implicit val tupleWriter: Writes[QBTuple2] = Writes[QBTuple2] { arr =>
-    Json.toJson(arr.qbTypes)
+  // TODO: duplicate code
+  implicit val tupleWriter: Writes[QBTuple] = Writes[QBTuple] { arr =>
+    Json.obj(
+      "items" -> Json.toJson(arr.qbTypes)
+    ).deepMerge(
+        arr.additionalItems.fold(Json.obj())(items =>
+          Json.obj("additionalItems" -> items)
+        )
+      )
   }
 
   implicit val refWriter: Writes[QBRef] = Writes[QBRef] { ref =>
@@ -71,7 +103,14 @@ trait JSONSchemaWrites {
     }
   }
 
+  val constantWriter: Writes[QBBooleanConstant] = Writes[QBBooleanConstant] { const =>
+    JsBoolean(const.bool)
+  }
 
+//  val tupleValueWriter: Writes[QBTupleValue] = Writes[QBTupleValue] { tuple =>
+//    Json.toJson(tuple.qbTypes)
+//  }
+//
   /**
    * Extensions whose result gets merged into the written property like, for instance, the type:
    */
@@ -83,22 +122,22 @@ trait JSONSchemaWrites {
    */
   def extensions: List[QBClass => JsObject] = List()
 
-  implicit val objectWriter: Writes[QBClass] = OWrites[QBClass] { obj =>
-  {
-   val o: JsObject = if (obj.properties.exists(_.name == "properties")) {
-     Json.obj(
-       "type" -> "object"
-     )
-   } else if (obj.properties.exists(_.name == "items")) {
-     Json.obj(
-       "type" -> "array"
-     )
-   } else {
-     Json.obj()
-   }
+  implicit val objectWriter: Writes[QBClass] = OWrites[QBClass] {
+    obj => {
+      // TODO ugly
+      val o: JsObject = if (obj.properties.exists(_.name == "properties")) {
+        Json.obj(
+          "type" -> "object"
+        )
+      } else if (obj.properties.exists(_.name == "items")) {
+        Json.obj(
+          "type" -> "array"
+        )
+      } else {
+        Json.obj()
+      }
 
-    val written = o.deepMerge(
-        //          Json.obj("properties" ->
+      val written = o.deepMerge(
         JsObject(
           obj.properties.map(attr =>
             attr.name ->
@@ -110,17 +149,15 @@ trait JSONSchemaWrites {
               )
           )
         )
-      ).deepMerge(Json.obj(obj.rules.toList.map(writeRule(_)).flatten: _*))
+      ).deepMerge(
+        Json.obj(obj.rules.toList.map(writeRule).flatten: _*)
+      )
 
-//    println(">>" + written)
+      val written2 = extensions.foldLeft(written)((o, extension) =>
+        o.deepMerge(extension(obj)))
 
-    val written2 = extensions.foldLeft(written)((o, extension) =>
-      o.deepMerge(extension(obj)))
-
-//    println(">>" + written2)
-
-    written2
-  }
+      written2
+    }
   }
 
 }
