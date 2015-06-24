@@ -40,7 +40,7 @@ class ReferenceSpec extends Specification {
 //      result.isSuccess must beTrue
 //    }
 //  }
-    //
+//
 //    "recursive match" in {
 //      val data = Json.obj(
 //        "foo" -> Json.obj(
@@ -50,23 +50,26 @@ class ReferenceSpec extends Specification {
 //      val result = Validator.validate(schema)(data)
 //      result.isSuccess must beTrue
 //    }
-//
+
 //    "mismatch" in {
 //      val data = Json.obj(
 //        "bar" -> false
 //      )
-//      Validator.validate(schema)(data).isFailure must beTrue
+//      val res = Validator.validate(schema)(data)
+//      println("RES IS "+ re)
+//      res.isFailure must beTrue
 //    }
 //
 //    "recursive mismatch" in {
-//    val data = Json.obj(
-//      "foo" -> Json.obj(
-//        "bar" -> false
+//      val data = Json.obj(
+//        "foo" -> Json.obj(
+//          "bar" -> false
+//        )
 //      )
-//    )
-//    Validator.validate(schema)(data).isFailure must beTrue
+//      Validator.validate(schema)(data).isFailure must beTrue
+//    }
 //  }
-//  }
+
 //
 //  "Relative pointer ref to object" should {
 //
@@ -89,7 +92,7 @@ class ReferenceSpec extends Specification {
 //      validationResult.isSuccess must beTrue
 //    }
 //  }
-//
+
 //    "mismatch" in {
 //      val data = Json.obj(
 //        "bar" -> true
@@ -99,15 +102,17 @@ class ReferenceSpec extends Specification {
 //  }
 //
 //  "Relative pointer ref to array" in {
-//    val schema = obj(
-//      "items" -> tuple2(
-//        qbInteger,
-//        obj("$ref" -> $ref("#/items/0")) // TODO: int parameter
-//      )
-//    )
+//    val schema = JSONSource.schemaFromString(
+//      """{
+//        |            "items": [
+//        |                {"type": "integer"},
+//        |                {"$ref": "#/items/0"}
+//        |            ]
+//        |}""".stripMargin).get
 //
-//
-//    "match array" in {
+//        println(Json.prettyPrint(Json.toJson(schema)))
+
+    //    "match array" in {
 //      val data = Json.arr(1, 2)
 //      val result = Validator.validate(schema)(data)
 //      result.isSuccess must beTrue
@@ -156,17 +161,17 @@ class ReferenceSpec extends Specification {
 //    }
 //  }
 //
-  "nested refs" should {
-
-    val schema = JSONSource.schemaFromString(
-      """{
-        |  "definitions": {
-        |    "a": {"type": "integer"},
-        |    "b": {"$ref": "#/definitions/a"},
-        |    "c": {"$ref": "#/definitions/b"}
-        |  },
-        |  "$ref": "#/definitions/c"
-        |}""".stripMargin).get
+//  "nested refs" should {
+//
+//    val schema = JSONSource.schemaFromString(
+//      """{
+//        |  "definitions": {
+//        |    "a": {"type": "integer"},
+//        |    "b": {"$ref": "#/definitions/a"},
+//        |    "c": {"$ref": "#/definitions/b"}
+//        |  },
+//        |  "$ref": "#/definitions/c"
+//        |}""".stripMargin).get
 //
 //
 //    "nested ref valid" in {
@@ -176,36 +181,35 @@ class ReferenceSpec extends Specification {
 //      result.isSuccess must beTrue
 //    }
 //
-    "nested ref invalid" in {
-      val data: JsValue = JsString("a")
-      val result = Validator.validate(schema)(data)
-      result.isFailure must beTrue
-    }
+//    "nested ref invalid" in {
+//      val data: JsValue = JsString("a")
+//      val result = Validator.validate(schema)(data)
+//      result.isFailure must beTrue
+//    }
+//  }
 //
-  }
-//
-//  "remote ref, containing refs itself" should {
-////    val schema = $ref("http://json-schema.org/draft-04/schema#")
-//
-//    sequential
-//
-//    val schema = JSONSource.schemaFromString(
-//      """{
-//        |"$ref": "http://json-schema.org/draft-04/schema#"
-//      }""".stripMargin).get
-//
+  "remote ref, containing refs itself" should {
+//    val schema = $ref("http://json-schema.org/draft-04/schema#")
+
+    sequential
+
+    val schema = JSONSource.schemaFromString(
+      """{
+        |"$ref": "http://json-schema.org/draft-04/schema#"
+      }""".stripMargin).get
+
 //    "remote ref valid" in {
 //      val data = Json.obj("minLength" -> 1)
 //      val result = Validator.validate(schema)(data)
 //      println(result)
 //      result.isSuccess must beTrue
 //    }
-//
-//    "remote ref invalid" in {
-//      val data = Json.obj("minLength" -> -1)
-//      val result = Validator.validate(schema)(data)
-//      println(result)
-//      result.isFailure must beTrue
-//    }
-//  }
+
+    "remote ref invalid" in {
+      val data = Json.obj("minLength" -> -1)
+      val result = Validator.validate(schema)(data)
+      println(result)
+      result.isFailure must beTrue
+    }
+  }
 }

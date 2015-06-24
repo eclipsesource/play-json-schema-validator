@@ -170,7 +170,7 @@ trait BaseSchemaOps {
           updatedQBClass
         }
         // TODO: check parent
-      case arr: QBArray => QBArray(() => updateIf[A](arr.items)(predicate)(modifier))
+      case arr: QBArray => QBArray(() => updateIf[A](arr.items)(predicate)(modifier), Seq.empty, None)
       case q if predicate(q) => modifier(q.asInstanceOf[A])
       case _ => qbType
     }

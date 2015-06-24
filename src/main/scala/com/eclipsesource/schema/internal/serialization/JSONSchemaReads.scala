@@ -67,7 +67,7 @@ trait JSONSchemaReads {
       if (opts.take(6).toList.forall(_.isEmpty)) {
         Reads.apply(_ => JsError(""))
       } else {
-        Reads.pure(QBNumberImpl(Set(minRule, maxRule, multipleOf, allOfRule, anyOfRule).filterNot(_.isEmpty).map(_.get)))
+        Reads.pure(QBNumberImpl(Seq(minRule, maxRule, multipleOf, allOfRule, anyOfRule).filterNot(_.isEmpty).map(_.get)))
       }
     })
   }
@@ -95,7 +95,7 @@ trait JSONSchemaReads {
         allOfRule,
         anyOfRule
       )
-      val ruleSet: Set[ValidationRule] = rules.flatten.toSet
+      val ruleSet: Seq[ValidationRule] = rules.flatten
 
       if (List(stringType, minRule, maxRule).forall(_.isEmpty)) {
         Reads.apply(_ => JsError("Expected string."))
@@ -107,23 +107,24 @@ trait JSONSchemaReads {
 
   lazy val arrayReader: Reads[QBArray] = {
     ((__ \ "items").read[QBType] and
-      (__ \ "id").readNullable[String]).tupled.map(
-        read => {
-          val (items, id) = read
+      (__ \ "id").readNullable[String] and
+      (__ \ "additionalItems").readNullable[QBType] and
+      (__ \ "allOf").lazyReadNullable[Seq[QBType]](readSeqOfQBTypeInstance) and
+      (__ \ "anyOf").lazyReadNullable[Seq[QBType]](readSeqOfQBTypeInstance) and
+      (__ \ "oneOf").lazyReadNullable[Seq[QBType]](readSeqOfQBTypeInstance)
+      ).tupled.map(read => {
+
+          val (items, id, additionalItems, allOf, anyO, oneOf) = read
+          println("Array reader triggered")
+
           // TODO: other properties are missing
           val qbType: JsResult[QBType] = valueReader.reads(Json.toJson(items))
-          // TODO: rules missing, get
-//          val updatedType = qbType.get match {
-//              // TODO
-//            case cls@QBClass(props, _, _) => cls.copy(properties = props.map {
-//              case a@QBAttribute("id", ref: QBRef, anno) =>  QBAttribute("id", idRef.map(r => r.copy(pointer = JSONPointer(r.pointer.path + ref.pointer.path))).getOrElse(ref), anno)
-//              case x => x
-//            })
-//            case arr@QBArray(item, _, Some(xid), _) => arr.copy(effectiveIdRef = idRef.map(r => r.copy(pointer = JSONPointer(r.pointer.path + xid.pointer.path))))
-//            case x => x
-//          }
           // TODO: only updated inner ids, not outer, also, refs need to be updated if ids are presents
-          QBArray(() => id.map(i => qbType.get.setResolutionScope(i + qbType.get.resolutionScope.getOrElse(""))).getOrElse(qbType.get), Set.empty[ValidationRule], id)
+          QBArray(
+            () => qbType.get, //id.map(i => qbType.get.setResolutionScope(i + qbType.get.resolutionScope.getOrElse(""))).getOrElse(qbType.get),
+            Seq.empty[ValidationRule],
+            id
+          )
         })
   }
 
@@ -166,7 +167,7 @@ trait JSONSchemaReads {
       if (opts.take(6).toList.forall(_.isEmpty)) {
         Reads.apply(_ => JsError("Expected integer."))
       } else {
-        Reads.pure(QBIntegerImpl(Set(minRule, maxRule, multipleOf).filterNot(_.isEmpty).map(_.get)))
+        Reads.pure(QBIntegerImpl(Seq(minRule, maxRule, multipleOf).filterNot(_.isEmpty).map(_.get)))
       }
     })
   }
@@ -176,15 +177,27 @@ trait JSONSchemaReads {
       (__ \ "items").read[Seq[JsValue]]
         and
         (__ \ "additionalItems").readNullable[QBType]
-      ).tupled.map {
-      (tupleItems: (Seq[JsValue], Option[QBType])) => {
-        val tupleTypes: Seq[JsResult[QBType]] = tupleItems._1.map(valueReader.reads)
+      ).tupled.map { read => {
+
+      val (items, additionalItems) = read
+        val tupleTypes: Seq[JsResult[QBType]] = items.map(valueReader.reads)
         val successTupleTypes: Seq[QBType] = tupleTypes.collect { case JsSuccess(succ, _) => succ}.toSeq
         QBTuple(() => successTupleTypes,
           successTupleTypes.size,
           // initialize with empty schema
           // TODO: Option should be removed
-          additionalItems = Some(tupleItems._2.fold[QBType](QBClass(Seq.empty))(identity)))
+          additionalItems.fold(Seq.empty[ValidationRule])(additional => Seq(AdditionalItemsRule(additional))))
+      }
+    }
+  }
+
+  lazy val booleanConstantReader: Reads[QBBooleanConstant] = {
+    new Reads[QBBooleanConstant] {
+      override def reads(json: JsValue): JsResult[QBBooleanConstant] = {
+        json match {
+          case JsBoolean(bool) => JsSuccess(QBBooleanConstant(bool))
+          case _ => JsError("Expected a boolean")
+        }
       }
     }
   }
@@ -239,23 +252,34 @@ trait JSONSchemaReads {
 
         val requiredProperties = required.map(_.toSet).getOrElse(Set.empty)
         val props: List[QBAttribute] = properties.map(p => tuples2Attributes(p, requiredProperties)).getOrElse(List.empty)
-        val rules: List[Option[Set[ValidationRule]]] = List(
-          all.map(schemas => Set(QBAllOfRule(schemas))),
-          any.map(schemas => Set(QBAnyOfRule(schemas)))
+
+        val additional = AdditionalProperties(additionalProperties.getOrElse(QBClass(Seq.empty)))
+        val pattern = patternProperties.map(pp => PatternProperties(pp.toSeq.map(t => QBAttribute(t._1, t._2))))
+
+        val propertiesRule: PropertiesRule = PropertiesRule(pattern, additional)
+
+        val rules: List[Option[ValidationRule]] = List(
+          dependencies.map((deps: QBClass) => DependenciesRule(deps)),
+          Some(propertiesRule),
+          all.map(schemas => QBAllOfRule(schemas)),
+          any.map(schemas => QBAnyOfRule(schemas))
         )
 
         Reads.pure(
           QBClass(
-            Seq("properties" -> QBClass(props)), rules.flatten.headOption.getOrElse(Set.empty[ValidationRule])
-          ) ++ id.fold(QBClass(Seq.empty))(i => QBClass(Seq("id" -> QBRef(JSONPointer(i), true, i.startsWith("http")))))
+            Seq("properties" -> QBClass(props)),
+            rules.flatten,
+            id,
+            required.getOrElse(Seq.empty)
+          ) //++ id.fold(QBClass(Seq.empty))(i => QBClass(Seq("id" -> QBRef(JSONPointer(i), true, i.startsWith("http")))))
             ++ ref.map(path => QBClass(
             Seq(Keywords.Ref ->
               QBRef(JSONPointer(path), isAttribute = true, isRemote = path.startsWith("http"), resScope = id)
             ))
           ).getOrElse(QBClass(Seq.empty))
-            ++ patternProperties.fold(QBClass(Seq.empty))(ps => QBClass(Seq(Keywords.PatternProperties -> QBClass(tuples2Attributes(ps, requiredProperties)))))
-            ++ additionalProperties.fold(QBClass(Seq.empty))(ap => QBClass(Seq(Keywords.AdditionalProperties -> ap)))
-            ++ dependencies.fold(QBClass(Seq.empty))(d => QBClass(Seq(Keywords.Dependencies -> d)))
+//            ++ patternProperties.fold(QBClass(Seq.empty))(ps => QBClass(Seq(Keywords.PatternProperties -> QBClass(tuples2Attributes(ps, requiredProperties)))))
+//            ++ additionalProperties.fold(QBClass(Seq.empty))(ap => QBClass(Seq(Keywords.AdditionalProperties -> ap)))
+//            ++ dependencies.fold(QBClass(Seq.empty))(d => QBClass(Seq(Keywords.Dependencies -> d)))
         )
     }
   }

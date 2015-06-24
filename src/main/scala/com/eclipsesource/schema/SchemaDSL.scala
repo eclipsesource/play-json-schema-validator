@@ -42,14 +42,14 @@ trait SchemaDSL {
   def obj: QBClass = QBClass(Seq.empty)
 
   // TODO: fix arbitrary types
-  def tuple1(t: QBType, additionalItems: Option[QBType] = Some(QBClass(Seq.empty))) =
-    QBTuple(() => Seq(t), 1, additionalItems)
-  def tuple2(t1: QBType, t2: QBType, additionalItems: Option[QBType] = Some(QBClass(Seq.empty))) =
-    QBTuple(() => Seq(t1, t2), 2, additionalItems)
-  def tuple3(t1: QBType, t2: QBType, t3: QBType, additionalItems: Option[QBType] = Some(QBClass(Seq.empty))) =
-    QBTuple(() => Seq(t1, t2, t3), 3, additionalItems)
-  def tuple(types: Seq[QBType], additionalItems: Option[QBType]= Some(obj)) =
-    QBTuple(() => types, types.size, additionalItems)
+  def tuple1(t: QBType, additionalItems: QBType = QBClass(Seq.empty)) =
+    QBTuple(() => Seq(t), 1, Seq(AdditionalItemsRule(additionalItems)))
+  def tuple2(t1: QBType, t2: QBType, additionalItems: QBType = QBClass(Seq.empty)) =
+    QBTuple(() => Seq(t1, t2), 2, Seq(AdditionalItemsRule(additionalItems)))
+  def tuple3(t1: QBType, t2: QBType, t3: QBType, additionalItems: QBType = QBClass(Seq.empty)) =
+    QBTuple(() => Seq(t1, t2, t3), 3, Seq(AdditionalItemsRule(additionalItems)))
+  def tuple(types: Seq[QBType], additionalItems: QBType = QBClass(Seq.empty)) =
+    QBTuple(() => types, types.size, Seq(AdditionalItemsRule(additionalItems)))
 
   /**
    * Classes.
@@ -61,7 +61,7 @@ trait SchemaDSL {
     buildClass(els.toList)
 
   def qbClass(els: List[(String, QBType)], rules: ValidationRule*): QBClass =
-    buildClass(els, rules.toSet)
+    buildClass(els, rules)
 
   // TODO remove
   implicit def tuple2attribute(tuple: (String, QBType)) = tuple._2 match {
@@ -69,7 +69,7 @@ trait SchemaDSL {
     case _ => QBAttribute(tuple._1, tuple._2)
   }
 
-  private def buildClass(attributes: List[(String, QBType)], rules: Set[ValidationRule] = Set.empty): QBClass = {
+  private def buildClass(attributes: List[(String, QBType)], rules: Seq[ValidationRule] = Seq.empty): QBClass = {
     findDuplicates(attributes.map(_._1))(identity) match {
       case Nil => QBClass(attributes.toList.map(tuple2attribute), rules)
       case duplicates => throw new RuntimeException("qb.duplicate.fields - " + duplicates.mkString(","))
@@ -81,24 +81,24 @@ trait SchemaDSL {
   }
 
   def oneOf(schemas: QBClass*): QBClass = QBClass(Seq("oneOf" -> tuple(schemas)))
-  def allOf(values: QBClass*): QBClass= QBClass(Seq("allOf" -> tuple(values)), Set[ValidationRule](QBAllOfRule(values)))
-  def anyOf(values: QBClass*): QBClass = QBClass(Seq("anyOf" -> tuple(values)), Set[ValidationRule](QBAnyOfRule(values)))
+  def allOf(values: QBClass*): QBClass= QBClass(Seq("allOf" -> tuple(values)), Seq[ValidationRule](QBAllOfRule(values)))
+  def anyOf(values: QBClass*): QBClass = QBClass(Seq("anyOf" -> tuple(values)), Seq[ValidationRule](QBAnyOfRule(values)))
 
 
   /**
    * Array Rules
    */
-  // TODO: check parents
+  // TODO: check ids
   def qbList(dataType: => QBType): QBArray =
-    QBArray(() => dataType)
+    QBArray(() => dataType, Seq.empty, None)
   def qbList(dataType: => QBType, rules: ValidationRule*): QBArray =
-    QBArray(() => dataType, rules.toSet)
+    QBArray(() => dataType, rules, None)
 
 
   /**
    * String Rules
    */
-  def qbString(rules: ValidationRule*): QBString = QBStringImpl(rules.toSet)
+  def qbString(rules: ValidationRule*): QBString = QBStringImpl(rules)
   def qbString = QBStringImpl()
 
   def qbText = qbString
@@ -107,7 +107,7 @@ trait SchemaDSL {
   def minLength(n: Int): MinLengthRule = new MinLengthRule(n)
   def maxLength(n: Int): MaxLengthRule = new MaxLengthRule(n)
   def length(lower: Int, upper: Int): ValidationRule = new CompositeRule {
-    val rules: Set[ValidationRule] = Set(minLength(lower), maxLength(upper))
+    val rules: Seq[ValidationRule] = Seq(minLength(lower), maxLength(upper))
   }
 
   def qbEnum(values: String*) = qbString(new EnumRule(values.toList))
@@ -116,16 +116,16 @@ trait SchemaDSL {
 
   def qbEmail = qbString(pattern("""\b[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)*\b""", "q.invalid.email"))
 
-  def qbDateTime = new QBDateTimeImpl(Set(DateTimeRule))
+//  def qbDateTime = new QBDateTimeImpl(Set(DateTimeRule))
 
   // TODO: DSL should not allow specifying doubles when posixTime type is used 
-  def qbPosixTime = new QBPosixTimeImpl(Set(PosixTimeRule))
+//  def qbPosixTime = new QBPosixTimeImpl(Set(PosixTimeRule))
 
   /**
    * Number Rules
    */
   def qbNumber: QBNumberImpl = QBNumberImpl()
-  def qbNumber(rules: ValidationRule*): QBNumber = QBNumberImpl(rules.toSet)
+  def qbNumber(rules: ValidationRule*): QBNumber = QBNumberImpl(rules)
 
   def min(n: Double) = MinRule(n, false)
   def min(n: Int): DoubleRuleWrapper = DoubleRuleWrapper(MinRule(n, false))
@@ -146,15 +146,15 @@ trait SchemaDSL {
   def multipleOf(n: Int) = DoubleRuleWrapper(MultipleOfRule(n))
 
   def range(lower: Double, upper: Double): ValidationRule = new CompositeRule {
-    val rules: Set[ValidationRule] = Set(min(lower), max(upper))
+    val rules: Seq[ValidationRule] = Seq(min(lower), max(upper))
   }
 
   def range(lower: Int, upper: Int) = DoubleRuleWrapper(new CompositeRule {
-    val rules: Set[ValidationRule] = Set(min(lower.toDouble), max(upper.toDouble))
+    val rules: Seq[ValidationRule] = Seq(min(lower.toDouble), max(upper.toDouble))
   })
 
   def qbInteger: QBIntegerImpl = QBIntegerImpl()
-  def qbInteger(rules: DoubleRuleWrapper*): QBIntegerImpl = QBIntegerImpl(rules.map(_.rule).toSet)
+  def qbInteger(rules: DoubleRuleWrapper*): QBIntegerImpl = QBIntegerImpl(rules.map(_.rule))
 
   /**
    * Boolean Rules

@@ -2,8 +2,9 @@ package com.eclipsesource.schema
 
 import java.net.URL
 
-import com.eclipsesource.schema.test.JsonSpec
+import com.eclipsesource.schema.test.{JSONSource, JsonSpec}
 import org.specs2.mutable.Specification
+import play.api.libs.json.{JsNull, Json}
 
 class AdditionalItemsSpec extends Specification {
 

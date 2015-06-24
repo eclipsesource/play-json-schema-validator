@@ -1,6 +1,6 @@
 package com.eclipsesource
 
-import com.eclipsesource.schema.internal.SchemaUtil
+import com.eclipsesource.schema.internal.{JsAbsent, SchemaUtil}
 import com.eclipsesource.schema.internal.serialization.{JSONSchemaAnnotationWrites, JSONSchemaReads, JSONSchemaWrites}
 import play.api.data.mapping._
 import play.api.data.validation.ValidationError
@@ -66,14 +66,14 @@ package object schema
     }
   }
 
-  val validationRule2: Function[((QBType, Seq[QBAnnotation])), Rule[JsValue, JsValue]]  = RuleProvider {
-    case (qbType: ValidationRule, _) => qbType.rule
-  }
+//  val validationRule2: Function[((QBType, Seq[QBAnnotation])), Rule[JsValue, JsValue]]  = RuleProvider {
+//    case (qbType: ValidationRule, _) => qbType.rule
+//  }
 
 //  val rule: Function[(QBType, Seq[QBAnnotation]), Rule[JsValue, JsValue]] = defaultRule2.orElse(optionalRule2)
 
   val annotationRule: ((QBType, Seq[QBAnnotation])) => Rule[JsValue, JsValue] = {
-    (optionalRule2 |@| validationRule2) { _ compose _}
+    optionalRule2
 //    validationRule2
   }
 
@@ -83,7 +83,6 @@ package object schema
 //    x.compose(y)
 //  }
 
-   case object JsAbsent extends JsUndefined("qb.accepted")
 
   implicit class JsObjectExtensions(jsObject: JsObject) {
     def get(fieldName: String): Option[JsValue] = {

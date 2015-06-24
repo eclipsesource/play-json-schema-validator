@@ -12,8 +12,7 @@ import scala.util.Try
  * Marker for all QBValue types.
  */
 sealed trait QBType {
-  def resolutionScope: Option[String] = None
-  def setResolutionScope(newScope: String): QBType = this
+  def rules: Seq[ValidationRule] = Seq.empty
 }
 
 case class QBNull() extends QBType {}
@@ -37,9 +36,13 @@ trait Resolvable {
 
 trait QBContainer extends QBType with Resolvable {
 
+  def id: Option[String]
+
   def qbTypes: Seq[QBType]
 
-  def updated(containedTypes: QBType*): QBContainer
+  def updated(id: Option[String], containedTypes: QBType*): QBContainer
+
+
   // TODO: replace string with node trait
 }
 
@@ -57,50 +60,43 @@ case class JSONPointer(path: String)
 // TODO: pointer is a JSONSPointer, see http://tools.ietf.org/html/draft-pbryan-zyp-json-pointer-02
 // TODO isRemote also applies for non http?
 case class QBRef(pointer: JSONPointer, isAttribute: Boolean = false, isRemote: Boolean = false, resScope: Option[String] = None) extends QBType {
-  override def resolutionScope: Option[String] = resScope
+//  override def resolutionScope: Option[String] = resScope
 
-  override def setResolutionScope(newScope: String): QBType = copy(resScope = Some(newScope + pointer.path))
+//  override def setResolutionScope(newScope: String): QBType = copy(resScope = Some(newScope + pointer.path))
 }
+case class PatternProperties(attrs: Seq[QBAttribute])
+case class AdditionalProperties(schema: QBType)
 
-
-/**
- * QBObject constructor.
- *
- * @param properties
- *             the attributes of an object
- * @param rules
- *             optional rules an object must fulfill
- */
 case class QBClass(
                     properties: Seq[QBAttribute],
-                    rules: Set[ValidationRule] = Set.empty,
-                    resScope: Option[String] = None)
+                    override val rules: Seq[ValidationRule] = Seq.empty,
+                    id: Option[String] = None,
+                    required: Seq[String] = Seq.empty)
   extends QBObject with CompositeRule {
 
-  case class AdditionalProperties(schema: QBType)
 
   // TODO: inconsistent with array
-  def id: Option[QBRef] = properties.find(_.name == "id").map(_.qbType match {
-    case ref@QBRef(pointer, _, _, _) => ref
-    case _ => throw new RuntimeException("id must a ref")
-  })
+//  def id: Option[QBRef] = properties.find(_.name == "id").map(_.qbType match {
+//    case ref@QBRef(pointer, _, _, _) => ref
+//    case _ => throw new RuntimeException("id must a ref")
+//  })
 
-  def dependencies: Seq[QBAttribute] = properties.find(_.name == "dependencies").map(_.qbType match {
-    case QBClass(props, _, _) => props
-    case _ => throw new RuntimeException("patternProperties must be an object")
-  }).getOrElse(Seq.empty)
+//  def dependencies: Seq[QBAttribute] = properties.find(_.name == "dependencies").map(_.qbType match {
+//    case QBClass(props, _, _) => props
+//    case _ => throw new RuntimeException("patternProperties must be an object")
+//  }).getOrElse(Seq.empty)
 
-  def additionalProperties: AdditionalProperties = properties.find(_.name == "additionalProperties").map(_.qbType match {
-    case t: QBType => AdditionalProperties(t)
-  }).getOrElse(AdditionalProperties(QBClass(Seq.empty)))
-
-  def patternProperties: Seq[QBAttribute] = properties.find(_.name == "patternProperties").map(_.qbType match {
-    case QBClass(props, _, _) => props
-    case _ => throw new RuntimeException("patternProperties must be an object")
-  }).getOrElse(Seq.empty)
+//  def additionalProperties: AdditionalProperties = properties.find(_.name == "additionalProperties").map(_.qbType match {
+//    case t: QBType => AdditionalProperties(t)
+//  }).getOrElse(AdditionalProperties(QBClass(Seq.empty)))
+//
+//  def patternProperties: Seq[QBAttribute] = properties.find(_.name == "patternProperties").map(_.qbType match {
+//    case QBClass(props, _, _) => props
+//    case _ => throw new RuntimeException("patternProperties must be an object")
+//  }).getOrElse(Seq.empty)
 
   def props: Seq[QBAttribute] = properties.find(_.name == "properties").map(_.qbType match {
-    case QBClass(props, _, _) => props
+    case QBClass(props, _, _, _) => props
     case _ => throw new RuntimeException("properties must be an object")
   }).getOrElse(Seq.empty)
 
@@ -108,16 +104,14 @@ case class QBClass(
     properties.find(_.name == attributeName).map(_.qbType)
   }
 
-  override val resolutionScope = resScope
-
-  override def setResolutionScope(newScope: String): QBType = {
-    copy(resScope = Some(newScope), properties = properties.map(prop => prop.copy(qbType = prop.qbType.setResolutionScope(newScope))))
-  }
+//  override def setResolutionScope(newScope: String): QBType = {
+//    copy(resScope = Some(newScope), properties = properties.map(prop => prop.copy(qbType = prop.qbType.setResolutionScope(newScope))))
+//  }
 }
 
 // TODO: inconsistent with QBClass where each property is just a QBAttribute
 // TODO: idRef
-case class QBTuple(items: () => Seq[QBType], size: Int, additionalItems: Option[QBType] = None, rules: Set[ValidationRule] = Set.empty) extends QBContainer with CompositeRule {
+case class QBTuple(items: () => Seq[QBType], size: Int, override val rules: Seq[ValidationRule] = Seq.empty, override val id: Option[String] = None) extends QBContainer with CompositeRule {
 
   // TODO: replace string with node trait
   override def resolvePath(index: String): Option[QBType] = {
@@ -130,12 +124,12 @@ case class QBTuple(items: () => Seq[QBType], size: Int, additionalItems: Option[
   }
 
   def apply(types: Seq[QBType]): QBTuple = {
-    QBTuple(() => types, size, additionalItems, rules)
+    QBTuple(() => types, size, rules)
   }
 
   override def qbTypes: Seq[QBType] = items()
 
-  override def updated(containedTypes: QBType*): QBContainer = copy(items = () => containedTypes)
+  override def updated(id: Option[String], containedTypes: QBType*): QBContainer = copy(items = () => containedTypes)
 }
 
 /**
@@ -143,13 +137,13 @@ case class QBTuple(items: () => Seq[QBType], size: Int, additionalItems: Option[
  */
 // TODO: inconsistent with QBClass where each property is just a QBAttribute
 
-case class QBArray(qbType: () => QBType, rules: Set[ValidationRule] = Set.empty, override val resolutionScope: Option[String] = None)
+case class QBArray(qbType: () => QBType, override val rules: Seq[ValidationRule] = Seq.empty, override val id: Option[String])
   extends QBContainer with CompositeRule {
 
   lazy val items = qbType()
 
   def apply(attr: QBType) = {
-    QBArray(() => attr, rules, resolutionScope)
+    QBArray(() => attr, rules, id)
   }
 
   def resolvePath(path: String): Option[QBType] = {
@@ -163,51 +157,47 @@ case class QBArray(qbType: () => QBType, rules: Set[ValidationRule] = Set.empty,
   override def qbTypes: Seq[QBType] = Seq(items)
 
 //  override def isEmptySchema: Boolean = items.isEmptySchema
-  override def setResolutionScope(newScope: String): QBType =
-  copy(resolutionScope = Some(newScope),
-    qbType = () => qbType().setResolutionScope(newScope))
+//  override def setResolutionScope(newScope: String): QBType =
+//  copy(resolutionScope = Some(newScope),
+//    qbType = () => qbType().setResolutionScope(newScope))
 
-  override def updated(containedTypes: QBType*): QBContainer = copy(qbType = () => containedTypes.head)
+  override def updated(id: Option[String], containedTypes: QBType*): QBContainer = copy(qbType = () => containedTypes.head)
 }
 
 /**
  * String
  */
 trait QBString extends QBPrimitiveType[JsString] with QBBaseType {
-  val rules: Set[ValidationRule]
   override def toString = "string"
 }
 
-case class QBStringImpl(rules: Set[ValidationRule] = Set.empty) extends QBString
+case class QBStringImpl(override val rules: Seq[ValidationRule] = Seq.empty) extends QBString
 
 /**
  * Number
  */
 trait QBNumber extends QBPrimitiveType[JsNumber] with QBBaseType  {
-  val rules: Set[ValidationRule]
   override def toString = "number"
 }
-case class QBNumberImpl(rules: Set[ValidationRule] = Set.empty) extends QBNumber
+case class QBNumberImpl(override val rules: Seq[ValidationRule] = Seq.empty) extends QBNumber
 
 /**
  * Integer
  */
 trait QBInteger extends QBPrimitiveType[JsNumber] with QBBaseType  {
-  val rules: Set[ValidationRule]
   override def toString = "integer"
 }
-case class QBIntegerImpl(intRules: Set[ValidationRule] = Set()) extends QBInteger {
-  val rules = intRules + IsIntegerRule()
+case class QBIntegerImpl(intRules: Seq[ValidationRule] = Seq()) extends QBInteger {
+  override val rules = intRules :+ IsIntegerRule()
 }
 
 /**
  * Boolean
  */
 trait QBBoolean extends QBPrimitiveType[JsBoolean] with QBBaseType {
-  val rules: Set[ValidationRule]
   override def toString = "boolean"
 }
-case class QBBooleanImpl(rules: Set[ValidationRule] = Set.empty) extends QBBoolean
+case class QBBooleanImpl(override val rules: Seq[ValidationRule] = Seq.empty) extends QBBoolean
 
 /**
  * ----------------------------------------------------------
@@ -241,10 +231,10 @@ case class AnnotatedQBType(qbType: QBType, annotations: List[QBAnnotation]) exte
 trait QBDateTime extends QBType {
   override def toString = "dateTime"
 }
-class QBDateTimeImpl(rules: Set[ValidationRule]) extends QBStringImpl(rules) with QBDateTime
+class QBDateTimeImpl(rules: Seq[ValidationRule]) extends QBStringImpl(rules) with QBDateTime
 
 trait QBPosixTime extends QBType {
   override def toString = "posixTime"
 }
-class QBPosixTimeImpl(rules: Set[ValidationRule] = Set.empty) extends QBNumberImpl(rules) with QBPosixTime
+class QBPosixTimeImpl(rules: Seq[ValidationRule] = Seq.empty) extends QBNumberImpl(rules) with QBPosixTime
 

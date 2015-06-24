@@ -8,6 +8,9 @@ case class Context(
                     path: Path,
                     root: QBType,
                     annotations: Seq[QBAnnotation],
-                    visited: Set[QBRef],
-                    resolutionScope: Option[String] = None
+                    visited: Set[QBRef], // should be extractable into RefResolver
+                    id: Option[String] = None
                     )
+
+
+

@@ -17,16 +17,17 @@ import scala.reflect.ClassTag
  */
 case class JsValueUpdateBuilder(schema: QBType, mappings: List[(QBType => Boolean, PartialFunction[JsValue, JsValue])] = List.empty) {
 
-  val processor = new JsValueProcessor(RuleProvider {
-    case (qbType, annotations) if mappings.exists(p => p._1(qbType))=> Rule.fromMapping[JsValue, JsValue] { js =>
-      val pf = mappings.find(p => p._1(qbType)).get._2
-      if (pf.isDefinedAt(js)) {
-        Success(pf(js))
-      } else {
-        Success(js)
-      }
-    }
-  })
+  val processor = new JsValueProcessor()
+//    RuleProvider {
+//    case (qbType, annotations) if mappings.exists(p => p._1(qbType))=> Rule.fromMapping[JsValue, JsValue] { js =>
+//      val pf = mappings.find(p => p._1(qbType)).get._2
+//      if (pf.isDefinedAt(js)) {
+//        Success(pf(js))
+//      } else {
+//        Success(js)
+//      }
+//    }
+//  })
 
   /**
    * Allows to created a modified version of the passed JsObject by passing in

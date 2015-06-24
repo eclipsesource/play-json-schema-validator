@@ -25,7 +25,6 @@ trait JSONSchemaWrites {
     case EnumRule(values) => List("enum" -> JsArray(values.map(JsString)))
     case f: FormatRule[_] => List("format" -> JsString(f.format))
     case c: CompositeRule => c.rules.toList.flatMap(writeRule)
-    case kv: KeyValueRule[_] => List(kv.key -> kv.value)
       // TODO: empty?
     case allOf: QBAllOfRule => List("allOf" -> Json.toJson(allOf.schemas))
     case anyOf: QBAnyOfRule => List("anyOf" -> Json.toJson(anyOf.schemas))
@@ -72,11 +71,12 @@ trait JSONSchemaWrites {
     Json.obj(
       "items" -> Json.toJson(arr.items)
     // TODO: write any other props, too
-    ).deepMerge(
-      arr.resolutionScope.fold(Json.obj())(id =>
-        Json.obj("id" -> id)
-      )
     )
+//      .deepMerge(
+//      arr.resolutionScope.fold(Json.obj())(id =>
+//        Json.obj("id" -> id)
+//      )
+//    )
 //      .deepMerge(
 //        arr.additionalItems.fold(Json.obj())(items =>
 //          Json.obj("additionalItems" -> items)
@@ -88,11 +88,13 @@ trait JSONSchemaWrites {
   implicit val tupleWriter: Writes[QBTuple] = Writes[QBTuple] { arr =>
     Json.obj(
       "items" -> Json.toJson(arr.qbTypes)
-    ).deepMerge(
-        arr.additionalItems.fold(Json.obj())(items =>
-          Json.obj("additionalItems" -> items)
-        )
-      )
+    )
+    //TODO: WRITE RULRE
+//      .deepMerge(
+//        arr.additionalItems.fold(Json.obj())(items =>
+//          Json.obj("additionalItems" -> items)
+//        )
+//      )
   }
 
   implicit val refWriter: Writes[QBRef] = Writes[QBRef] { ref =>

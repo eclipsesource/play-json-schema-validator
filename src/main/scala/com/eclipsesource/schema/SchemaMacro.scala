@@ -14,15 +14,15 @@ object SchemaMacro {
 
     def qbType(universeType: c.universe.Type, typeAsString: String): QBType = {
       typeAsString match {
-        case "String"     => QBStringImpl(Set())
+        case "String"     => QBStringImpl(Seq())
         case "Int"        => QBIntegerImpl()
         case "Integer"    => QBIntegerImpl()
-        case "Double"     => QBNumberImpl(Set())
-        case "BigDecimal" => QBNumberImpl(Set())
-        case "Boolean"   => QBBooleanImpl(Set())
+        case "Double"     => QBNumberImpl(Seq())
+        case "BigDecimal" => QBNumberImpl(Seq())
+        case "Boolean"   => QBBooleanImpl(Seq())
         case arr if universeType.baseClasses.contains(seqSym) =>
           val itemType = qbType(universeType, universeType.resultType.typeArgs.head.toString)
-          QBArray(() => itemType)
+          QBArray(() => itemType, Seq.empty, None)
         case cls =>
 
           val fields = universeType.decls.collectFirst {

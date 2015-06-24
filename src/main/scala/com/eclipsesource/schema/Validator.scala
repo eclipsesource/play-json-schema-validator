@@ -15,15 +15,18 @@ trait Validator  {
 //    val visitor2 = (annotationRule |@| validationRule) { _ compose _ }
   val visitor2 = annotationRule
 
-  val processor = JsValueProcessor(visitor2)
+  val processor = JsValueProcessor()
 
-  def validate(schema: QBType)(input: => JsValue): VA[JsValue] = {
-    val context = Context(Path, schema, Seq.empty, Set.empty, schema.resolutionScope)
+  def validate(schema: QBType)(input: => JsValue, context: Context = Context(Path, schema, Seq.empty, Set.empty, None)): VA[JsValue] = {
     val updatedRoot = RefResolver.replaceRefs(schema, context)
+    val maybeId = schema match {
+      case container: QBContainer => container.id
+      case _ => None
+    }
     processor.process(
       updatedRoot,
       input,
-      context.copy(root = updatedRoot)
+      context.copy(root = updatedRoot, id = maybeId)
     )
   }
 
