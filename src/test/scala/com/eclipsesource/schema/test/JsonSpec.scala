@@ -3,7 +3,7 @@ package com.eclipsesource.schema.test
 import java.io.InputStream
 import java.net.URL
 
-import com.eclipsesource.schema.{Validator, QBArrayConstant, QBType}
+import com.eclipsesource.schema.{Validator, SchemaArrayConstant, SchemaType}
 import org.specs2.execute.Result
 import org.specs2.matcher.ThrownExpectations
 import org.specs2.specification.Example
@@ -13,7 +13,7 @@ import play.api.libs.functional.syntax._
 
 import scala.util.Try
 
-case class JsonSchemaSpec(description: String, schema: QBType, tests: Seq[JsonSchemaTest])
+case class JsonSchemaSpec(description: String, schema: SchemaType, tests: Seq[JsonSchemaTest])
 case class JsonSchemaTest(description: String, data: JsValue, valid: Boolean)
 case class SpecResult(description: String, valid: Boolean, error: Option[Seq[(Path, Seq[ValidationError])]])
 
@@ -71,7 +71,7 @@ object JsonSpec extends ThrownExpectations {
     specs.map {
       case obj@JsObject(props) => JsonSchemaSpec(
         (obj \ "description").as[String],
-        (obj \ "schema").as[QBType],
+        (obj \ "schema").as[SchemaType],
         (obj \ "tests").as[Seq[JsonSchemaTest]]
       )
     }

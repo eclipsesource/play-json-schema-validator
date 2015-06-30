@@ -18,7 +18,7 @@ trait SchemaOps extends BaseSchemaOps { self =>
    * 	Schema Ops Extensions
    * ----------------------------------------------------------
    */
-  implicit class QBSchemaOps(schema: QBClass) {
+  implicit class SchemaObjectOps(schema: SchemaObject) {
 
     /**
      * Resolves the given path on this schema.
@@ -30,7 +30,7 @@ trait SchemaOps extends BaseSchemaOps { self =>
      * @return the resolved sub-schema
      */
     // TODO: provider without type parameter
-    def resolve[A <: QBType](path: QBStringPath): A = resolvePath[A](schema)(path)
+    def resolve[A <: SchemaType](path: SchemaPath): A = resolvePath[A](schema)(path)
 
     /**
      * Renames the attribute located at the given path.
@@ -46,7 +46,7 @@ trait SchemaOps extends BaseSchemaOps { self =>
      *
      * @return the updated schema containing the renamed attribute
      */
-    def rename(path: QBStringPath, newAttributeName: String): QBClass =
+    def rename(path: SchemaPath, newAttributeName: String): SchemaObject =
       renameAttribute(schema)(path, newAttributeName)
 
     /**
@@ -64,7 +64,7 @@ trait SchemaOps extends BaseSchemaOps { self =>
      *
      * @return the updated schema containing the renamed attribute
      */
-    def rename(oldAttributeName: String, newAttributeName: String): QBClass =
+    def rename(oldAttributeName: String, newAttributeName: String): SchemaObject =
       renameAttribute(schema)(oldAttributeName, newAttributeName)
 
     /**
@@ -77,11 +77,11 @@ trait SchemaOps extends BaseSchemaOps { self =>
      *
      * @return the updated schema containing only the specified attributes at the given path
      */
-    def keep(path: QBStringPath, attributeNames: List[String]): QBClass =
+    def keep(path: SchemaPath, attributeNames: List[String]): SchemaObject =
       retain(schema)(path, attributeNames)
 
     /**
-     * Synonym for keep(QBStringPath, List[String]).
+     * Synonym for keep(SchemaPath, List[String]).
      *
      * @param path
      *         the path to the attributes to be kept
@@ -90,7 +90,7 @@ trait SchemaOps extends BaseSchemaOps { self =>
      *
      * @return the updated schema containing only the specified attributes at the given path
      */
-    def keepAt(path: QBStringPath, attributeNames: String*): QBClass = 
+    def keepAt(path: SchemaPath, attributeNames: String*): SchemaObject =
       retain(schema)(path, attributeNames)
 
     /**
@@ -101,7 +101,7 @@ trait SchemaOps extends BaseSchemaOps { self =>
      *
      * @return the updated schema containing only the specified attributes
      */
-    def keep(attributes: String*): QBClass = retain(schema)("", attributes)
+    def keep(attributes: String*): SchemaObject = retain(schema)("", attributes)
 
     /**
      * Retains all fields of this schema
@@ -111,7 +111,7 @@ trait SchemaOps extends BaseSchemaOps { self =>
      *
      * @return the updated schema containing only the specified attributes
      */
-    def keep(attributes: List[String]): QBClass = retain(schema)("", attributes)
+    def keep(attributes: List[String]): SchemaObject = retain(schema)("", attributes)
 
     /**
      * Makes all values referenced by the given list of paths
@@ -122,7 +122,7 @@ trait SchemaOps extends BaseSchemaOps { self =>
      *
      * @return the updated schema with the specified paths being marked as optional
      */
-    def ?(paths: String*): QBClass = makeOptional(schema, paths.toList.map(string2QBPath))
+    def ?(paths: String*): SchemaObject = makeOptional(schema, paths.toList.map(string2SchemaPath))
 
     /**
      * Makes all values referenced by the given list of paths
@@ -133,11 +133,11 @@ trait SchemaOps extends BaseSchemaOps { self =>
      *
      * @return the updated schema with the sub-schema being marked as optional
      */
-    def ?(subSchema: QBClass): QBClass = pathOfSubSchema(schema, subSchema).fold {
+    def ?(subSchema: SchemaObject): SchemaObject = pathOfSubSchema(schema, subSchema).fold {
       schema
     } { subPath =>
-      val optionalSubSchema = subSchema.updateAttributesByPredicate(_ => true)(attr => attr.addAnnotation(QBOptionalAnnotation()))
-      updateByPath[QBClass](schema, subPath.toString.substring(1).replace("/", "."), _ => optionalSubSchema)
+      val optionalSubSchema = subSchema.updateAttributesByPredicate(_ => true)(attr => attr.addAnnotation(SchemaOptionalAnnotation()))
+      updateByPath[SchemaObject](schema, subPath.toString.substring(1).replace("/", "."), _ => optionalSubSchema)
     }
 
     /**
@@ -150,7 +150,7 @@ trait SchemaOps extends BaseSchemaOps { self =>
      *
      * @return the updated schema containing the additional attribute
      */
-    def +(path: QBStringPath, attr: QBAttribute): QBClass = add(schema)(path, List(attr))
+    def +(path: SchemaPath, attr: SchemaAttribute): SchemaObject = add(schema)(path, List(attr))
 
     /**
      * Adds the given attribute to the root of this schema.
@@ -160,7 +160,7 @@ trait SchemaOps extends BaseSchemaOps { self =>
      *
      * @return the updated schema containing the additional attribute
      */
-    def +(attr: QBAttribute): QBClass = add(schema)("", List(attr))
+    def +(attr: SchemaAttribute): SchemaObject = add(schema)("", List(attr))
 
     /**
      * Merges the attributes of the given schema into this schema.
@@ -170,7 +170,7 @@ trait SchemaOps extends BaseSchemaOps { self =>
      *
      * @return the updated schema containing the additional attributes from the other schema
      */
-    def ++(otherSchema: QBClass): QBClass = merge(schema, otherSchema)
+    def ++(otherSchema: SchemaObject): SchemaObject = merge(schema, otherSchema)
 
     /**
      * Adds the given attributes at the path of the this schema.
@@ -182,7 +182,7 @@ trait SchemaOps extends BaseSchemaOps { self =>
      *
      * @return the updated schema containing the additional attributes at the specified path
      */
-    def ++(path: String, attributes: QBAttribute*): QBClass = add(schema)(path, attributes.toList)
+    def ++(path: String, attributes: SchemaAttribute*): SchemaObject = add(schema)(path, attributes.toList)
 
     /**
      * Adds the given attributes to the root of this schema.
@@ -192,7 +192,7 @@ trait SchemaOps extends BaseSchemaOps { self =>
      *
      * @return the updated schema containing the additional attributes at the root level
      */
-    def ++(attributes: QBAttribute*): QBClass = add(schema)("", attributes.toList)
+    def ++(attributes: SchemaAttribute*): SchemaObject = add(schema)("", attributes.toList)
 
     /**
      * Removes all fields from this schema that are part of the given schema.
@@ -202,7 +202,7 @@ trait SchemaOps extends BaseSchemaOps { self =>
      *
      * @return the updated schema with the attributes of the other schema being removed
      */
-    def --(otherSchema: QBClass): QBClass = extract(schema, otherSchema)
+    def --(otherSchema: SchemaObject): SchemaObject = extract(schema, otherSchema)
 
     /**
      * Removes the attribute referenced by the path within this schema.
@@ -212,7 +212,7 @@ trait SchemaOps extends BaseSchemaOps { self =>
      *
      * @return the updated schema with the attribute being removed
      */
-    def -(path: String): QBClass = remove(schema, toQBPaths(List(path)))
+    def -(path: String): SchemaObject = remove(schema, toSchemaPaths(List(path)))
 
     /**
      * Removes all attributes that are referenced by the list of paths within this schema.
@@ -222,7 +222,7 @@ trait SchemaOps extends BaseSchemaOps { self =>
      *
      * @return the updated schema with the attributes being removed
      */
-    def --(paths: String*): QBClass = remove(schema, toQBPaths(paths.toList))
+    def --(paths: String*): SchemaObject = remove(schema, toSchemaPaths(paths.toList))
 
     /**
      * Removes all values that are referenced by the list of paths within this schema.
@@ -232,7 +232,7 @@ trait SchemaOps extends BaseSchemaOps { self =>
      *
      * @return the updated schema with the attributes being removed
      */
-    def --(paths: List[String]): QBClass = remove(schema, toQBPaths(paths))
+    def --(paths: List[String]): SchemaObject = remove(schema, toSchemaPaths(paths))
 
     /**
      * Makes all values referenced by the given list of paths
@@ -243,7 +243,7 @@ trait SchemaOps extends BaseSchemaOps { self =>
      *
      * @return the updated schema with the given paths being marked as read-only
      */
-    def readOnly(paths: String*) = makeReadOnly(schema, toQBPaths(paths.toList))
+    def readOnly(paths: String*) = makeReadOnly(schema, toSchemaPaths(paths.toList))
 
     /**
      * Marks all attributes of the given sub-schema as read-only.
@@ -253,12 +253,12 @@ trait SchemaOps extends BaseSchemaOps { self =>
      *
      * @return the updated schema, if the sub-schema exists, the unchanged schema otherwise
      */
-    def readOnly(subSchema: QBClass) = {
+    def readOnly(subSchema: SchemaObject) = {
       pathOfSubSchema(schema, subSchema).fold {
         schema
       } { subPath =>
-        val readOnlySubSchema = subSchema.updateAttributesByPredicate(_ => true)(_.addAnnotation(QBReadOnlyAnnotation()))
-        updateByPath[QBClass](schema, subPath.toString.substring(1).replace("/", "."), _ => readOnlySubSchema)
+        val readOnlySubSchema = subSchema.updateAttributesByPredicate(_ => true)(_.addAnnotation(SchemaReadOnlyAnnotation()))
+        updateByPath[SchemaObject](schema, subPath.toString.substring(1).replace("/", "."), _ => readOnlySubSchema)
       }
     }
 
@@ -271,8 +271,8 @@ trait SchemaOps extends BaseSchemaOps { self =>
      *            the update function
      * @return the updated schema
      */
-    def updateByPredicate(predicate: QBType => Boolean, updateFn: QBType => QBType): QBClass =
-      updateIf(schema)(predicate)(updateFn).asInstanceOf[QBClass]
+    def updateByPredicate(predicate: SchemaType => Boolean, updateFn: SchemaType => SchemaType): SchemaObject =
+      updateIf(schema)(predicate)(updateFn).asInstanceOf[SchemaObject]
 
 
     /**
@@ -284,9 +284,9 @@ trait SchemaOps extends BaseSchemaOps { self =>
      *           the type that needs to be matched in order for the update function to be executed
      * @return the updated schema
      */
-    def updateByType[A <: QBType : ClassTag](updateFn: A => QBType): QBClass = {
+    def updateByType[A <: SchemaType : ClassTag](updateFn: A => SchemaType): SchemaObject = {
       val clazz = implicitly[ClassTag[A]].runtimeClass
-      updateIf(schema)(qbType => clazz.isInstance(qbType))(updateFn).asInstanceOf[QBClass]
+      updateIf(schema)(schemaType => clazz.isInstance(schemaType))(updateFn).asInstanceOf[SchemaObject]
     }
 
     // TODO: caller must cast to object
@@ -299,13 +299,13 @@ trait SchemaOps extends BaseSchemaOps { self =>
      *                 the update function
      * @return the updated schema
      */
-    def updateAttributesByPredicate(predicate: QBAttribute => Boolean)(updateFn: QBAttribute => QBAttribute): QBType =
+    def updateAttributesByPredicate(predicate: SchemaAttribute => Boolean)(updateFn: SchemaAttribute => SchemaAttribute): SchemaType =
       updateAttributeIf(schema)(predicate)(updateFn)
 
-    def update(qbType: QBType, pf: PartialFunction[QBType, QBType]) =
-      self.updateIf(qbType, pf)
+    def update(schemaType: SchemaType, pf: PartialFunction[SchemaType, SchemaType]) =
+      self.updateIf(schemaType, pf)
 
-    def transform(obj: JsObject)(transformers: (QBType => Boolean, PartialFunction[JsValue, JsValue])*): JsObject = self.transform(schema, obj)(transformers)
+    def transform(obj: JsObject)(transformers: (SchemaType => Boolean, PartialFunction[JsValue, JsValue])*): JsObject = self.transform(schema, obj)(transformers)
 
     /**
      * Checks if a given predicate holds for all attributes.
@@ -314,7 +314,7 @@ trait SchemaOps extends BaseSchemaOps { self =>
      *            the predicate that should be evaluated against all attributes
      * @return true, if the predicate holds for all attributes, false otherwise
      */
-    def forAll(predicate: QBAttribute => Boolean): Boolean = {
+    def forAll(predicate: SchemaAttribute => Boolean): Boolean = {
       import scalaz.std.anyVal.booleanInstance.conjunction
       implicit val M = conjunction
       collapse(schema)(predicate)
@@ -327,7 +327,7 @@ trait SchemaOps extends BaseSchemaOps { self =>
      *           the schema to be compared against this one
      * @return true, if the schemas are equal, false otherwise
      */
-    def isEquals(otherSchema: QBClass): Boolean =
+    def isEquals(otherSchema: SchemaObject): Boolean =
       areEqual(schema, otherSchema)
 
     /**
@@ -337,12 +337,12 @@ trait SchemaOps extends BaseSchemaOps { self =>
      *           the schema that is supposed to contain this schema as a subset
      * @return true, if this schema is a subset of the given schema
      */
-    def isSubSetOf(otherSchema: QBClass): Boolean =
+    def isSubSetOf(otherSchema: SchemaObject): Boolean =
       isSubSet(schema, otherSchema)
 
-    def isOptional(path: QBStringPath): Boolean = {
+    def isOptional(path: SchemaPath): Boolean = {
       resolveAttribute(path, schema).fold(false)(attr =>
-        attr.annotations.exists(_.isInstanceOf[QBOptionalAnnotation])
+        attr.annotations.exists(_.isInstanceOf[SchemaOptionalAnnotation])
       )
     }
   }

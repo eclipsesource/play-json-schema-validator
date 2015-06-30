@@ -15,29 +15,29 @@ import scalaz.std.option._
  */
 trait BaseSchemaOps {
 
-  implicit def string2QBPath(str: String): QBStringPath = str.split("\\.").toList.filterNot(_.trim == "")
-  def toQBPaths(paths: List[String]) = paths.toList.map(string2QBPath)
-  type QBStringPath = List[String]
-  def emptyPath: QBStringPath = List.empty
+  implicit def string2SchemaPath(str: String): SchemaPath = str.split("\\.").toList.filterNot(_.trim == "")
+  def toSchemaPaths(paths: List[String]) = paths.toList.map(string2SchemaPath)
+  type SchemaPath = List[String]
+  def emptyPath: SchemaPath = List.empty
 
   def fail[A](msg: String) = throw new RuntimeException(msg)
 
-  case class BuildDescription(descriptions: List[(QBClass, String)]) {
+  case class BuildDescription(descriptions: List[(SchemaObject, String)]) {
 
-    def +(obj: QBClass, field: String): BuildDescription = {
+    def +(obj: SchemaObject, field: String): BuildDescription = {
       BuildDescription(obj -> field :: descriptions)
     }
 
-    def build(initialValue: QBType) = {
+    def build(initialValue: SchemaType) = {
       if (descriptions.nonEmpty) {
         val (obj, fieldName) = descriptions.head
         // TODO: recheck parent,
-        val init = updateAttributeByPath(obj)(fieldName, _ => QBAttribute(fieldName, initialValue))
+        val init = updateAttributeByPath(obj)(fieldName, _ => SchemaAttribute(fieldName, initialValue))
         descriptions.tail.foldLeft(init)((updated, desc) => {
-          updateAttributeByPath(desc._1)(desc._2, _ => QBAttribute(desc._2, updated))
+          updateAttributeByPath(desc._1)(desc._2, _ => SchemaAttribute(desc._2, updated))
         })
       } else {
-        initialValue.asInstanceOf[QBClass]
+        initialValue.asInstanceOf[SchemaObject]
       }
     }
   }
@@ -58,7 +58,7 @@ trait BaseSchemaOps {
    * @return the attribute that matches the given attribute. If the attribute does not exists
    *         a RuntimeException is thrown
    */
-  def attribute(cls: QBClass, attributeName: String): QBAttribute = {
+  def attribute(cls: SchemaObject, attributeName: String): SchemaAttribute = {
     cls.properties.find(_.name == attributeName).getOrElse(fail("field.does.not.exist [" + attributeName + "]"))
   }
 
@@ -68,13 +68,13 @@ trait BaseSchemaOps {
    * @param path
    *             the path to be resolved
    * @param resolvable
-   *             the QB class definition that contains the attribute that is referenced by the path
+   *             the schema object definition that contains the attribute that is referenced by the path
    */
-  def resolve(path: QBStringPath, resolvable: QBClass): (BuildDescription, QBType) = {
+  def resolve(path: SchemaPath, resolvable: SchemaObject): (BuildDescription, SchemaType) = {
 
     @tailrec
-    def _resolve(path: QBStringPath, resolvable: QBClass,
-                 buildDescription: BuildDescription): (BuildDescription, QBType) = {
+    def _resolve(path: SchemaPath, resolvable: SchemaObject,
+                 buildDescription: BuildDescription): (BuildDescription, SchemaType) = {
       path match {
         case Nil =>
           (buildDescription, resolvable)
@@ -85,8 +85,8 @@ trait BaseSchemaOps {
             (buildDescription, resolvable)
           } else {
             val field = resolvable.properties.find(_.name == pathHead).getOrElse(fail("field.does.not.exist [" + pathHead + "]"))
-            field.qbType match {
-              case cls: QBClass => _resolve(pathTail, cls, buildDescription + (resolvable, pathHead))
+            field.schemaType match {
+              case cls: SchemaObject => _resolve(pathTail, cls, buildDescription + (resolvable, pathHead))
               case otherType => (buildDescription, otherType)
             }
           }
@@ -97,10 +97,10 @@ trait BaseSchemaOps {
   }
 
 
-  def resolveAttribute(path: QBStringPath, resolvable: QBClass): Option[QBAttribute] = {
+  def resolveAttribute(path: SchemaPath, resolvable: SchemaObject): Option[SchemaAttribute] = {
 
     @tailrec
-    def _resolve(path: QBStringPath, attribute: Option[QBAttribute], resolvable: QBClass): Option[QBAttribute] = {
+    def _resolve(path: SchemaPath, attribute: Option[SchemaAttribute], resolvable: SchemaObject): Option[SchemaAttribute] = {
       path match {
         case Nil =>
           attribute
@@ -111,8 +111,8 @@ trait BaseSchemaOps {
             attribute
           } else {
             val attr = resolvable.properties.find(_.name == pathHead).getOrElse(fail("field.does.not.exist [" + pathHead + "]"))
-            attr.qbType match {
-              case cls: QBClass => _resolve(pathTail, Some(attr), cls)
+            attr.schemaType match {
+              case cls: SchemaObject => _resolve(pathTail, Some(attr), cls)
               case otherType => Some(attr)
             }
           }
@@ -127,110 +127,110 @@ trait BaseSchemaOps {
   //
 
   /**
-   * Resolves the given path on the given QB class definition, executes the modifier
-   * if the path has been resolved and returns the updated QB class definition.
+   * Resolves the given path on the given class definition, executes the modifier
+   * if the path has been resolved and returns the updated schema object definition.
    *
    * @param resolvable
-   *             the QB class definition which is supposed to contain the path
+   *             the schema object definition which is supposed to contain the path
    * @param path
    *             the path  within the class definition that needs to be updated
    * @param modifier
    *             the update function
    * @tparam A
    *             the expected type when the path has been resolved
-   * @return the updated QB class definition
+   * @return the updated schema object definition
    */
-  def updateByPath[A <: QBType](resolvable: QBClass, path: QBStringPath, modifier: A => QBType): QBClass = {
+  def updateByPath[A <: SchemaType](resolvable: SchemaObject, path: SchemaPath, modifier: A => SchemaType): SchemaObject = {
     val (buildDescription, value) = resolve(path, resolvable)
     val updated = modifier(value.asInstanceOf[A])
     buildDescription.build(updated)
   }
 
   /**
-   * Traverses the given QB type and executes the given modifier if the predicate evaluates to true.
+   * Traverses the given type and executes the given modifier if the predicate evaluates to true.
    *
-   * @param qbType
+   * @param schemaType
    *               the type to be traversed
    * @param predicate
    *               the predicate that must be fulfilled in order to execute the update function
    * @param modifier
    *               the update function that is called if the predicate is fulfilled
-   * @return the updated QB type
+   * @return the updated schema  type
    */
-  def updateIf[A <: QBType](qbType: QBType)(predicate: QBType => Boolean)(modifier: A => QBType): QBType = {
-    qbType match {
-      case cls: QBClass =>
-        val updatedQBClass = cls.copy(properties = cls.properties.map { attr =>
+  def updateIf[A <: SchemaType](schemaType: SchemaType)(predicate: SchemaType => Boolean)(modifier: A => SchemaType): SchemaType = {
+    schemaType match {
+      case cls: SchemaObject =>
+        val updatedSchemaObject = cls.copy(properties = cls.properties.map { attr =>
           // TODO check parent
-          QBAttribute(attr.name, updateIf[A](attr.qbType)(predicate)(modifier))
+          SchemaAttribute(attr.name, updateIf[A](attr.schemaType)(predicate)(modifier))
         })
         if (predicate(cls)) {
-          modifier(updatedQBClass.asInstanceOf[A])
+          modifier(updatedSchemaObject.asInstanceOf[A])
         } else {
-          updatedQBClass
+          updatedSchemaObject
         }
         // TODO: check parent
-      case arr: QBArray => QBArray(() => updateIf[A](arr.items)(predicate)(modifier))
+      case arr: SchemaArray => SchemaArray(() => updateIf[A](arr.items)(predicate)(modifier))
       case q if predicate(q) => modifier(q.asInstanceOf[A])
-      case _ => qbType
+      case _ => schemaType
     }
   }
 
   /**
-   * Traverses the given QB type and executes the given partial function, if matched.
+   * Traverses the given schema type and executes the given partial function, if matched.
    *
-   * @param qbType
+   * @param schemaType
    *               the type to be traversed
    * @param pf
    *               the partial function to be executed
    * @return the updated type
    */
-  def updateIf(qbType: QBType, pf: PartialFunction[QBType, QBType]): QBType =
-    updateIf(qbType)(pf.isDefinedAt)(pf.apply)
+  def updateIf(schemaType: SchemaType, pf: PartialFunction[SchemaType, SchemaType]): SchemaType =
+    updateIf(schemaType)(pf.isDefinedAt)(pf.apply)
 
   /**
-   * Traverses the given QB type and executes the given attribute modifier if the predicate evaluates to true.
+   * Traverses the given schema type and executes the given attribute modifier if the predicate evaluates to true.
    *
-   * @param qbType
+   * @param schemaType
    *               the type to be traversed
    * @param predicate
    *               the predicate that must be fulfilled in order to execute the update function
    * @param modifier
    *               the attribute update function that is called if the predicate is fulfilled
-   * @return the updated QB type
+   * @return the updated schema type
    */
-  def updateAttributeIf(qbType: QBClass)(predicate: QBAttribute => Boolean)(modifier: QBAttribute => QBAttribute): QBClass = {
-    updateIf(qbType, {
-      case obj: QBClass =>
+  def updateAttributeIf(schemaType: SchemaObject)(predicate: SchemaAttribute => Boolean)(modifier: SchemaAttribute => SchemaAttribute): SchemaObject = {
+    updateIf(schemaType, {
+      case obj: SchemaObject =>
         obj.copy(properties = obj.properties.collect {
           case attr if predicate(attr) =>
             val modifiedAttribute = modifier(attr)
-            modifiedAttribute.copy(qbType = modifiedAttribute.qbType)
-          case attr if attr.qbType.isInstanceOf[QBClass] =>
+            modifiedAttribute.copy(schemaType = modifiedAttribute.schemaType)
+          case attr if attr.schemaType.isInstanceOf[SchemaObject] =>
             // TODO check parent
-            QBAttribute(attr.name, updateAttributeIf(attr.qbType.asInstanceOf[QBClass])(predicate)(modifier), attr.annotations)
+            SchemaAttribute(attr.name, updateAttributeIf(attr.schemaType.asInstanceOf[SchemaObject])(predicate)(modifier), attr.annotations)
           case attr => attr
         })
-    }).asInstanceOf[QBClass]
+    }).asInstanceOf[SchemaObject]
   }
 
   /**
-   * Resolves the given path on the given QB class definition, executes the modifier
-   * if the path has been resolved and returns the updated QB class definition.
+   * Resolves the given path on the given schema object definition, executes the modifier
+   * if the path has been resolved and returns the updated schema object definition.
    *
    * @param resolvable
-   *               the QB class definition which is supposed to contain the path
+   *               the schema object definition which is supposed to contain the path
    * @param path
    *               the path to be resolved
    * @param modifier
    *               the attribute update function that is called if the predicate is fulfilled
-   * @return the updated QB type
+   * @return the updated schema type
    */
-  def updateAttributeByPath(resolvable: QBClass)(path: QBStringPath, modifier: QBAttribute => QBAttribute): QBClass = {
+  def updateAttributeByPath(resolvable: SchemaObject)(path: SchemaPath, modifier: SchemaAttribute => SchemaAttribute): SchemaObject = {
     // TODO: init & last may both fail with an exception
     val parentPath = path.init
     val attributeName = path.last
-    updateByPath[QBClass](resolvable, parentPath, cls => {
+    updateByPath[SchemaObject](resolvable, parentPath, cls => {
       val currentAttribute = attribute(cls, attributeName)
       cls.properties.indexOf(currentAttribute) match {
         case -1  => fail("field.does.not.exist [" + attributeName + "]")
@@ -252,10 +252,10 @@ trait BaseSchemaOps {
    *
    * @return the derived JSON vlaue
    */
-  def adapt(schema: QBType, path: JsPath, adapter: (JsPath, QBType) => JsResult[JsValue]): JsResult[JsValue] = {
+  def adapt(schema: SchemaType, path: JsPath, adapter: (JsPath, SchemaType) => JsResult[JsValue]): JsResult[JsValue] = {
     schema match {
-      case obj: QBClass =>
-        val fields = obj.properties.map(fd => fd.name -> adapt(fd.qbType, path \ fd.name, adapter))
+      case obj: SchemaObject =>
+        val fields = obj.properties.map(fd => fd.name -> adapt(fd.schemaType, path \ fd.name, adapter))
           JsSuccess(JsObject(fields.collect {
             case (fieldName, JsSuccess(res, _)) if !res.isInstanceOf[JsUndefined] =>
               (fieldName, res)
@@ -264,14 +264,14 @@ trait BaseSchemaOps {
     }
   }
 
-  def transform(schema: QBClass, obj: JsObject)(transformers: Seq[(QBType => Boolean, PartialFunction[JsValue, JsValue])]): JsObject = {
+  def transform(schema: SchemaObject, obj: JsObject)(transformers: Seq[(SchemaType => Boolean, PartialFunction[JsValue, JsValue])]): JsObject = {
     transformers.foldLeft(new JsValueUpdateBuilder(schema))((builder, entry) =>
       builder.byPredicate(entry._1)(entry._2)
     ).go(obj)
   }
 
   /**
-   * Folds over the given QB schema definition, executes the modifier
+   * Folds over the given schema definition, executes the modifier
    * for each encountered attribute, if the given type is encountered
    * and joins the result by means of the monoid append operation in scope.
    *
@@ -279,18 +279,18 @@ trait BaseSchemaOps {
    *               the schema to be fold over
    * @param modifier
    *               the modifier to be executed for each attribute
-   * @tparam A a QB subtype that must be matched in order to execute the modifier
+   * @tparam A a schema subtype that must be matched in order to execute the modifier
    * @tparam B the result type of the modifier. Must be a monoid instance
    * @return the folded result
    */
-  def collapse[A <: QBType : ClassTag, B : Monoid](schema: QBClass)(modifier: QBAttribute => B): B = {
+  def collapse[A <: SchemaType : ClassTag, B : Monoid](schema: SchemaObject)(modifier: SchemaAttribute => B): B = {
 
-    def _collapse(obj: QBClass, result: B)(modifier: QBAttribute => B): B = {
+    def _collapse(obj: SchemaObject, result: B)(modifier: SchemaAttribute => B): B = {
       val clazz = implicitly[ClassTag[A]].runtimeClass
-      obj.properties.foldLeft(result)((res, attr) => attr.qbType match {
-        case cls: QBClass if clazz.isInstance(cls) =>
+      obj.properties.foldLeft(result)((res, attr) => attr.schemaType match {
+        case cls: SchemaObject if clazz.isInstance(cls) =>
           _collapse(cls, res |+| modifier(attr))(modifier)
-        case cls: QBClass =>
+        case cls: SchemaObject =>
           _collapse(cls, res)(modifier)
         case a if clazz.isInstance(a) => res |+| modifier(attr)
         case a => res
@@ -302,7 +302,7 @@ trait BaseSchemaOps {
   }
 
   /**
-   * Folds over the given QB schema definition, executes the modifier
+   * Folds over the given schema definition, executes the modifier
    * for each encountered attribute, if the given type is encountered
    * and joins the result by means of the monoid append operation in scope.
    *
@@ -315,13 +315,13 @@ trait BaseSchemaOps {
    * @tparam B the result type of the modifier. Must be a monoid instance
    * @return the folded result
    */
-  def collapseWithPath[B : Monoid](matcher: QBType => Boolean)(schema: QBClass)(modifier: (QBAttribute, JsPath) => B): B = {
+  def collapseWithPath[B : Monoid](matcher: SchemaType => Boolean)(schema: SchemaObject)(modifier: (SchemaAttribute, JsPath) => B): B = {
 
-    def _collapseWithPath(matcher: QBType => Boolean)(obj: QBClass, path: JsPath, result: B)(modifier: (QBAttribute, JsPath) => B): B = {
-      obj.properties.foldLeft(result)((res, attr) => attr.qbType match {
-        case obj: QBClass if matcher(obj) =>
+    def _collapseWithPath(matcher: SchemaType => Boolean)(obj: SchemaObject, path: JsPath, result: B)(modifier: (SchemaAttribute, JsPath) => B): B = {
+      obj.properties.foldLeft(result)((res, attr) => attr.schemaType match {
+        case obj: SchemaObject if matcher(obj) =>
           _collapseWithPath(matcher)(obj, path \ attr.name, res |+| modifier(attr, path \ attr.name))(modifier)
-        case obj: QBClass =>
+        case obj: SchemaObject =>
           _collapseWithPath(matcher)(obj, path, result)(modifier)
         case a if matcher(a) => res |+| modifier(attr, path)
         case a => res
@@ -333,34 +333,34 @@ trait BaseSchemaOps {
   }
 
   /**
-   * Resolves the given path against the given QB class definition.
+   * Resolves the given path against the given schema object definition.
    *
    * @param root
-   *            the QB class definition against which the path will be resolved
+   *            the schema object definition against which the path will be resolved
    * @param path
    *            the path to be resolved
-   * @return the resolved QB type
+   * @return the resolved schema type
    *
    * @tparam A the expected type after resolving is finished
    */
-  def resolvePath[A <: QBType](root: QBClass)(path: QBStringPath): A =
+  def resolvePath[A <: SchemaType](root: SchemaObject)(path: SchemaPath): A =
     resolve(path, root)._2.asInstanceOf[A]
 
   /**
-   * Retains all attributes of the QB class definition at the given path based
+   * Retains all attributes of the schema object definition at the given path based
    * on the given sequence of attribute names.
    *
    * @param root
-   *            the QB class definition against which the path will be resolved
+   *            the schema object definition against which the path will be resolved
    * @param path
    *            the path to be resolved
    * @param attributes
    *            the name of the attributes to be retained
    *
-   * @return the updated QB class definition
+   * @return the updated schema object definition
    */
-  def retain(root: QBClass)(path: QBStringPath, attributes: Seq[String]): QBClass =
-    updateByPath[QBClass](root, path, cls => {
+  def retain(root: SchemaObject)(path: SchemaPath, attributes: Seq[String]): SchemaObject =
+    updateByPath[SchemaObject](root, path, cls => {
       cls.copy(properties = cls.properties.filter(field => attributes.contains(field.name)))
     })
 
@@ -368,16 +368,16 @@ trait BaseSchemaOps {
    * Renames the attribute located at the given path.
    *
    * @param root
-   *            the QB class definition against which the path will be resolved
+   *            the schema object definition against which the path will be resolved
    * @param path
    *            the path to be resolved
    * @param newAttributeName
    *            the new attribute name
    *
-   * @return the QB class definition with the renamed attribute
+   * @return the schema object definition with the renamed attribute
    */
   // TODO: duplicate check, TEST
-  def renameAttribute(root: QBClass)(path: QBStringPath, newAttributeName: String): QBClass =
+  def renameAttribute(root: SchemaObject)(path: SchemaPath, newAttributeName: String): SchemaObject =
     updateAttributeByPath(root)(path, attr => attr.copy(name = newAttributeName))
 
   /**
@@ -385,16 +385,16 @@ trait BaseSchemaOps {
    * optional.
    *
    * @param cls
-   *            the QB class definition which contains attributes that should be marked
+   *            the schema object definition which contains attributes that should be marked
    *            as optional
    * @param paths
    *            a list containing all attribute paths that should be marked as optional
    *
    * @return the updated schema with the referenced attributes being marked as optional
    */
-  def makeOptional(cls: QBClass, paths: List[QBStringPath]): QBClass =
+  def makeOptional(cls: SchemaObject, paths: List[SchemaPath]): SchemaObject =
     paths.foldLeft(cls)((obj, path) =>
-      updateAttributeByPath(obj)(path, _.addAnnotation(QBOptionalAnnotation())))
+      updateAttributeByPath(obj)(path, _.addAnnotation(SchemaOptionalAnnotation())))
 
   /**
    * Marks all values referenced by the given list of paths as read-only.
@@ -403,9 +403,9 @@ trait BaseSchemaOps {
    *         the schema that is supposed to contain the attributes that are referenced by the given paths
    * @return the updated schema with the referenced attributes being marked as read-only
    */
-  def makeReadOnly(schema: QBClass, paths: List[QBStringPath]): QBClass =
+  def makeReadOnly(schema: SchemaObject, paths: List[SchemaPath]): SchemaObject =
     paths.foldLeft(schema)((obj, path) =>
-      updateAttributeByPath(obj)(path, _.addAnnotation(QBReadOnlyAnnotation())))
+      updateAttributeByPath(obj)(path, _.addAnnotation(SchemaReadOnlyAnnotation())))
 
   /**
    * Returns the path of the given sub schema, if it is contained in the schema.
@@ -416,8 +416,8 @@ trait BaseSchemaOps {
    *          the sub-schema that is supposed to be contained in the first schema
    * @return the path of sub-schema in the schema, if it is contained, None otherwise
    */
-  def pathOfSubSchema(schema: QBClass, subSchema: QBClass): Option[String] = {
-    collapseWithPath(_ => true)(schema)((attr, path) => if (attr.qbType == subSchema) Some(path.toString()) else None)
+  def pathOfSubSchema(schema: SchemaObject, subSchema: SchemaObject): Option[String] = {
+    collapseWithPath(_ => true)(schema)((attr, path) => if (attr.schemaType == subSchema) Some(path.toString()) else None)
   }
 
   /**
@@ -430,9 +430,9 @@ trait BaseSchemaOps {
    * @param attributes
    *           the actual attributes to be added
    */
-  def add(schema: QBClass)(path: QBStringPath, attributes: Seq[QBAttribute]): QBClass = {
+  def add(schema: SchemaObject)(path: SchemaPath, attributes: Seq[SchemaAttribute]): SchemaObject = {
     val fieldNames = attributes.map(_.name)
-    updateByPath[QBClass](schema, path, cls =>
+    updateByPath[SchemaObject](schema, path, cls =>
       cls.copy(properties = cls.properties.filterNot(fd => fieldNames.contains(fd.name)) ++ attributes))
   }
 
@@ -444,11 +444,11 @@ trait BaseSchemaOps {
    * @param paths
    *            the paths to the attributes that are to be removed
    */
-  def remove(schema: QBClass, paths: Seq[QBStringPath]): QBClass =
+  def remove(schema: SchemaObject, paths: Seq[SchemaPath]): SchemaObject =
     paths.foldLeft(schema)((obj, path) => {
       val objPath = if (path.size > 1) path.init else List("")
       val attributeName = if (path.size == 1) path.head else path.last
-      updateByPath[QBClass](obj, objPath, cls => {
+      updateByPath[SchemaObject](obj, objPath, cls => {
         cls.copy(properties = cls.properties.filterNot(_ == attribute(cls, attributeName)))
       })
     })
@@ -461,22 +461,22 @@ trait BaseSchemaOps {
    * @param otherSchema
    *             the schema to be merged into the target schema
    *
-   * @return the merged QB class definition
+   * @return the merged schema object definition
    */
   // TODO: duplicate check
-  def merge(schema: QBClass, otherSchema: QBClass) = add(schema)(emptyPath, otherSchema.properties)
+  def merge(schema: SchemaObject, otherSchema: SchemaObject) = add(schema)(emptyPath, otherSchema.properties)
 
   /**
    * Removes all attributes from the first schema that are also part of the second given schema.
    *
-   * @param cls
-   *           the QB class definition from which attributes should be removed
-   * @param otherCls
-   *           the QB class definition that contains all attributes that should be removed from the first one
+   * @param schemaObj
+   *           the schema object definition from which attributes should be removed
+   * @param otherObj
+   *           the schema object definition that contains all attributes that should be removed from the first one
    *
-   * @return the first QB class definition without any attributes that are contained in the second
+   * @return the schema object definition without any attributes that are contained in the second
    */
-  def extract(cls: QBClass, otherCls: QBClass) = remove(cls, otherCls.properties.map(field => string2QBPath(field.name)))
+  def extract(schemaObj: SchemaObject, otherObj: SchemaObject) = remove(schemaObj, otherObj.properties.map(field => string2SchemaPath(field.name)))
 
   /**
    * Compares the schemas with each other.
@@ -487,7 +487,7 @@ trait BaseSchemaOps {
      *             the schema to be compared against the first one
    * @return true, if the schemas are equal, false otherwise
    */
-  def areEqual(schema: QBClass, otherSchema: QBClass): Boolean =
+  def areEqual(schema: SchemaObject, otherSchema: SchemaObject): Boolean =
     schema.equals(otherSchema)
 
   /**
@@ -499,10 +499,10 @@ trait BaseSchemaOps {
    *               the schema to check the sub schema against
    * @return true, if the sub schema is a subset of the schema
    */
-  def isSubSet(subSchema: QBClass, schema: QBClass): Boolean = {
+  def isSubSet(subSchema: SchemaObject, schema: SchemaObject): Boolean = {
     import scalaz.std.anyVal.booleanInstance.disjunction
     implicit val M = disjunction
     subSchema.equals(schema) ||
-      collapse[QBClass, Boolean](schema)(_.qbType.equals(subSchema))
+      collapse[SchemaObject, Boolean](schema)(_.schemaType.equals(subSchema))
   }
 }

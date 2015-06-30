@@ -14,10 +14,7 @@ class ReadsSpec extends Specification {
     }""".stripMargin)
 
   "Read of id property" should {
-
     "not emit a ref" in {
-      println(schema.get)
-      println(Json.prettyPrint(Json.toJson(schema.get)))
       true must beTrue
     }
   }

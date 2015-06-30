@@ -1,13 +1,13 @@
 package com.eclipsesource.schema.internal
 
-import com.eclipsesource.schema.{QBType, QBContainer, QBAnnotation, QBRef}
+import com.eclipsesource.schema.{SchemaType, SchemaContainer, SchemaAnnotation, SchemaRef}
 import play.api.data.mapping.Path
 
 
 case class Context(
                     path: Path,
-                    root: QBType,
-                    annotations: Seq[QBAnnotation],
-                    visited: Set[QBRef],
+                    root: SchemaType,
+                    annotations: Seq[SchemaAnnotation],
+                    visited: Set[SchemaRef],
                     id: Option[String] = None
                     )

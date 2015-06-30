@@ -2,7 +2,7 @@ package com.eclipsesource.schema.test
 
 import java.net.URL
 
-import com.eclipsesource.schema.QBType
+import com.eclipsesource.schema.SchemaType
 import play.api.libs.json.{JsResult, JsValue, Json}
 
 import scala.io.{BufferedSource, Source}
@@ -12,7 +12,7 @@ object JSONSource {
 
   def fromString(json: String): Try[JsValue] = Try { Json.parse(json) }
   
-  def schemaFromString(json: String): JsResult[QBType] = Json.fromJson[QBType](Json.parse(json))
+  def schemaFromString(json: String): JsResult[SchemaType] = Json.fromJson[SchemaType](Json.parse(json))
 
   def fromURL(url: URL): Try[JsValue] = {
     val source = Source.fromURL(url)

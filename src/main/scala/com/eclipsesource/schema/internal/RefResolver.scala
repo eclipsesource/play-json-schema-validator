@@ -3,6 +3,7 @@ package com.eclipsesource.schema.internal
 import java.net.URLDecoder
 
 import com.eclipsesource.schema._
+import com.eclipsesource.schema.internal.constraints.Constraints.Constraint
 import play.api.data.mapping.Path
 import play.api.libs.json.Json
 
@@ -12,9 +13,9 @@ import scala.util.Try
 object RefResolver {
 
   // TODO: replace context parameter, unclear what for this is needed
-  def replaceRefs(schema: QBType, context: Context): QBType = {
+  def replaceRefs(context: Context)(schema: SchemaType): SchemaType = {
     schema match {
-      case container: QBContainer =>
+      case container: SchemaContainer =>
         val id = if (schema != context.root) {
           for {
             baseId <- context.id
@@ -23,8 +24,8 @@ object RefResolver {
         } else {
           context.id
         }.fold(context.id)(i => Some(i))
-        container.updated(container.id, container.qbTypes.map(t => replaceRefs(t, context.copy(id = id))):_*)
-      case cls: QBClass =>
+        container.updated(container.id, container.schemaTypes.map(t => replaceRefs(context.copy(id = id))(t)):_*)
+      case cls: SchemaObject =>
 
         val id = (if (schema != context.root) {
           for {
@@ -37,85 +38,63 @@ object RefResolver {
 
         // find and replace any ref, if available
         val substitutedType = cls.properties.collectFirst {
-          case attr@QBAttribute(_, ref: QBRef, _) if !context.visited.contains(ref) => ref
+          case attr@SchemaAttribute(_, ref: SchemaRef, _) if !context.visited.contains(ref) => ref
         }.flatMap(ref => resolveRef(ref, context.copy(visited = context.visited + ref, id = id)) ).getOrElse(cls)
-//        println("unsubstituted type is " + cls)
-//        println("substituted type is "+ substitutedType)
         substitutedType match {
-          // also replace any rules that contain schemas
-          // TODO: provide common
-          case c: QBClass => c.copy(rules = c.rules.map(rule => substituteRule(rule, context.copy(id = id))))
-//            c.copy(rules = c.rules.map {
-//            case QBAllOfRule(schemas) => QBAllOfRule(schemas.map(s => replaceRefs(s, context)))
-//            case QBAnyOfRule(schemas) => QBAnyOfRule(schemas.map(s => replaceRefs(s, context)))
-//            case QBOneOfRule(schemas) => QBOneOfRule(schemas.map(s => replaceRefs(s, context)))
-//            case z => z
-//          })
+          // if resolved type is a class, resolve all refs it contains
+          case c: SchemaObject => c.copy(constraints = c.constraints.updated(replaceRefs(context.copy(id = id))))
           case x => x
         }
-      case z => /*println("hi " + z);*/ z
+      case z => z
     }
   }
 
-  def substituteRule(rule: ValidationRule, context: Context): ValidationRule = rule match {
-    case schemaRule: SchemaBasedValidationRule => schemaRule.copy(
-      schemas = schemaRule.schemas.map(schema => replaceRefs(schema, context))
-    )
-    case otherRule => otherRule
-  }
-
-
   // TODO: switch to Either in order to provide more fine-grained error message
-  def fetchSchema(url: String, context: Context): Option[QBType] = {
+  def fetchSchema(url: String, context: Context): Option[SchemaType] = {
     val contents: BufferedSource = Source.fromURL(url)
 
     for {
       json <- Try { Json.parse(contents.getLines().mkString) }.toOption
-      resolvedSchema <- Json.fromJson[QBType](json).asOpt
+      resolvedSchema <- Json.fromJson[SchemaType](json).asOpt
     } yield resolvedSchema
   }
 
-  private def isRemoteRef(attr: QBAttribute): Boolean = attr.name == "$ref" && isRemoteRef(attr.qbType)
+  private def isRemoteRef(attr: SchemaAttribute): Boolean = attr.name == "$ref" && isRemoteRef(attr.schemaType)
 
-  private def isRemoteRef: QBType => Boolean = {
-    case r@QBRef(_, _, true) => true
-    case cls: QBClass if cls.properties.exists(isRemoteRef(_)) => true
+  private def isRemoteRef: SchemaType => Boolean = {
+    case r@SchemaRef(_, _, true) => true
+    case cls: SchemaObject if cls.properties.exists(isRemoteRef(_)) => true
     case _ => false
   }
 
-  private[schema] def isRef: QBType => Boolean = {
-//    case cls: QBClass if cls.properties.exists(p => isRef(p.qbType)) => true
-    case ref@QBRef(_, _, false) => true
+  private[schema] def isRef: SchemaType => Boolean = {
+    case ref@SchemaRef(_, _, false) => true
     case _ => false
 
   }
 
-  private def isQBRefClass: QBType => Boolean = {
-    case cls: QBClass if cls.properties.exists(p => isRef(p.qbType)) => true
+  // TODO: is this ever called?
+  private def isSchemaRefClass: SchemaType => Boolean = {
+    case cls: SchemaObject if cls.properties.exists(p => isRef(p.schemaType)) => true
     case _ => false
   }
 
-  def resolveRef(path: String, context: Context): Option[QBType] = {
+  def resolveRef(path: String, context: Context): Option[SchemaType] = {
     if (path.isEmpty) {
       Some(context.root)
     } else {
-
       val resolved = resolveRef(context.root, toFragments(path), context)
-      resolved.map(res => replaceRefs(res, context))
+      resolved.map(res => replaceRefs(context)(res))
     }
   }
 
-  def resolveRef(ref: QBRef, context: Context): Option[QBType] = {
+  def resolveRef(ref: SchemaRef, context: Context): Option[SchemaType] = {
     val r = context.id.getOrElse("") + ref.pointer.path
     resolveRef(r, context)
   }
 
 
-  private def resolveRef(current: QBType, fragments: List[String], newContext: Context): Option[QBType] = {
-
-//    println("-- " + fragments.size)
-//    println("current is " + current)
-//    println("fragment head is " + fragments.headOption)
+  private def resolveRef(current: SchemaType, fragments: List[String], newContext: Context): Option[SchemaType] = {
 
     (current, fragments.headOption) match {
 
@@ -124,16 +103,6 @@ object RefResolver {
           schema <- fetchSchema(ref, newContext)
           result <- resolveRef(schema, fragments.tail, if (newContext.root == current) newContext.copy(root = schema)  else newContext )
         } yield result
-
-      // if object contains a $ref, resolve it and try again
-//      case (obj: QBClass, _) if isQBRefClass(obj) =>
-//        for {
-//          ref <- obj.properties.collectFirst { case QBAttribute("$ref", ref: QBRef, _) => ref}
-//          result <- resolveRef(ref, fragments, newContext)
-//          lol <- resolveRef(result, fragments, if (newContext.root == current) newContext.copy(root = result)  else newContext )
-//        } yield result
-
-//      case (_, Some("#")) if fragments.tail.isEmpty => Some(newContext.root)
       case (_, Some("#")) => resolveRef(newContext.root, fragments.tail, newContext)
       case (container: Resolvable, Some(fragment)) =>
         // TODO container is not supposed to contain a ref at this point
@@ -142,8 +111,8 @@ object RefResolver {
 
           // TODO: ugly, is this actually needed?
           val f: List[String] = if (isRef(resolvedType)) {
-            toFragments(resolvedType.asInstanceOf[QBClass].properties.collectFirst {
-              case QBAttribute(_, ref: QBRef, _) => ref.pointer.path
+            toFragments(resolvedType.asInstanceOf[SchemaObject].properties.collectFirst {
+              case SchemaAttribute(_, ref: SchemaRef, _) => ref.pointer.path
             }.getOrElse("")) ++ fragments.tail
           } else {
             fragments.tail
@@ -152,10 +121,9 @@ object RefResolver {
             newContext.copy(path = newContext.path.compose(Path(fragment))))
         })
 
-      case (ref: QBRef, None) => resolveRef(ref.pointer.path, newContext.copy(visited =  newContext.visited + ref))
-      case (cls: QBClass, None) if isQBRefClass(cls)   =>
-//        println("TU ES@!!")
-        val ref = cls.properties.collectFirst { case QBAttribute("$ref", ref: QBRef, _) => ref}
+      case (ref: SchemaRef, None) => resolveRef(ref.pointer.path, newContext.copy(visited =  newContext.visited + ref))
+      case (cls: SchemaObject, None) if isSchemaRefClass(cls)   =>
+        val ref = cls.properties.collectFirst { case SchemaAttribute("$ref", ref: SchemaRef, _) => ref}
         if (ref.isDefined && ref.get.pointer.path == "#") {
           Some(cls)
         } else {
@@ -171,7 +139,6 @@ object RefResolver {
 
   // TODO rename
   private def toFragments(uri: String): List[String] = {
-//    println("stripBaseUri " + uri)
     val fragmentStartIndex = uri.indexOf("#")
     val fragments: List[String] = uri.find((c: Char) => c == '#').map(_ => uri.substring(fragmentStartIndex, uri.length)).getOrElse("").split("/").toList.map(segment =>
       // perform escaping

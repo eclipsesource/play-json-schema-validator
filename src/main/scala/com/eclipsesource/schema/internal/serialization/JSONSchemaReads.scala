@@ -2,283 +2,290 @@ package com.eclipsesource.schema.internal.serialization
 
 import com.eclipsesource.schema._
 import com.eclipsesource.schema.internal.Keywords
+import com.eclipsesource.schema.internal.constraints.Constraints._
 import play.api.libs.functional.syntax._
 import play.api.libs.json.Reads._
 import play.api.libs.json._
 
 import scala.collection.immutable.Iterable
-import shapeless.poly._
 import shapeless.syntax.std.tuple._
 
 trait JSONSchemaReads {
 
   // TODO: asInstanceOf..
-  implicit val valueReader: Reads[QBType] = (__ \ "type").read[String].flatMap {
-    case "boolean" => booleanReader.asInstanceOf[Reads[QBType]]
-    case "string" => stringReader.asInstanceOf[Reads[QBType]]
-    case "integer" => integerReader.asInstanceOf[Reads[QBType]]
-    case "number" => numberReader.asInstanceOf[Reads[QBType]]
-    case "array" =>arrayReader.asInstanceOf[Reads[QBType]]
-    case "object" => objectReader.asInstanceOf[Reads[QBType]]
-    case "null" => nullReader.asInstanceOf[Reads[QBType]]
+  implicit val valueReader: Reads[SchemaType] = (__ \ "type").read[String].flatMap {
+    case "boolean" => booleanReader.asInstanceOf[Reads[SchemaType]]
+    case "string"  => stringReader.asInstanceOf[Reads[SchemaType]]
+    case "integer" => integerReader.asInstanceOf[Reads[SchemaType]]
+    case "number"  => numberReader.asInstanceOf[Reads[SchemaType]]
+    case "array"   => arrayReader.asInstanceOf[Reads[SchemaType]]
+    case "object"  => objectReader.asInstanceOf[Reads[SchemaType]]
+    case "null"    => nullReader.asInstanceOf[Reads[SchemaType]]
   }.or {
     (__ \ "items").read[Seq[JsValue]].flatMap {
       it => {
-        tupleReader.asInstanceOf[Reads[QBType]]
+        tupleReader.asInstanceOf[Reads[SchemaType]]
       }
     }
   }.or {
     (__ \ "items").read[JsValue].flatMap {
       it => {
-        arrayReader.asInstanceOf[Reads[QBType]]
+        arrayReader.asInstanceOf[Reads[SchemaType]]
       }
     }
   }.or {
-    stringReader.asInstanceOf[Reads[QBType]]
+    stringReader.asInstanceOf[Reads[SchemaType]]
   }.or {
-    numberReader.asInstanceOf[Reads[QBType]]
+    numberReader.asInstanceOf[Reads[SchemaType]]
   }.or {
-    booleanReader.asInstanceOf[Reads[QBType]]
+    booleanConstantReader.asInstanceOf[Reads[SchemaType]]
   }.or {
-    arrayConstantReader.asInstanceOf[Reads[QBType]]
+    arrayConstantReader.asInstanceOf[Reads[SchemaType]]
   }.or {
-    objectReader.asInstanceOf[Reads[QBType]]
+    objectReader.asInstanceOf[Reads[SchemaType]]
   }
 
-  def numberReader: Reads[QBNumber] = {
-    ( (__ \ "type").readNullable[String] and
+  lazy val numberReader: Reads[SchemaNumber] = {
+    ( (__ \ "type").readNullable[String] /*(verifying(_ == "number"))*/ and
       (__ \ "minimum").readNullable[Double] and
       (__ \ "maximum").readNullable[Double] and
       (__ \ "exclusiveMinimum").readNullable[Boolean] and
       (__ \ "exclusiveMaximum").readNullable[Boolean] and
       (__ \ "multipleOf").readNullable[Double] and
-      (__ \ "allOf").lazyReadNullable[Seq[QBType]](readSeqOfQBTypeInstance) and
-      (__ \ "anyOf").lazyReadNullable[Seq[QBType]](readSeqOfQBTypeInstance)
+      anyConstraintReader
       ).tupled.flatMap(opts => {
 
-      val isMinExclusive = opts._4.getOrElse(false)
-      val isMaxExclusive = opts._5.getOrElse(false)
-      val minRule = opts._2.map(MinRule(_, isMinExclusive))
-      val maxRule = opts._3.map(MaxRule(_, isMaxExclusive))
-      val multipleOf = opts._6.map(MultipleOfRule)
-      val allOfRule  = opts._7.map(schemas => QBAllOfRule(schemas))
-      val anyOfRule  = opts._8.map(schemas => QBAnyOfRule(schemas))
+      val isMinExclusive = opts._4
+      val isMaxExclusive = opts._5
+      val minConstraint = opts._2.map(min => Minimum(min, isMinExclusive))
+      val maxConstraint = opts._3.map(max => Maximum(max, isMaxExclusive))
+      val multipleOf = opts._6
+      val anyConstraints = opts._7
 
-      if (opts.take(6).toList.forall(_.isEmpty)) {
+      if ( opts.take(6).toList.forall(_.isEmpty)) {
         Reads.apply(_ => JsError(""))
       } else {
-        Reads.pure(QBNumberImpl(Set(minRule, maxRule, multipleOf, allOfRule, anyOfRule).filterNot(_.isEmpty).map(_.get)))
+        Reads.pure(SchemaNumber(NumberConstraints(minConstraint, maxConstraint, multipleOf, anyConstraints)))
       }
     })
   }
 
-
-
-  lazy val stringReader: Reads[QBString] = {
+  lazy val stringReader: Reads[SchemaString] = {
     (
-      (__ \ "type").readNullable[String] and
+      (__ \ "type").readNullable[String] /*(verifying(_ == "string"))*/ and
         (__ \ "minLength").readNullable[Int] and
         (__ \ "maxLength").readNullable[Int] and
-        (__ \ "allOf").lazyReadNullable[Seq[QBType]](readSeqOfQBTypeInstance) and
-        (__ \ "anyOf").lazyReadNullable[Seq[QBType]](readSeqOfQBTypeInstance)
+        (__ \ "enum").readNullable[Seq[String]] and
+        (__ \ "format").readNullable[String] and
+        anyConstraintReader
       ).tupled.flatMap(opts => {
 
       val stringType = opts._1
-      val minRule    = opts._2.map(MinLengthRule)
-      val maxRule    = opts._3.map(MaxLengthRule)
-      val allOfRule  = opts._4.map(schemas => QBAllOfRule(schemas))
-      val anyOfRule  = opts._5.map(schemas => QBAnyOfRule(schemas))
+      val minLength = opts._2
+      val maxLength = opts._3
+      val enums = opts._4
+      val format = opts._5
+      val anyConstraints  = opts._6
 
-      val rules: List[Option[ValidationRule]] = List(
-        minRule,
-        maxRule,
-        allOfRule,
-        anyOfRule
-      )
-      val ruleSet: Set[ValidationRule] = rules.flatten.toSet
-
-      if (List(stringType, minRule, maxRule).forall(_.isEmpty)) {
+      if (stringType.isDefined && stringType.get != "string" || List(stringType, minLength, maxLength, enums, format).forall(_.isEmpty)) {
         Reads.apply(_ => JsError("Expected string."))
       } else {
-        Reads.pure(QBStringImpl(ruleSet))
+        Reads.pure(SchemaString(StringConstraints(minLength, maxLength, enums, format, anyConstraints)))
       }
     })
   }
 
-  lazy val arrayReader: Reads[QBArray] = {
-    ((__ \ "items").read[QBType] and
-      (__ \ "id").readNullable[String]).tupled.map(
-        read => {
-          val (items, id) = read
-          // TODO: other properties are missing
-          val qbType: JsResult[QBType] = valueReader.reads(Json.toJson(items))
-          // TODO: rules missing, get
-//          val updatedType = qbType.get match {
-//              // TODO
-//            case cls@QBClass(props, _, _) => cls.copy(properties = props.map {
-//              case a@QBAttribute("id", ref: QBRef, anno) =>  QBAttribute("id", idRef.map(r => r.copy(pointer = JSONPointer(r.pointer.path + ref.pointer.path))).getOrElse(ref), anno)
-//              case x => x
-//            })
-//            case arr@QBArray(item, _, Some(xid), _) => arr.copy(effectiveIdRef = idRef.map(r => r.copy(pointer = JSONPointer(r.pointer.path + xid.pointer.path))))
-//            case x => x
-//          }
-          // TODO: only updated inner ids, not outer, also, refs need to be updated if ids are presents
-          QBArray(() => qbType.get, Set.empty[ValidationRule], id)
-        })
-  }
-
-
-  lazy val nullReader: Reads[QBNull] = new Reads[QBNull] {
-    override def reads(json: JsValue): JsResult[QBNull] = {
-      json match {
-        case JsNull => JsSuccess(QBNull())
-        case _ => JsError("Expected null")
-      }
-    }
-  }
-
-  lazy val booleanReader: Reads[QBBooleanConstant] = new Reads[QBBooleanConstant] {
-    override def reads(json: JsValue): JsResult[QBBooleanConstant] = json match {
-      case bool@JsBoolean(_) => JsSuccess(QBBooleanConstant(bool.value))
+  lazy val booleanConstantReader: Reads[SchemaBooleanConstant] = new Reads[SchemaBooleanConstant] {
+    override def reads(json: JsValue): JsResult[SchemaBooleanConstant] = json match {
+      case bool@JsBoolean(_) => JsSuccess(SchemaBooleanConstant(bool.value))
       case _ => JsError("Expected boolean.")
     }
   }
 
-  lazy val integerReader: Reads[QBInteger] = {
-    ((__ \ "type").readNullable[String] and
+  lazy val nullReader: Reads[SchemaNull] = {
+    (__ \ "type").readNullable[String](verifying(_ == "null")).flatMap(opt =>
+      opt.fold[Reads[SchemaNull]](Reads.apply(_ => JsError("Expected integer.")))(
+        _ => Reads.pure(SchemaNull())
+      )
+    )
+  }
+
+  lazy val booleanReader: Reads[SchemaBoolean] = {
+    ((__ \ "type").readNullable[String] /*(verifying(_ == "boolean")) */ and
+      anyConstraintReader
+      ).tupled.flatMap(opts => {
+
+      // TODO: boolean constraint type could be removed
+      Reads.pure(SchemaBoolean(BooleanConstraints(opts._2)))
+    })
+  }
+
+  lazy val integerReader: Reads[SchemaInteger] = {
+    ((__ \ "type").readNullable[String] /*(verifying(_ == "integer")) */ and
       (__ \ "minimum").readNullable[Int] and
       (__ \ "maximum").readNullable[Int] and
       (__ \ "exclusiveMinimum").readNullable[Boolean] and
       (__ \ "exclusiveMaximum").readNullable[Boolean] and
-      (__ \ "multipleOf").readNullable[Int] and
-      (__ \ "allOf").lazyReadNullable[Seq[QBType]](readSeqOfQBTypeInstance) and
-      (__ \ "anyOf").lazyReadNullable[Seq[QBType]](readSeqOfQBTypeInstance)
+      (__ \ "multipleOf").readNullable[Double] and
+      anyConstraintReader
       ).tupled.flatMap(opts => {
 
-      val isMinExclusive = opts._4.getOrElse(false)
-      val isMaxExclusive = opts._5.getOrElse(false)
-      val minRule        = opts._2.map(MinRule(_, isMinExclusive))
-      val maxRule        = opts._3.map(MaxRule(_, isMaxExclusive))
-      val multipleOf     = opts._6.map(MultipleOfRule(_))
-      val allOfRule      = opts._7.map(schemas => QBAllOfRule(schemas))
-      val anyOfRule      = opts._8.map(schemas => QBAnyOfRule(schemas))
+      val isMinExclusive = opts._4
+      val isMaxExclusive = opts._5
+      val minRule        = opts._2.map(Minimum(_, isMinExclusive))
+      val maxRule        = opts._3.map(Maximum(_, isMaxExclusive))
+      val multipleOf     = opts._6
+      val anyConstraints = opts._7
 
       if (opts.take(6).toList.forall(_.isEmpty)) {
         Reads.apply(_ => JsError("Expected integer."))
       } else {
-        Reads.pure(QBIntegerImpl(Set(minRule, maxRule, multipleOf).filterNot(_.isEmpty).map(_.get)))
+        // TODO: constraitns
+        Reads.pure(SchemaInteger(NumberConstraints(minRule, maxRule, multipleOf, anyConstraints)))
       }
     })
   }
 
-  lazy val tupleReader: Reads[QBTuple] = {
+
+  lazy val arrayReader: Reads[SchemaArray] = {
+    ((__ \ "items").read[SchemaType] and
+      (__ \ "additionalItems").readNullable[SchemaType] and
+      (__ \ "minItems").readNullable[Int] and
+      (__ \ "maxItems").readNullable[Int] and
+      (__ \ "uniqueItems").readNullable[Boolean] and
+      (__ \ "id").readNullable[String] and
+      anyConstraintReader
+      ).tupled.map(
+        read => {
+          val (items, additionalItems, minItems, maxItems, uniqueItems, id, any) = read
+          // TODO: other properties are missing
+          val schemaType: JsResult[SchemaType] = valueReader.reads(Json.toJson(items))
+          // TODO: rules missing, get
+          // TODO: only updated inner ids, not outer, also, refs need to be updated if ids are presents
+          SchemaArray(() => schemaType.get, ArrayConstraints(minItems, maxItems, additionalItems, uniqueItems, any), id)
+        })
+  }
+
+  lazy val tupleReader: Reads[SchemaTuple] = {
     (
       (__ \ "items").read[Seq[JsValue]] and
-      (__ \ "additionalItems").readNullable[QBType] and
-      (__ \ "id").readNullable[String]
-    ).tupled.map { read =>
-      val (items, additionalItems, id) = read
-      val tupleTypes: Seq[JsResult[QBType]] = items.map(valueReader.reads)
-      val successTupleTypes: Seq[QBType] = tupleTypes.collect { case JsSuccess(succ, _) => succ}.toSeq
-      QBTuple(() => successTupleTypes,
+        (__ \ "minItems").readNullable[Int] and
+        (__ \ "maxItems").readNullable[Int] and
+        (__ \ "additionalItems").readNullable[SchemaType] and
+        (__ \ "uniqueItems").readNullable[Boolean] and
+        (__ \ "id").readNullable[String] and
+        anyConstraintReader
+      ).tupled.map { read =>
+      val (items, minItems, maxItems, additionalItems, uniqueItems, id, any) = read
+      val tupleTypes: Seq[JsResult[SchemaType]] = items.map(valueReader.reads)
+      val successTupleTypes: Seq[SchemaType] = tupleTypes.collect { case JsSuccess(succ, _) => succ}.toSeq
+      SchemaTuple(() => successTupleTypes,
         successTupleTypes.size,
         // initialize with empty schema
-        // TODO: Option should be removed
-        additionalItems = Some(additionalItems.fold[QBType](QBClass(Seq.empty))(identity)),
-        Set.empty,
+        // TODO: additionalItems also could be an boolean
+        ArrayConstraints(minItems, maxItems, additionalItems, uniqueItems, any),
         id
       )
     }
   }
 
-  lazy val arrayConstantReader: Reads[QBArrayConstant] = {
-    new Reads[QBArrayConstant] {
-      override def reads(json: JsValue): JsResult[QBArrayConstant] = {
+  lazy val arrayConstantReader: Reads[SchemaArrayConstant] = {
+    new Reads[SchemaArrayConstant] {
+      override def reads(json: JsValue): JsResult[SchemaArrayConstant] = {
         json match {
-          case JsArray(els) => JsSuccess(QBArrayConstant(els.collect { case JsString(str) => str}.toSeq))
+          case JsArray(els) => JsSuccess(SchemaArrayConstant(els.collect { case JsString(str) => str}.toSeq))
           case _ => JsError("Expected a array of strings")
         }
       }
     }
   }
 
-  def addRemainingProps(initObject: QBClass, props: Seq[(String, JsValue)], occupiedPropNames: List[String]) = {
+  def addRemainingProps(initObject: SchemaObject, props: Seq[(String, JsValue)], occupiedPropNames: List[String]) = {
     val remainingProps: Seq[(String, JsValue)] = props.filterNot(prop => occupiedPropNames.contains(prop._1))
     remainingProps.foldLeft(initObject)((acc, prop) =>
-      acc ++ valueReader.reads(prop._2).asOpt.fold[QBClass](obj)(value => QBClass(Seq(prop._1 -> value)))
+      acc ++ valueReader.reads(prop._2).asOpt.fold[SchemaObject](SchemaObject())(value => SchemaObject(Seq(SchemaAttribute(prop._1, value))))
     )
   }
 
-
-  lazy val objectReader: Reads[QBClass] = {
-    new Reads[QBClass] {
-      override def reads(json: JsValue): JsResult[QBClass] = {
+  lazy val objectReader: Reads[SchemaObject] = {
+    new Reads[SchemaObject] {
+      override def reads(json: JsValue): JsResult[SchemaObject] = {
         json match {
           case JsObject(props) =>
-            fallBackReader.reads(json).map(qbObject => {
-              addRemainingProps(qbObject, props, Keywords.ofObject)
+            fallBackReader.reads(json).map(schemaObject => {
+              addRemainingProps(schemaObject, props, Keywords.ofObject)
             })
-          case err => println(s"Expected object. Got $err."); JsError(s"Expected object. Got $err")
+          case err => JsError(s"Expected object. Got $err")
         }
       }
     }
   }
 
-  lazy val fallBackReader: Reads[QBClass] = {
+  def emptyObject: SchemaType = SchemaObject(Seq.empty, ObjectConstraints())
+
+  // TODO: extract into objectConstraintReader
+  lazy val fallBackReader: Reads[SchemaObject] = {
     (
-      (__ \ "properties").lazyReadNullable[Map[String, QBType]](readsInstance) and
+      (__ \ "properties").lazyReadNullable[Map[String, SchemaType]](readsInstance) and
         (__ \ "id").readNullable[String] and
-        (__ \ "patternProperties").lazyReadNullable[Map[String, QBType]](readsInstance) and
-        (__ \ "additionalProperties").lazyReadNullable[QBType](valueReader) and
+        (__ \ "patternProperties").lazyReadNullable[Map[String, SchemaType]](readsInstance) and
+        (__ \ "additionalProperties").lazyReadNullable[SchemaType](valueReader) and
         (__ \ "required").readNullable[List[String]] and
-        (__ \ "dependencies").lazyReadNullable[QBClass](objectReader) and
+        (__ \ "dependencies").lazyReadNullable[Map[String, SchemaType]](readsInstance) and
         (__ \ "minProperties").readNullable[Int] and
         (__ \ "maxProperties").readNullable[Int] and
-        (__ \ "allOf").lazyReadNullable[Seq[QBType]](readSeqOfQBTypeInstance) and
-        (__ \ "anyOf").lazyReadNullable[Seq[QBType]](readSeqOfQBTypeInstance) and
-        (__ \ "oneOf").lazyReadNullable[Seq[QBType]](readSeqOfQBTypeInstance) and
-        (__ \ "$ref").readNullable[String]
+        (__ \ "$ref").readNullable[String] and
+        anyConstraintReader
       ).tupled.flatMap { read =>
 
-        val (properties, id, patternProperties, additionalProperties, required, dependencies, min, max, all, any, one, ref) = read
+      val (properties, id, patternProperties, additionalProperties, required, dependencies, min, max, ref, anyConstraints) = read
 
-        val requiredProperties = required.map(_.toSet).getOrElse(Set.empty)
-        val props: List[QBAttribute] = properties.map(p => tuples2Attributes(p, requiredProperties)).getOrElse(List.empty)
-        val rules: List[Option[Set[ValidationRule]]] = List(
-          all.map(schemas => Set(QBAllOfRule(schemas))),
-          any.map(schemas => Set(QBAnyOfRule(schemas)))
-        )
+      val requiredProperties = required.map(_.toSet).getOrElse(Set.empty)
+      val props: List[SchemaAttribute] = properties.map(p => tuples2Attributes(p, requiredProperties)).getOrElse(List.empty)
 
-        Reads.pure(
-          QBClass(
-            Seq("properties" -> QBClass(props)),
-            rules.flatten.headOption.getOrElse(Set.empty[ValidationRule]),
-            id
-          ) ++ ref.map(path => QBClass(
-            Seq(Keywords.Ref ->
-              QBRef(JSONPointer(path), isAttribute = true, isRemote = path.startsWith("http"))
-            ))
-          ).getOrElse(QBClass(Seq.empty))
-            ++ patternProperties.fold(QBClass(Seq.empty))(ps => QBClass(Seq(Keywords.PatternProperties -> QBClass(tuples2Attributes(ps, requiredProperties)))))
-            ++ additionalProperties.fold(QBClass(Seq.empty))(ap => QBClass(Seq(Keywords.AdditionalProperties -> ap)))
-            ++ dependencies.fold(QBClass(Seq.empty))(d => QBClass(Seq(Keywords.Dependencies -> d)))
+      Reads.pure(
+        SchemaObject(
+          props ++ ref.map(path => Seq(SchemaAttribute(Keywords.Object.Ref, SchemaRef(JSONPointer(path), isAttribute = true, isRemote = path.startsWith("http"))))).getOrElse(Seq.empty),
+          ObjectConstraints(
+            additionalProperties,
+            dependencies,
+            patternProperties,
+            required,
+            anyConstraints),
+          id
         )
+      )
     }
   }
 
-  private val readsInstance: Reads[Map[String, QBType]] = {
-    new Reads[Map[String, QBType]] {
+  lazy val anyConstraintReader: Reads[AnyConstraint] = {
+    (
+      (__ \ "allOf").lazyReadNullable[Seq[SchemaType]](readSeqOfSchemaTypeInstance) and
+        (__ \ "anyOf").lazyReadNullable[Seq[SchemaType]](readSeqOfSchemaTypeInstance) and
+        (__ \ "oneOf").lazyReadNullable[Seq[SchemaType]](readSeqOfSchemaTypeInstance) and
+        (__ \ "definitions").lazyReadNullable(readsInstance)
+      ).tupled.map(
+        read => {
+          val (allOf, anyOf, oneOf, definitions) = read
+
+          AnyConstraint(allOf, anyOf, oneOf, definitions)
+        }
+      )
+  }
+
+  private val readsInstance: Reads[Map[String, SchemaType]] = {
+    new Reads[Map[String, SchemaType]] {
       def reads(json: JsValue) = {
-        json.validate[Map[String, QBType]]
+        json.validate[Map[String, SchemaType]]
       }
     }
   }
 
-  private lazy val readSeqOfQBTypeInstance: Reads[Seq[QBType]] = {
-    new Reads[Seq[QBType]] {
-      override def reads(json: JsValue): JsResult[Seq[QBType]] = json match {
+  private lazy val readSeqOfSchemaTypeInstance: Reads[Seq[SchemaType]] = {
+    new Reads[Seq[SchemaType]] {
+      override def reads(json: JsValue): JsResult[Seq[SchemaType]] = json match {
         case JsArray(els) =>
-          val results = els.map(el => Json.fromJson[QBType](el))
+          val results = els.map(el => Json.fromJson[SchemaType](el))
           if (results.exists(_.isError)) {
             JsError("Non-object encountered in object-only array.")
           } else {
@@ -289,12 +296,12 @@ trait JSONSchemaReads {
     }
   }
 
-  private def tuples2Attributes(props: Iterable[(String, QBType)], requiredProperties: Set[String]): List[QBAttribute] = {
+  private def tuples2Attributes(props: Iterable[(String, SchemaType)], requiredProperties: Set[String]): List[SchemaAttribute] = {
     props.map(property =>
       if (requiredProperties.contains(property._1)) {
-        QBAttribute(property._1, property._2, List())
+        SchemaAttribute(property._1, property._2, List())
       } else {
-        QBAttribute(property._1, property._2, List(QBOptionalAnnotation()))
+        SchemaAttribute(property._1, property._2, List(SchemaOptionalAnnotation()))
       }
     ).toList
   }

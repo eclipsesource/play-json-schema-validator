@@ -12,19 +12,19 @@ trait JSONSchemaAnnotationWrites extends JSONSchemaWrites {
     readOnlyExtension _)
   override def extensions = List(optionalExtension _)
 
-  def defaultExtension(attr: QBAttribute): JsObject = {
+  def defaultExtension(attr: SchemaAttribute): JsObject = {
     attr.annotations
-      .collectFirst { case default: QBDefaultAnnotation => Json.obj("default" -> default.value) }
+      .collectFirst { case default: SchemaDefaultAnnotation => Json.obj("default" -> default.value) }
       .getOrElse(emptyJsObject)
   }
 
-  def readOnlyExtension(attr: QBAttribute): JsObject = {
+  def readOnlyExtension(attr: SchemaAttribute): JsObject = {
     attr.annotations
-      .collectFirst { case _: QBReadOnlyAnnotation => Json.obj("readonly" -> "true") }
+      .collectFirst { case _: SchemaReadOnlyAnnotation => Json.obj("readonly" -> "true") }
       .getOrElse(emptyJsObject)
   }
 
-  def optionalExtension(obj: QBClass): JsObject = {
+  def optionalExtension(obj: SchemaObject): JsObject = {
     val required = allNonOptionalAttributes(obj.properties)
     if (required.isEmpty) {
       Json.obj()
@@ -33,11 +33,11 @@ trait JSONSchemaAnnotationWrites extends JSONSchemaWrites {
     }
   }
 
-  def allNonOptionalAttributes(fields: Seq[QBAttribute]): Seq[JsString] =
+  def allNonOptionalAttributes(fields: Seq[SchemaAttribute]): Seq[JsString] =
   // TODO
     fields.find(_.name == "properties").fold(Seq.empty[JsString])(attr =>
-      attr.qbType.asInstanceOf[QBClass].properties
-        .filterNot(_.annotations.exists(_.isInstanceOf[QBOptionalAnnotation]))
+      attr.schemaType.asInstanceOf[SchemaObject].properties
+        .filterNot(_.annotations.exists(_.isInstanceOf[SchemaOptionalAnnotation]))
         .map(_.name).map(JsString)
     )
 }

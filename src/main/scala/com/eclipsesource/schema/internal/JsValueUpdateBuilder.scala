@@ -1,9 +1,8 @@
 package com.eclipsesource.schema.internal
 
-import com.eclipsesource.schema.{RuleProvider, QBType}
-import play.api.data.mapping.{Success, Rule, Path}
+import com.eclipsesource.schema.{Validator, SchemaType}
+import play.api.data.mapping.Path
 import play.api.libs.json._
-import play.api.libs.json.extensions.JsExtensions
 
 import scala.reflect.ClassTag
 
@@ -13,20 +12,9 @@ import scala.reflect.ClassTag
  * at once as well as passing in predicates as matching functions.
  *
  * @param schema
- *               a QB schema
+ *               a schema
  */
-case class JsValueUpdateBuilder(schema: QBType, mappings: List[(QBType => Boolean, PartialFunction[JsValue, JsValue])] = List.empty) {
-
-  val processor = new JsValueProcessor(RuleProvider {
-    case (qbType, annotations) if mappings.exists(p => p._1(qbType))=> Rule.fromMapping[JsValue, JsValue] { js =>
-      val pf = mappings.find(p => p._1(qbType)).get._2
-      if (pf.isDefinedAt(js)) {
-        Success(pf(js))
-      } else {
-        Success(js)
-      }
-    }
-  })
+case class JsValueUpdateBuilder(schema: SchemaType, mappings: List[(SchemaType => Boolean, PartialFunction[JsValue, JsValue])] = List.empty) {
 
   /**
    * Allows to created a modified version of the passed JsObject by passing in
@@ -36,9 +24,9 @@ case class JsValueUpdateBuilder(schema: QBType, mappings: List[(QBType => Boolea
    *              the partial function that describes how to modify the matched type
    * @return a JsResult containing the possibly modified JsObject
    */
-  def byType[A <: QBType : ClassTag](updater: PartialFunction[JsValue, JsValue]): JsValueUpdateBuilder = {
+  def byType[A <: SchemaType : ClassTag](updater: PartialFunction[JsValue, JsValue]): JsValueUpdateBuilder = {
     val clazz = implicitly[ClassTag[A]].runtimeClass
-    val matcher = (q: QBType) => q.getClass.getInterfaces.contains(clazz) || q.getClass == clazz
+    val matcher = (q: SchemaType) => q.getClass.getInterfaces.contains(clazz) || q.getClass == clazz
     new JsValueUpdateBuilder(schema, (matcher -> updater) :: mappings)
   }
 
@@ -50,9 +38,9 @@ case class JsValueUpdateBuilder(schema: QBType, mappings: List[(QBType => Boolea
    *              the partial function that describes how to modify the matched type
    * @return a JsResult containing the possibly modified JsObject
    */
-  def byTypeAndPredicate[A <: QBType : ClassTag](predicate: A => Boolean)(updater: PartialFunction[JsValue, JsValue]): JsValueUpdateBuilder = {
+  def byTypeAndPredicate[A <: SchemaType : ClassTag](predicate: A => Boolean)(updater: PartialFunction[JsValue, JsValue]): JsValueUpdateBuilder = {
     val clazz = implicitly[ClassTag[A]].runtimeClass
-    val matcher = (q: QBType) =>  ( q.getClass.getInterfaces.contains(clazz) || q.getClass == clazz) && predicate(q.asInstanceOf[A])
+    val matcher = (q: SchemaType) =>  ( q.getClass.getInterfaces.contains(clazz) || q.getClass == clazz) && predicate(q.asInstanceOf[A])
     new JsValueUpdateBuilder(schema, (matcher -> updater) :: mappings)
   }
 
@@ -64,22 +52,18 @@ case class JsValueUpdateBuilder(schema: QBType, mappings: List[(QBType => Boolea
    *              the partial function that describes how to modify the matched type
    * @return a JsResult containing the possibly modified JsObject
    */
-  def byPredicate(matcher: QBType => Boolean)(updater: PartialFunction[JsValue, JsValue]): JsValueUpdateBuilder =
+  def byPredicate(matcher: SchemaType => Boolean)(updater: PartialFunction[JsValue, JsValue]): JsValueUpdateBuilder =
     new JsValueUpdateBuilder(schema, (matcher -> updater) :: mappings)
 
   // TODO: can not map onto same type twice -> test
   /**
    * @inheritdoc
    *
-   * @param qbType
-   *              a qbType
-   * @return true, if the QB type is of interest, false otherwise
+   * @param schemaType
+   *              a schema
+   * @return true, if the schema type is of interest, false otherwise
    */
-  def matcher(qbType: QBType): Boolean = mappings.exists(_._1(qbType))
-
-  private def getByType(qbType: QBType) = mappings.find(_._1(qbType))
-
-
+  def matcher(schemaType: SchemaType): Boolean = mappings.exists(_._1(schemaType))
 
   /**
    * Executes the mapping.
@@ -89,7 +73,6 @@ case class JsValueUpdateBuilder(schema: QBType, mappings: List[(QBType => Boolea
    * @return a JsResult containing the possibly modified JsObject
    */
   def go(input: JsObject): JsObject = {
-
-    processor.process(schema, input, Context(Path, schema, Seq.empty, Set.empty)).get.asInstanceOf[JsObject]
+    Validator.process(schema, input, Context(Path, schema, Seq.empty, Set.empty)).get.asInstanceOf[JsObject]
   }
 }

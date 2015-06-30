@@ -9,7 +9,7 @@ class MaximumSpec extends Specification {
   "maximum validation" should {
 
     val jsonSchema = Json.obj("maximum" -> 3.0)
-    val schema: JsResult[QBClass] = Json.fromJson(jsonSchema)(valueReader).asInstanceOf[JsResult[QBClass]]
+    val schema: JsResult[SchemaObject] = Json.fromJson(jsonSchema)(valueReader).asInstanceOf[JsResult[SchemaObject]]
 
     "below the maximum is valid" in {
       val data = JsNumber(2.6)
@@ -34,7 +34,7 @@ class MaximumSpec extends Specification {
       "exclusiveMaximum" -> true
     )
 
-    val schema: JsResult[QBClass] = Json.fromJson(jsonSchema)(valueReader).asInstanceOf[JsResult[QBClass]]
+    val schema: JsResult[SchemaObject] = Json.fromJson(jsonSchema)(valueReader).asInstanceOf[JsResult[SchemaObject]]
 
     "below the maximum is still valid" in {
       val data = JsNumber(2.2)

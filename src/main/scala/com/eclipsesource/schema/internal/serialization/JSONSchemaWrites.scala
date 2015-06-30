@@ -1,99 +1,71 @@
 package com.eclipsesource.schema.internal.serialization
 
 import com.eclipsesource.schema._
-import play.api.libs.json.Json.{JsValueWrapper, toJsFieldJsValueWrapper}
-import play.api.libs.json.{JsArray, JsBoolean, JsNumber, JsObject, JsString, _}
-
-import scala.math.BigDecimal.int2bigDecimal
+import com.eclipsesource.schema.internal.Keywords
+import com.eclipsesource.schema.internal.constraints.Constraints._
+import play.api.libs.json.Json.toJsFieldJsValueWrapper
+import play.api.libs.json._
 
 trait JSONSchemaWrites {
 
-  val MinimumId = "minimum"
-  val MaximumId = "maximum"
-  val PatternId = "pattern"
-  val ExclusiveMinimum = "exclusiveMinimum"
-  val ExclusiveMaximum = "exclusiveMaximum"
-  val MultipleOf = "multipleOf"
-
-  def writeRule(rule: ValidationRule): Seq[(String, JsValueWrapper)] = rule match {
-    case MinLengthRule(min) => List("minLength" -> min)
-    case MaxLengthRule(max) => List("maxLength" -> JsNumber(max))
-    case MinRule(min, isExclusive) => List(ExclusiveMinimum -> isExclusive, MinimumId -> JsNumber(min))
-    case MaxRule(max, isExclusive) => List(ExclusiveMaximum -> isExclusive, MaximumId -> JsNumber(max))
-    case MultipleOfRule(num) => List(MultipleOf -> num)
-    case RegexRule(pat, _) => List(PatternId -> JsString(pat.pattern()))
-    case EnumRule(values) => List("enum" -> JsArray(values.map(JsString)))
-    case f: FormatRule[_] => List("format" -> JsString(f.format))
-    case c: CompositeRule => c.rules.toList.flatMap(writeRule)
-    case kv: KeyValueRule[_] => List(kv.key -> kv.value)
-      // TODO: empty?
-    case allOf: QBAllOfRule => List("allOf" -> Json.toJson(allOf.schemas))
-    case anyOf: QBAnyOfRule => List("anyOf" -> Json.toJson(anyOf.schemas))
-    case _ => List()
-  }
-
-  implicit def qbTypeWriter: Writes[QBType] = Writes[QBType] {
-    case s: QBString => stringWriter.writes(s)
-    case i: QBInteger => integerWriter.writes(i)
-    case n: QBNumber => numberWriter.writes(n)
-    case b: QBBoolean => booleanWriter.writes(b)
-    case t: QBTuple => tupleWriter.writes(t)
-    case a: QBArray => arrayWriter.writes(a)
-    case o: QBClass => objectWriter.writes(o)
-    case r: QBRef => refWriter.writes(r)
-    case c: QBBooleanConstant => constantWriter.writes(c)
-    case a: QBArrayConstant => Json.toJson(a.seq)
-    case n: QBNull => nullWriter.writes(n)
+  implicit def schemaTypeWriter: Writes[SchemaType] = Writes[SchemaType] {
+    case s: SchemaString => stringWriter.writes(s)
+    case i: SchemaInteger => integerWriter.writes(i)
+    case n: SchemaNumber => numberWriter.writes(n)
+    case b: SchemaBoolean => booleanWriter.writes(b)
+    case t: SchemaTuple => tupleWriter.writes(t)
+    case a: SchemaArray => arrayWriter.writes(a)
+    case o: SchemaObject => objectWriter.writes(o)
+    case r: SchemaRef => refWriter.writes(r)
+    case c: SchemaBooleanConstant => constantWriter.writes(c)
+    case a: SchemaArrayConstant => Json.toJson(a.seq)
+    case n: SchemaNull => nullWriter.writes(n)
   }
 
 
- lazy val nullWriter: Writes[QBNull] = OWrites[QBNull] { nll =>
-   Json.obj("type" -> "null")
- }
-
-  implicit val booleanWriter: Writes[QBBoolean] = OWrites[QBBoolean] { bool =>
-    Json.obj("type" -> "boolean") ++ Json.obj(bool.rules.toList.map(writeRule).flatten: _*)
+  lazy val nullWriter: Writes[SchemaNull] = OWrites[SchemaNull] { nll =>
+    Json.obj("type" -> "null")
   }
 
-  implicit val stringWriter: Writes[QBString] = OWrites[QBString] { str =>
-    Json.obj("type" -> "string") ++ Json.obj(str.rules.toList.map(writeRule).flatten: _*)
+  implicit val booleanWriter: Writes[SchemaBoolean] = OWrites[SchemaBoolean] { bool =>
+    Json.obj("type" -> "boolean") ++ booleanConstraintWriter.writes(bool.constraints)
   }
 
-  implicit val integerWriter: Writes[QBInteger] = OWrites[QBInteger] { int =>
-    Json.obj("type" -> "integer") ++ Json.obj(int.rules.toList.map(writeRule).flatten: _*)
+  implicit val stringWriter: Writes[SchemaString] = OWrites[SchemaString] { str =>
+    Json.obj("type" -> "string") ++ stringConstraintWriter.writes(str.constraints)
   }
 
-  implicit val numberWriter: Writes[QBNumber] = OWrites[QBNumber] { num =>
-    Json.obj("type" -> "number") ++ Json.obj(num.rules.toList.map(writeRule).flatten: _*)
+  implicit val integerWriter: Writes[SchemaInteger] = OWrites[SchemaInteger] { int =>
+    Json.obj("type" -> "integer") ++ numberConstraintWriter.writes(int.constraints)
+  }
+
+  implicit val numberWriter: Writes[SchemaNumber] = OWrites[SchemaNumber] { num =>
+    Json.obj("type" -> "number") ++ numberConstraintWriter.writes(num.constraints)
   }
 
   // TODO: do arrays have additionalitems?
-  implicit val arrayWriter: Writes[QBArray] = Writes[QBArray] { arr =>
+  implicit val arrayWriter: Writes[SchemaArray] = Writes[SchemaArray] { arr =>
     Json.obj(
       "items" -> Json.toJson(arr.items)
-    // TODO: write any other props, too
+      // TODO: write any other props, too
     ).deepMerge(
-       arr.id.fold(Json.obj())(id => Json.obj("id" -> id))
-    )
-//      .deepMerge(
-//        arr.additionalItems.fold(Json.obj())(items =>
-//          Json.obj("additionalItems" -> items)
-//        )
-//      )
+        arr.id.fold(Json.obj())(id => Json.obj("id" -> id))
+      ) ++ arrayConstraintWriter.writes(arr.constraints)
+
   }
 
   // TODO: duplicate code
-  implicit val tupleWriter: Writes[QBTuple] = Writes[QBTuple] { arr =>
+  implicit val tupleWriter: Writes[SchemaTuple] = Writes[SchemaTuple] { arr =>
     Json.obj(
-      "items" -> Json.toJson(arr.qbTypes)
+      "items" -> Json.toJson(arr.schemaTypes)
     ).deepMerge(
-        arr.additionalItems.fold(Json.obj())(items =>
+        arr.constraints.additionalItems.fold(Json.obj())(items =>
           Json.obj("additionalItems" -> items)
         )
-      )
+      ) ++ arrayConstraintWriter.writes(arr.constraints)
   }
 
-  implicit val refWriter: Writes[QBRef] = Writes[QBRef] { ref =>
+  implicit val refWriter: Writes[SchemaRef] = Writes[SchemaRef] { ref =>
     if (ref.isAttribute) {
       JsString(ref.pointer.path)
     } else {
@@ -101,54 +73,31 @@ trait JSONSchemaWrites {
     }
   }
 
-  val constantWriter: Writes[QBBooleanConstant] = Writes[QBBooleanConstant] { const =>
+  val constantWriter: Writes[SchemaBooleanConstant] = Writes[SchemaBooleanConstant] { const =>
     JsBoolean(const.bool)
   }
 
-//  val tupleValueWriter: Writes[QBTupleValue] = Writes[QBTupleValue] { tuple =>
-//    Json.toJson(tuple.qbTypes)
-//  }
-//
   /**
    * Extensions whose result gets merged into the written property like, for instance, the type:
    */
-  def propertyExtensions: List[QBAttribute => JsObject] = List()
+  def propertyExtensions: List[SchemaAttribute => JsObject] = List()
 
   /**
    * Extensions which act on a object and produce a result which contains 
    * information about multiple fields. For instance, required property.
    */
-  def extensions: List[QBClass => JsObject] = List()
+  def extensions: List[SchemaObject => JsObject] = List()
 
-  implicit val objectWriter: Writes[QBClass] = OWrites[QBClass] {
+  implicit val objectWriter: Writes[SchemaObject] = OWrites[SchemaObject] {
     obj => {
-      // TODO ugly
-      val o: JsObject = if (obj.properties.exists(_.name == "properties")) {
-        Json.obj(
-          "type" -> "object"
-        )
-      } else if (obj.properties.exists(_.name == "items")) {
-        Json.obj(
-          "type" -> "array"
-        )
-      } else {
-        Json.obj()
-      }
+      val o = Json.obj(
+        "type" -> "object",
+        "properties" -> JsObject(obj.properties.map(attr => attr.name -> Json.toJson(attr.schemaType)))
+      )
+
 
       val written = o.deepMerge(
-        JsObject(
-          obj.properties.map(attr =>
-            attr.name ->
-              propertyExtensions.foldLeft(Json.toJson(attr.qbType))((json, extension) =>
-                json match {
-                  case o: JsObject => o.deepMerge(extension(attr))
-                  case x => x
-                }
-              )
-          )
-        )
-      ).deepMerge(
-        Json.obj(obj.rules.toList.map(writeRule).flatten: _*)
+        objectConstraintWriter.writes(obj.constraints)
       )
 
       val written2 = extensions.foldLeft(written)((o, extension) =>
@@ -158,4 +107,77 @@ trait JSONSchemaWrites {
     }
   }
 
+  lazy val objectConstraintWriter: OWrites[ObjectConstraints] = OWrites[ObjectConstraints] {
+    constraints =>
+      toJsObject(Keywords.Object.AdditionalProperties, constraints.additionalProps) ++
+      toJsObject(Keywords.Object.PatternProperties, constraints.patternProps) ++
+      toJsObject(Keywords.Object.Dependencies, constraints.dependencies) ++
+      toJsObject(Keywords.Object.Required, constraints.required) ++
+      anyConstraintWriter.writes(constraints.any)
+  }
+
+  lazy val arrayConstraintWriter: OWrites[ArrayConstraints] = OWrites[ArrayConstraints] {
+    constraints =>
+      toJsObject(Keywords.Array.AdditionalItems, constraints.additionalItems)
+  }
+
+  lazy val numberConstraintWriter: OWrites[NumberConstraints] = OWrites[NumberConstraints] {
+    constraints =>
+      constraints.max.fold(emptyObject)(max => max.isExclusive match {
+        case Some(isExclusive) => Json.obj(Keywords.Number.Max -> max.max, Keywords.Number.ExclusiveMax -> isExclusive)
+        case _ => Json.obj(Keywords.Number.Max -> max.max)
+      }) ++
+      constraints.min.fold(emptyObject)(min => min.isExclusive match {
+        case Some(isExclusive) => Json.obj(Keywords.Number.Min -> min.min, Keywords.Number.ExclusiveMin -> isExclusive)
+        case _ => Json.obj(Keywords.Number.Min -> min.min)
+      }) ++
+      constraints.multipleOf.fold(emptyObject)(multipleOf =>
+        Json.obj(Keywords.Number.MultipleOf -> multipleOf)
+      ) ++ anyConstraintWriter.writes(constraints.any)
+  }
+
+  lazy val booleanConstraintWriter: OWrites[BooleanConstraints] = OWrites[BooleanConstraints] {
+    constraints =>
+      // TODO
+      Json.obj()
+  }
+
+  lazy val stringConstraintWriter: OWrites[StringConstraints] = OWrites[StringConstraints] {
+    stringConstraints =>
+      stringConstraints.minLength.fold(emptyObject)(minLength =>
+        Json.obj(Keywords.String.MinLength -> minLength)
+      ) ++
+        stringConstraints.maxLength.fold(emptyObject)(maxLength =>
+          Json.obj(Keywords.String.MaxLength -> maxLength)
+        ) ++
+        stringConstraints.format.fold(emptyObject)(format =>
+          Json.obj(Keywords.String.Format -> format)
+        ) ++
+        stringConstraints.enum.fold(emptyObject)(enum =>
+          Json.obj(Keywords.String.Enum -> enum)
+        ) ++
+       anyConstraintWriter.writes(stringConstraints.any)
+  }
+
+  lazy val anyConstraintWriter: OWrites[AnyConstraint] = OWrites[AnyConstraint] {
+    anyConstraint =>
+      toJsObject(Keywords.Any.AllOf, anyConstraint.allOf) ++
+        anyConstraint.anyOf.fold(emptyObject)(anyOf =>
+          Json.obj(Keywords.Any.AnyOf -> anyOf)
+        ) ++
+        anyConstraint.oneOf.fold(emptyObject)(oneOf =>
+          Json.obj(Keywords.Any.OneOf -> oneOf)
+        ) ++
+        anyConstraint.definitions.fold(emptyObject)(definitions =>
+          Json.obj(Keywords.Any.Definitions -> definitions)
+        )
+  }
+
+  private def toJsObject[A : Writes](key: String, opt: Option[A]): JsObject = {
+    opt.fold(emptyObject)(value =>
+      Json.obj(key -> value)
+    )
+  }
+
+  private def emptyObject = Json.obj()
 }

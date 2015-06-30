@@ -1,43 +1,58 @@
 package com.eclipsesource.schema
 
-import com.eclipsesource.schema.internal.{RefResolver, Context, JsValueProcessor}
-import com.eclipsesource.schema.internal.serialization.{JSONSchemaReads, JSONSchemaAnnotationWrites}
-import play.api.data.mapping.{Rule, Path, VA}
-import play.api.libs.json.{JsObject, _}
+import com.eclipsesource.schema.internal.{Context, RefResolver}
+import play.api.data.mapping.{Failure, Path, VA}
+import play.api.data.validation.ValidationError
+import play.api.libs.json._
 
-import scalaz.Scalaz._
-import scalaz._
+trait Validator {
 
-
-trait Validator  {
-
-//  val visitor2 = validationRule2
-//    val visitor2 = (annotationRule |@| validationRule) { _ compose _ }
-  val visitor2 = annotationRule
-
-  val processor = JsValueProcessor(visitor2)
-
-  def validate(schema: QBType)(input: => JsValue): VA[JsValue] = {
+  def validate(schema: SchemaType)(input: => JsValue): VA[JsValue] = {
     // TODO: cast
     val id = schema match {
-      case container: QBContainer => container.id
+      case container: SchemaContainer => container.id
       case _ => None
     }
     val context = Context(Path, schema, Seq.empty, Set.empty, id)
-    val updatedRoot = RefResolver.replaceRefs(schema, context)
-    processor.process(
+    val updatedRoot = RefResolver.replaceRefs(context)(schema)
+    process(
       updatedRoot,
       input,
       context.copy(root = updatedRoot)
     )
   }
 
-  def validate[A : Writes](schema: QBType, input: A): VA[JsValue] = {
+  def validate[A: Writes](schema: SchemaType, input: A): VA[JsValue] = {
     val writer = implicitly[Writes[A]]
     val inputJs = writer.writes(input)
     val context = Context(Path, schema, Seq.empty, Set.empty)
-    val updatedRoot = RefResolver.replaceRefs(schema, context)
-    processor.process(updatedRoot, inputJs, context.copy(root = updatedRoot))
+    val updatedRoot = RefResolver.replaceRefs(context)(schema)
+    process(updatedRoot, inputJs, context.copy(root = updatedRoot))
+  }
+
+  private[schema] def process(schema: SchemaType, json: JsValue, context: Context): VA[JsValue] = {
+    (json, schema) match {
+      case (_, schemaObject: SchemaObject) =>
+        schemaObject.validate(json, context)
+      case (jsArray: JsArray, schemaArray: SchemaArray) =>
+        schemaArray.validate(jsArray, context)
+      case (jsArray: JsArray, schemaTuple: SchemaTuple) =>
+        schemaTuple.validate(jsArray, context)
+      case (jsNumber: JsNumber, schemaNumber: SchemaNumber) =>
+        schemaNumber.validate(jsNumber, context)
+      case (jsNumber: JsNumber, schemaInteger: SchemaInteger) =>
+        schemaInteger.validate(jsNumber, context)
+      case (jsBoolean: JsBoolean, schemaBoolean: SchemaBoolean) =>
+        schemaBoolean.validate(jsBoolean, context)
+      case (jsString: JsString, schemaString: SchemaString) =>
+        schemaString.validate(jsString, context)
+      case (JsNull, schemaNull: SchemaNull) =>
+        schemaNull.validate(json, context)
+      case (undefined: JsUndefined, _) =>
+        schema.validate(undefined, context)
+      case _ =>
+        Failure(List(context.path -> List(ValidationError("diff.types", Json.obj("schema" -> schema, "instance" -> json)))))
+    }
   }
 }
 

@@ -1,6 +1,6 @@
 package com.eclipsesource.schema.internal
 
-import com.eclipsesource.schema.{QBArray, QBClass, QBType}
+import com.eclipsesource.schema.{SchemaArray, SchemaObject, SchemaType}
 import play.api.libs.json._
 
 object SchemaUtil {
@@ -30,13 +30,13 @@ object SchemaUtil {
   }
 
 
-  def prettyPrint(qbType: QBType, printAnnotations: Boolean = false, indent: Int = 0): String = qbType match {
-    case obj: QBClass => "{\n" +
+  def prettyPrint(schemaType: SchemaType, printAnnotations: Boolean = false, indent: Int = 0): String = schemaType match {
+    case obj: SchemaObject => "{\n" +
       obj.properties.map { field =>
         " " * (indent + 2)  + field.name + ": " + (if (printAnnotations) field.annotations.mkString(",") else "") +
-          prettyPrint(field.qbType, printAnnotations, indent + 2) + "\n"}.mkString +
+          prettyPrint(field.schemaType, printAnnotations, indent + 2) + "\n"}.mkString +
         " " * indent + "}"
-    case arr: QBArray => "[" + prettyPrint(arr.items, printAnnotations, indent) + "]"
+    case arr: SchemaArray => "[" + prettyPrint(arr.items, printAnnotations, indent) + "]"
     case q => q.toString
   }
 }

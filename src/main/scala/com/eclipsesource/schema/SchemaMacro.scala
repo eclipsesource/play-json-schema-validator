@@ -5,71 +5,71 @@ import scala.reflect.macros.blackbox
 
 object SchemaMacro {
 
-  def deriveSchema[T]: QBClass = macro deriveSchema_impl[T]
+  def deriveSchema[T]: SchemaObject = macro deriveSchema_impl[T]
 
-  def deriveSchema_impl[T : c.WeakTypeTag](c: blackbox.Context): c.Expr[QBClass] = {
+  def deriveSchema_impl[T : c.WeakTypeTag](c: blackbox.Context): c.Expr[SchemaObject] = {
     import c.universe._
 
     val seqSym = c.typeOf[Seq[Any]].typeSymbol
 
-    def qbType(universeType: c.universe.Type, typeAsString: String): QBType = {
+    def schemaType(universeType: c.universe.Type, typeAsString: String): SchemaType = {
       typeAsString match {
-        case "String"     => QBStringImpl(Set())
-        case "Int"        => QBIntegerImpl()
-        case "Integer"    => QBIntegerImpl()
-        case "Double"     => QBNumberImpl(Set())
-        case "BigDecimal" => QBNumberImpl(Set())
-        case "Boolean"   => QBBooleanImpl(Set())
+        case "String"     => SchemaString()
+        case "Int"        => SchemaInteger()
+        case "Integer"    => SchemaInteger()
+        case "Double"     => SchemaNumber()
+        case "BigDecimal" => SchemaNumber()
+        case "Boolean"   => SchemaBoolean()
         case arr if universeType.baseClasses.contains(seqSym) =>
-          val itemType = qbType(universeType, universeType.resultType.typeArgs.head.toString)
-          QBArray(() => itemType)
+          val itemType = schemaType(universeType, universeType.resultType.typeArgs.head.toString)
+          SchemaArray(() => itemType)
         case cls =>
 
           val fields = universeType.decls.collectFirst {
             case m: MethodSymbol if m.isPrimaryConstructor ⇒ m
           }.get.paramLists.head
 
-          val attributes: List[(String, QBType)] = fields.map { field =>
+          val attributes: List[(String, SchemaType)] = fields.map { field =>
             val name = field.name
             val returnType = universeType.decl(name).typeSignature
-            val attrType = qbType(returnType, returnType.resultType.toString)
+            val attrType = schemaType(returnType, returnType.resultType.toString)
             name.toString -> attrType
           }
 
           // TODO annotations missing
-          QBClass(attributes.map(attr => QBAttribute(attr._1, attr._2)))
+          SchemaObject(attributes.map(attr => SchemaAttribute(attr._1, attr._2)))
       }
     }
 
-    implicit val qbStringLiftable = Liftable[QBStringImpl] { s =>
-      q"${symbolOf[QBStringImpl].companion}()"
+    implicit val stringLiftable = Liftable[SchemaString] { s =>
+      q"${symbolOf[SchemaString].companion}()"
     }
 
-    implicit val qbIntegerLiftable = Liftable[QBIntegerImpl] { i =>
-      q"${symbolOf[QBIntegerImpl].companion}()"
+    implicit val integerLiftable = Liftable[SchemaInteger] { i =>
+      q"${symbolOf[SchemaInteger].companion}()"
     }
-    implicit val qbNumberLiftable = Liftable[QBNumberImpl] { n =>
-      q"${symbolOf[QBNumberImpl].companion}()"
+    implicit val numberLiftable = Liftable[SchemaNumber] { n =>
+      q"${symbolOf[SchemaNumber].companion}()"
     }
-    implicit val qbBooleanLiftable = Liftable[QBBooleanImpl] { b =>
-      q"${symbolOf[QBBooleanImpl].companion}()"
+    implicit val booleanLiftable = Liftable[SchemaBoolean] { b =>
+      q"${symbolOf[SchemaBoolean].companion}()"
     }
-    lazy implicit val qbArrayLiftable: Liftable[QBArray] = Liftable[QBArray] { (arr: QBArray) =>
-      val lifted = qbLiftable(arr.items)
-      q"${symbolOf[QBArray].companion}($lifted)"
+    lazy implicit val arrayLiftable: Liftable[SchemaArray] = Liftable[SchemaArray] { (arr: SchemaArray) =>
+      val lifted = schemaLiftable(arr.items)
+      q"${symbolOf[SchemaArray].companion}($lifted)"
     }
-    lazy implicit val qbClassLiftable: Liftable[QBClass] = Liftable[QBClass] { cls =>
-      val lifted = cls.properties.map(attr => attr.name -> qbLiftable(attr.qbType)).toList
-      q"""${symbolOf[QBClass].companion}(List(..$lifted))"""
+    lazy implicit val classLiftable: Liftable[SchemaObject] = Liftable[SchemaObject] { cls =>
+      val lifted = cls.properties.map(attr => attr.name -> schemaLiftable(attr.schemaType)).toList
+      q"""${symbolOf[SchemaObject].companion}(List(..$lifted))"""
     }
 
-    lazy implicit val qbLiftable = Liftable[QBType] {
-      case s: QBStringImpl => qbStringLiftable(s)
-      case i: QBIntegerImpl => qbIntegerLiftable(i)
-      case b: QBBooleanImpl => qbBooleanLiftable(b)
-      case n: QBNumberImpl => qbNumberLiftable(n)
-      case a: QBArray => qbArrayLiftable(a)
-      case c: QBClass => qbClassLiftable(c)
+    lazy implicit val schemaLiftable = Liftable[SchemaType] {
+      case s: SchemaString => stringLiftable(s)
+      case i: SchemaInteger => integerLiftable(i)
+      case b: SchemaBoolean => booleanLiftable(b)
+      case n: SchemaNumber => numberLiftable(n)
+      case a: SchemaArray => arrayLiftable(a)
+      case c: SchemaObject => classLiftable(c)
     }
 
     val weakType = weakTypeOf[T]
@@ -82,12 +82,12 @@ object SchemaMacro {
       val name = field.name
       val decodedName = name.decodedName.toString
       val returnType = weakType.decl(name).typeSignature
-      val attrType = qbType(returnType, returnType.resultType.toString)
+      val attrType = schemaType(returnType, returnType.resultType.toString)
       q"($decodedName, $attrType)"
     }
 
-    c.Expr[QBClass] {
-      q"""${symbolOf[QBClass].companion}(List(..$schemaFields))"""
+    c.Expr[SchemaObject] {
+      q"""${symbolOf[SchemaObject].companion}(List(..$schemaFields))"""
     }
   }
 

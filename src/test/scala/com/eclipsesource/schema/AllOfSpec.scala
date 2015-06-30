@@ -11,10 +11,7 @@ class AllOfSpec extends Specification {
 
     "validate" in {
       val resourceUrl: URL = getClass.getResource("/draft4/allOf.json")
-
-      "validate" in {
-        foreach(JsonSpec.examplesFromUrl(resourceUrl))(example => example.execute)
-      }
+      foreach(JsonSpec.examplesFromUrl(resourceUrl))(example => example.execute)
     }
   }
 }
