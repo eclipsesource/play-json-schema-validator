@@ -7,7 +7,6 @@ object Keywords {
   val Schema = "$schema"
   val Description = "description"
 
-  val Ref = "$ref"
   val Default = "default"
   val Type = "type"
 
@@ -54,8 +53,8 @@ object Keywords {
     //
     // TODO: default is not yet implemented
     Keywords.Default,
-    Keywords.Ref,
     Keywords.Type,
+    Keywords.Object.Ref,
     Keywords.Object.Properties,
     Keywords.Object.PatternProperties,
     Keywords.Object.AdditionalProperties,
