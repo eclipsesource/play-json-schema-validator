@@ -26,7 +26,7 @@ case class SchemaNull() extends SchemaType {
 case class SchemaBooleanConstant(bool: Boolean) extends SchemaType {
   override def validate(json: => JsValue, context: Context): VA[JsValue] = ???
 }
-case class SchemaArrayConstant(seq: Seq[String]) extends SchemaType {
+case class SchemaArrayConstant(seq: Seq[JsValue]) extends SchemaType {
   override def validate(json: => JsValue, context: Context): VA[JsValue] = ???
 }
 case class SchemaStringConstant(seq: String) extends SchemaType {
@@ -119,7 +119,7 @@ case class SchemaArray(schemaType: () => SchemaType, constraints: ArrayConstrain
   override def validate(json: => JsValue, context: Context): VA[JsValue] = ArrayConstraintValidator.validateArray(this, json, context)
 }
 
-case class SchemaString(constraints: StringConstraints = StringConstraints(None, None, None, None, AnyConstraint())) extends SchemaType {
+case class SchemaString(constraints: StringConstraints = StringConstraints(None, None, None, AnyConstraint())) extends SchemaType {
   override def validate(json: => JsValue, context: Context): VA[JsValue] = StringValidator.validate(this, json, context)
 }
 

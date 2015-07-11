@@ -5,7 +5,7 @@ import java.util.regex.Pattern
 import com.eclipsesource.schema._
 import com.eclipsesource.schema.internal._
 import play.api.data.mapping._
-import play.api.libs.json.{Json, JsUndefined, JsObject, JsValue}
+import play.api.libs.json._
 
 import scalaz.ReaderWriterState
 
@@ -149,9 +149,7 @@ object ObjectValidator {
 
     def extendSchemaByDependency(baseSchema: SchemaObject, schemaType: SchemaType): SchemaObject = {
       schemaType match {
-        case extension@SchemaObject(_, _, _) => val s = baseSchema ++ extension
-          println(Json.prettyPrint(Json.toJson(s)))
-          s
+        case extension@SchemaObject(_, _, _) => baseSchema ++ extension
         case _ => baseSchema
       }
     }
@@ -177,7 +175,8 @@ object ObjectValidator {
       val dependencies = schema.constraints.dependencies.getOrElse(Seq.empty)
       val (updatedSchema, updatedStatus) = dependencies.foldLeft((schema, status))((acc, dep) => dep match {
         case (name, arr: SchemaArrayConstant) =>
-          val validated = validatePropertyDependency(name, arr.seq, context)
+          // collecting strings should not be necessary at this point
+          val validated = validatePropertyDependency(name, arr.seq.collect { case JsString(str) => str }, context)
           (acc._1, Results.merge(acc._2, validated))
         case (name, cls: SchemaObject) if obj.keys.contains(name) => (extendSchemaByDependency(acc._1, dep._2), acc._2)
         case _ => acc

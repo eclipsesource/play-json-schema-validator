@@ -2,6 +2,7 @@ package com.eclipsesource.schema.internal.constraints
 
 import com.eclipsesource.schema._
 import com.eclipsesource.schema.internal.{Keywords, Context}
+import play.api.libs.json.JsValue
 
 
 object Constraints {
@@ -14,7 +15,8 @@ object Constraints {
   case class AnyConstraint(allOf: Option[Seq[SchemaType]] = None,
                            anyOf: Option[Seq[SchemaType]] = None,
                            oneOf: Option[Seq[SchemaType]] = None,
-                           definitions: Option[Map[String, SchemaType]] = None)
+                           definitions: Option[Map[String, SchemaType]] = None,
+                           enum: Option[Seq[JsValue]] = None)
     extends Constraint with Resolvable {
 
     override type Sub = AnyConstraint
@@ -23,14 +25,17 @@ object Constraints {
       copy(
         allOf.map(schemas => schemas.map(fn)),
         anyOf.map(schemas => schemas.map(fn)),
-        oneOf.map(schemas => schemas.map(fn))
+        oneOf.map(schemas => schemas.map(fn)),
+        definitions.map(_.map(entry => entry._1 -> fn(entry._2)))
       )
     }
 
     override def resolvePath(path: String): Option[SchemaType] = path match {
       case Keywords.Any.AllOf => allOf.map(types => SchemaTuple(() => types, types.size))
-      case Keywords.Any.OneOf => oneOf.map(types => SchemaTuple(() => types, types.size))
       case Keywords.Any.AnyOf => anyOf.map(types => SchemaTuple(() => types, types.size))
+      case Keywords.Any.OneOf => oneOf.map(types => SchemaTuple(() => types, types.size))
+      case Keywords.Any.Definitions => definitions.map(entries => SchemaObject(entries.toSeq.map(e => SchemaAttribute(e._1, e._2))))
+      case Keywords.Any.Enum => enum.map(e => SchemaArrayConstant(e))
       case _ => None
     }
   }
@@ -98,7 +103,7 @@ object Constraints {
     }
   }
 
-  case class StringConstraints(minLength: Option[Int], maxLength: Option[Int], enum: Option[Seq[String]], format: Option[String], any: AnyConstraint) extends Constraint with HasAnyConstraint {
+  case class StringConstraints(minLength: Option[Int], maxLength: Option[Int], format: Option[String], any: AnyConstraint) extends Constraint with HasAnyConstraint {
     type Sub = StringConstraints
 
     override def updated(fn: (SchemaType) => SchemaType): Sub = {

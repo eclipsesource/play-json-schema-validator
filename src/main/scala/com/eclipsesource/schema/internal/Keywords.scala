@@ -24,6 +24,7 @@ object Keywords {
     val AnyOf = "anyOf"
     val OneOf = "oneOf"
     val Definitions = "definitions"
+    val Enum = "enum"
   }
 
   object Number {
@@ -38,7 +39,6 @@ object Keywords {
     val MinLength = "minLength"
     val MaxLength = "maxLength"
     val Format = "format"
-    val Enum = "enum"
   }
 
   object Array {

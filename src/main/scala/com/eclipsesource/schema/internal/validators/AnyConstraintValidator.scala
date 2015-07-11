@@ -10,7 +10,11 @@ import play.api.libs.json.{JsObject, JsValue, Json}
 object AnyConstraintValidator {
 
   def validate(json: JsValue, any: AnyConstraint, context: Context): VA[JsValue] = {
-    (validateAllOf(any, context) |+| validateAnyOf(any) |+| validateOneOf(any)).validate(json)
+    (validateAllOf(any, context) |+|
+      validateAnyOf(any) |+|
+      validateOneOf(any) |+|
+      validateEnum(any)
+      ).validate(json)
   }
 
   def validateAllOf(any: AnyConstraint, context: Context): Rule[JsValue, JsValue] = {
@@ -80,6 +84,23 @@ object AnyConstraintValidator {
           }
         }
       ).getOrElse(Success(json))
+    }
+  }
+
+  def validateEnum(constraints: AnyConstraint): Rule[JsValue, JsValue] = {
+    val enums = constraints.enum
+    Rule.fromMapping { json =>
+        enums match {
+          case Some(values) if values.contains(json) => Success(json)
+          case Some(_) => Failure(
+            Seq(
+              ValidationError("enum violated",
+                Json.obj("enum" -> enums)
+              )
+            )
+          )
+          case None => Success(json)
+        }
     }
   }
 

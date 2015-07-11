@@ -75,7 +75,6 @@ trait JSONSchemaReads {
       (__ \ "type").readNullable[String] /*(verifying(_ == "string"))*/ and
         (__ \ "minLength").readNullable[Int] and
         (__ \ "maxLength").readNullable[Int] and
-        (__ \ "enum").readNullable[Seq[String]] and
         (__ \ "format").readNullable[String] and
         anyConstraintReader
       ).tupled.flatMap(opts => {
@@ -83,14 +82,13 @@ trait JSONSchemaReads {
       val stringType = opts._1
       val minLength = opts._2
       val maxLength = opts._3
-      val enums = opts._4
-      val format = opts._5
-      val anyConstraints  = opts._6
+      val format = opts._4
+      val anyConstraints  = opts._5
 
-      if (stringType.isDefined && stringType.get != "string" || List(stringType, minLength, maxLength, enums, format).forall(_.isEmpty)) {
+      if (stringType.isDefined && stringType.get != "string" || List(stringType, minLength, maxLength, format).forall(_.isEmpty)) {
         Reads.apply(_ => JsError("Expected string."))
       } else {
-        Reads.pure(SchemaString(StringConstraints(minLength, maxLength, enums, format, anyConstraints)))
+        Reads.pure(SchemaString(StringConstraints(minLength, maxLength, format, anyConstraints)))
       }
     })
   }
@@ -193,7 +191,7 @@ trait JSONSchemaReads {
     new Reads[SchemaArrayConstant] {
       override def reads(json: JsValue): JsResult[SchemaArrayConstant] = {
         json match {
-          case JsArray(els) => JsSuccess(SchemaArrayConstant(els.collect { case JsString(str) => str}.toSeq))
+          case JsArray(els) => JsSuccess(SchemaArrayConstant(els.collect { case str@JsString(_) => str}.toSeq))
           case _ => JsError("Expected a array of strings")
         }
       }
@@ -263,12 +261,13 @@ trait JSONSchemaReads {
       (__ \ "allOf").lazyReadNullable[Seq[SchemaType]](readSeqOfSchemaTypeInstance) and
         (__ \ "anyOf").lazyReadNullable[Seq[SchemaType]](readSeqOfSchemaTypeInstance) and
         (__ \ "oneOf").lazyReadNullable[Seq[SchemaType]](readSeqOfSchemaTypeInstance) and
-        (__ \ "definitions").lazyReadNullable(readsInstance)
+        (__ \ "definitions").lazyReadNullable(readsInstance) and
+        (__ \ "enum").readNullable[Seq[JsValue]]
       ).tupled.map(
         read => {
-          val (allOf, anyOf, oneOf, definitions) = read
+          val (allOf, anyOf, oneOf, definitions, enum) = read
 
-          AnyConstraint(allOf, anyOf, oneOf, definitions)
+          AnyConstraint(allOf, anyOf, oneOf, definitions, enum)
         }
       )
   }

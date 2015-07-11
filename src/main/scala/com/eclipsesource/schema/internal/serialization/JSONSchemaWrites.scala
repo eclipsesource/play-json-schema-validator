@@ -153,24 +153,16 @@ trait JSONSchemaWrites {
         stringConstraints.format.fold(emptyObject)(format =>
           Json.obj(Keywords.String.Format -> format)
         ) ++
-        stringConstraints.enum.fold(emptyObject)(enum =>
-          Json.obj(Keywords.String.Enum -> enum)
-        ) ++
        anyConstraintWriter.writes(stringConstraints.any)
   }
 
   lazy val anyConstraintWriter: OWrites[AnyConstraint] = OWrites[AnyConstraint] {
     anyConstraint =>
       toJsObject(Keywords.Any.AllOf, anyConstraint.allOf) ++
-        anyConstraint.anyOf.fold(emptyObject)(anyOf =>
-          Json.obj(Keywords.Any.AnyOf -> anyOf)
-        ) ++
-        anyConstraint.oneOf.fold(emptyObject)(oneOf =>
-          Json.obj(Keywords.Any.OneOf -> oneOf)
-        ) ++
-        anyConstraint.definitions.fold(emptyObject)(definitions =>
-          Json.obj(Keywords.Any.Definitions -> definitions)
-        )
+      toJsObject(Keywords.Any.AnyOf, anyConstraint.anyOf) ++
+      toJsObject(Keywords.Any.OneOf, anyConstraint.oneOf) ++
+      toJsObject(Keywords.Any.Definitions, anyConstraint.definitions) ++
+      toJsObject(Keywords.Any.Enum, anyConstraint.enum)
   }
 
   private def toJsObject[A : Writes](key: String, opt: Option[A]): JsObject = {

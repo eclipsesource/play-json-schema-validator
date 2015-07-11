@@ -15,7 +15,6 @@ object StringValidator {
       (
         validateMinLength(constraints) |+|
           validateMaxLength(constraints) |+|
-          validateEnum(constraints) |+|
           validateFormat(constraints)
         ).validate(json),
       AnyConstraintValidator.validate(json, constraints.any, context)
@@ -42,25 +41,6 @@ object StringValidator {
           case None => Success(json)
         case _ => expectedString
       }
-    }
-  }
-
-  def validateEnum(constraints: StringConstraints): Rule[JsValue, JsValue] = {
-    val enums = constraints.enum
-    Rule.fromMapping {
-      case json@JsString(string) =>
-        enums match {
-          case Some(values) if values.contains(string) => Success(json)
-          case Some(_) => Failure(
-            Seq(
-              ValidationError("enum violated",
-                Json.obj("enum" -> enums, "string" -> string)
-              )
-            )
-          )
-          case None => Success(json)
-        }
-      case other => expectedString
     }
   }
 
