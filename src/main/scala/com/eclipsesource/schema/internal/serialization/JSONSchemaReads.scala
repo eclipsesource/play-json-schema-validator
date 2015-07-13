@@ -62,10 +62,11 @@ trait JSONSchemaReads {
       val multipleOf = opts._6
       val anyConstraints = opts._7
 
+
       if ( opts.take(6).toList.forall(_.isEmpty)) {
         Reads.apply(_ => JsError(""))
       } else {
-        Reads.pure(SchemaNumber(NumberConstraints(minConstraint, maxConstraint, multipleOf, anyConstraints)))
+        Reads.pure(SchemaNumber(NumberConstraints(opts._1.isDefined, minConstraint, maxConstraint, multipleOf, anyConstraints)))
       }
     })
   }
@@ -79,16 +80,16 @@ trait JSONSchemaReads {
         anyConstraintReader
       ).tupled.flatMap(opts => {
 
-      val stringType = opts._1
+      val explicitType = opts._1
       val minLength = opts._2
       val maxLength = opts._3
       val format = opts._4
       val anyConstraints  = opts._5
 
-      if (stringType.isDefined && stringType.get != "string" || List(stringType, minLength, maxLength, format).forall(_.isEmpty)) {
+      if (explicitType.isDefined && explicitType.get != "string" || List(explicitType, minLength, maxLength, format).forall(_.isEmpty)) {
         Reads.apply(_ => JsError("Expected string."))
       } else {
-        Reads.pure(SchemaString(StringConstraints(minLength, maxLength, format, anyConstraints)))
+        Reads.pure(SchemaString(StringConstraints(explicitType.isDefined, minLength, maxLength, format, anyConstraints)))
       }
     })
   }
@@ -114,7 +115,7 @@ trait JSONSchemaReads {
       ).tupled.flatMap(opts => {
 
       // TODO: boolean constraint type could be removed
-      Reads.pure(SchemaBoolean(BooleanConstraints(opts._2)))
+      Reads.pure(SchemaBoolean(BooleanConstraints(opts._1.isDefined, opts._2)))
     })
   }
 
@@ -139,14 +140,15 @@ trait JSONSchemaReads {
         Reads.apply(_ => JsError("Expected integer."))
       } else {
         // TODO: constraitns
-        Reads.pure(SchemaInteger(NumberConstraints(minRule, maxRule, multipleOf, anyConstraints)))
+        Reads.pure(SchemaInteger(NumberConstraints(opts._1.isDefined, minRule, maxRule, multipleOf, anyConstraints)))
       }
     })
   }
 
 
   lazy val arrayReader: Reads[SchemaArray] = {
-    ((__ \ "items").read[SchemaType] and
+    ((__ \ "type").readNullable[String] and
+      (__ \ "items").lazyRead[SchemaType](valueReader) and
       (__ \ "additionalItems").readNullable[SchemaType] and
       (__ \ "minItems").readNullable[Int] and
       (__ \ "maxItems").readNullable[Int] and
@@ -155,18 +157,16 @@ trait JSONSchemaReads {
       anyConstraintReader
       ).tupled.map(
         read => {
-          val (items, additionalItems, minItems, maxItems, uniqueItems, id, any) = read
-          // TODO: other properties are missing
-          val schemaType: JsResult[SchemaType] = valueReader.reads(Json.toJson(items))
-          // TODO: rules missing, get
-          // TODO: only updated inner ids, not outer, also, refs need to be updated if ids are presents
-          SchemaArray(() => schemaType.get, ArrayConstraints(minItems, maxItems, additionalItems, uniqueItems, any), id)
+          val (explicitType, items, additionalItems, minItems, maxItems, uniqueItems, id, any) = read
+
+          SchemaArray(() => items, ArrayConstraints(explicitType.isDefined, minItems, maxItems, additionalItems, uniqueItems, any), id)
         })
   }
 
   lazy val tupleReader: Reads[SchemaTuple] = {
     (
-      (__ \ "items").read[Seq[JsValue]] and
+      (__ \ "type").readNullable[String] and
+        (__ \ "items").lazyRead[Seq[SchemaType]](readSeqOfSchemaTypeInstance) and
         (__ \ "minItems").readNullable[Int] and
         (__ \ "maxItems").readNullable[Int] and
         (__ \ "additionalItems").readNullable[SchemaType] and
@@ -174,14 +174,14 @@ trait JSONSchemaReads {
         (__ \ "id").readNullable[String] and
         anyConstraintReader
       ).tupled.map { read =>
-      val (items, minItems, maxItems, additionalItems, uniqueItems, id, any) = read
-      val tupleTypes: Seq[JsResult[SchemaType]] = items.map(valueReader.reads)
-      val successTupleTypes: Seq[SchemaType] = tupleTypes.collect { case JsSuccess(succ, _) => succ}.toSeq
-      SchemaTuple(() => successTupleTypes,
-        successTupleTypes.size,
+      val (explicitType, items, minItems, maxItems, additionalItems, uniqueItems, id, any) = read
+//      val tupleTypes: Seq[JsResult[SchemaType]] = items.map(valueReader.reads)
+//      val successTupleTypes: Seq[SchemaType] = tupleTypes.collect { case JsSuccess(succ, _) => succ}.toSeq
+      SchemaTuple(() => items,
+        items.size,
         // initialize with empty schema
         // TODO: additionalItems also could be an boolean
-        ArrayConstraints(minItems, maxItems, additionalItems, uniqueItems, any),
+        ArrayConstraints(explicitType.isDefined, minItems, maxItems, additionalItems, uniqueItems, any),
         id
       )
     }
@@ -224,6 +224,7 @@ trait JSONSchemaReads {
   // TODO: extract into objectConstraintReader
   lazy val fallBackReader: Reads[SchemaObject] = {
     (
+      (__ \ "type").readNullable[String] and
       (__ \ "properties").lazyReadNullable[Map[String, SchemaType]](readsInstance) and
         (__ \ "id").readNullable[String] and
         (__ \ "patternProperties").lazyReadNullable[Map[String, SchemaType]](readsInstance) and
@@ -236,7 +237,7 @@ trait JSONSchemaReads {
         anyConstraintReader
       ).tupled.flatMap { read =>
 
-      val (properties, id, patternProperties, additionalProperties, required, dependencies, min, max, ref, anyConstraints) = read
+      val (explicitType, properties, id, patternProperties, additionalProperties, required, dependencies, min, max, ref, anyConstraints) = read
 
       val requiredProperties = required.map(_.toSet).getOrElse(Set.empty)
       val props: List[SchemaAttribute] = properties.map(p => tuples2Attributes(p, requiredProperties)).getOrElse(List.empty)
@@ -245,6 +246,7 @@ trait JSONSchemaReads {
         SchemaObject(
           props ++ ref.map(path => Seq(SchemaAttribute(Keywords.Object.Ref, SchemaRef(JSONPointer(path), isAttribute = true, isRemote = path.startsWith("http"))))).getOrElse(Seq.empty),
           ObjectConstraints(
+            explicitType.isDefined,
             additionalProperties,
             dependencies,
             patternProperties,

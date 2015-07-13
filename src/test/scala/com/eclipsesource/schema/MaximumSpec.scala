@@ -1,52 +1,34 @@
 package com.eclipsesource.schema
 
+import com.eclipsesource.schema.test.{JSONSource, JsonSpec}
 import org.specs2.mutable.Specification
-import com.eclipsesource.schema._
+import java.net.URL
 import play.api.libs.json.{JsString, JsNumber, JsResult, Json}
 
 class MaximumSpec extends Specification {
 
-  "maximum validation" should {
-
-    val jsonSchema = Json.obj("maximum" -> 3.0)
-    val schema: JsResult[SchemaObject] = Json.fromJson(jsonSchema)(valueReader).asInstanceOf[JsResult[SchemaObject]]
-
-    "below the maximum is valid" in {
-      val data = JsNumber(2.6)
-      Validator.validate(schema.get)(data).isSuccess must beTrue
-    }
-
-    "below the maximum is valid" in {
-      val data = JsNumber(3.5)
-      Validator.validate(schema.get)(data).isFailure  must beTrue
-    }
-
-    "ignores non-numbers" in {
-      val data = JsString("x")
-      Validator.validate(schema.get)(data).isSuccess must beTrue
+  "Maximum" should {
+    "validate" in {
+      val resourceUrl: URL = getClass.getResource("/draft4/maximum.json")
+      foreach(JsonSpec.examplesFromUrl(resourceUrl))(example => example.execute)
     }
   }
 
-  "exclusiveMaximum validation" should {
+  "maximum validation" should {
 
-    val jsonSchema = Json.obj(
-      "maximum" -> 3.0,
-      "exclusiveMaximum" -> true
-    )
+    val schema = JSONSource.schemaFromString(
+      """{
+        |"maximum": 3.0
+      }""".stripMargin).get
 
-    val schema: JsResult[SchemaObject] = Json.fromJson(jsonSchema)(valueReader).asInstanceOf[JsResult[SchemaObject]]
+    println(Json.prettyPrint(Json.toJson(schema)))
 
-    "below the maximum is still valid" in {
-      val data = JsNumber(2.2)
-      Validator.validate(schema.get)(data).isSuccess must beTrue
+    "ignores non-number" in {
+      val data = JsString("x")
+      val result = Validator.validate(schema, data)
+      println(result)
+      result.isSuccess must beTrue
     }
-
-    "boundary point is invalid" in {
-      val data = JsNumber(3.0)
-      Validator.validate(schema.get)(data).isFailure must beTrue
-    }
-
-
   }
 
 }

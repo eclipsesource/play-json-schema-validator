@@ -1,7 +1,8 @@
 package com.eclipsesource.schema
 
+import com.eclipsesource.schema.internal.constraints.Constraints.HasAnyConstraint
 import com.eclipsesource.schema.internal.{Context, RefResolver}
-import play.api.data.mapping.{Failure, Path, VA}
+import play.api.data.mapping.{Success, Failure, Path, VA}
 import play.api.data.validation.ValidationError
 import play.api.libs.json._
 
@@ -50,6 +51,8 @@ trait Validator {
         schemaNull.validate(json, context)
       case (undefined: JsUndefined, _) =>
         schema.validate(undefined, context)
+//      case (_, _: PrimitiveSchemaType) if !schema.constraints.explicitType =>
+//        Success(json)
       case _ =>
         Failure(List(context.path -> List(ValidationError("diff.types", Json.obj("schema" -> schema, "instance" -> json)))))
     }

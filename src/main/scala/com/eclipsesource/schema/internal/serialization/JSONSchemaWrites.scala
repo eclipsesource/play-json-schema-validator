@@ -40,7 +40,7 @@ trait JSONSchemaWrites {
   }
 
   implicit val numberWriter: Writes[SchemaNumber] = OWrites[SchemaNumber] { num =>
-    Json.obj("type" -> "number") ++ numberConstraintWriter.writes(num.constraints)
+   numberConstraintWriter.writes(num.constraints)
   }
 
   // TODO: do arrays have additionalitems?
@@ -123,6 +123,7 @@ trait JSONSchemaWrites {
 
   lazy val numberConstraintWriter: OWrites[NumberConstraints] = OWrites[NumberConstraints] {
     constraints =>
+      toJsObject(Keywords.Any.Type, Some(Json.obj("type" -> "number")))
       constraints.max.fold(emptyObject)(max => max.isExclusive match {
         case Some(isExclusive) => Json.obj(Keywords.Number.Max -> max.max, Keywords.Number.ExclusiveMax -> isExclusive)
         case _ => Json.obj(Keywords.Number.Max -> max.max)

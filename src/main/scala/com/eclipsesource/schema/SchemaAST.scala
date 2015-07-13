@@ -11,7 +11,10 @@ import scala.util.Try
 
 sealed trait SchemaType {
   def validate(json: => JsValue, context: Context): VA[JsValue]
+  def constraints: Constraint
 }
+
+sealed trait PrimitiveSchemaType extends SchemaType
 
 trait AnySchemaType
 
@@ -20,17 +23,25 @@ case class SchemaNull() extends SchemaType {
     case JsNull => Success(json)
     case _ => Results.failure("Expected null")
   }
+
+  override def constraints: Constraint = ???
 }
 
 // TODO
 case class SchemaBooleanConstant(bool: Boolean) extends SchemaType {
   override def validate(json: => JsValue, context: Context): VA[JsValue] = ???
+
+  override def constraints: Constraint = ???
 }
 case class SchemaArrayConstant(seq: Seq[JsValue]) extends SchemaType {
   override def validate(json: => JsValue, context: Context): VA[JsValue] = ???
+
+  override def constraints: Constraint = ???
 }
 case class SchemaStringConstant(seq: String) extends SchemaType {
   override def validate(json: => JsValue, context: Context): VA[JsValue] = ???
+
+  override def constraints: Constraint = ???
 }
 
 trait Resolvable {
@@ -57,6 +68,8 @@ case class JSONPointer(path: String)
 // TODO isRemote also applies for non http?
 case class SchemaRef(pointer: JSONPointer, isAttribute: Boolean = false, isRemote: Boolean = false) extends SchemaType {
   override def validate(json: => JsValue, context: Context): VA[JsValue] = ???
+
+  override def constraints: Constraint = ???
 }
 
 case class SchemaObject(
@@ -77,7 +90,7 @@ case class SchemaObject(
   override def validate(json: => JsValue, context: Context): VA[JsValue] = ObjectValidator.validateObject(this, json, context)
 }
 
-case class SchemaTuple(items: () => Seq[SchemaType], size: Int, constraints: ArrayConstraints = ArrayConstraints(None, None, None, None, AnyConstraint()), id: Option[String] = None) extends SchemaContainer {
+case class SchemaTuple(items: () => Seq[SchemaType], size: Int, constraints: ArrayConstraints = ArrayConstraints(false, None, None, None, None, AnyConstraint()), id: Option[String] = None) extends SchemaContainer {
 
   override def resolvePath(index: String): Option[SchemaType] = {
     index match {
@@ -95,7 +108,7 @@ case class SchemaTuple(items: () => Seq[SchemaType], size: Int, constraints: Arr
   override def validate(json: => JsValue, context: Context): VA[JsValue] = ArrayConstraintValidator.validateTuple(this, json, context)
 }
 
-case class SchemaArray(schemaType: () => SchemaType, constraints: ArrayConstraints = ArrayConstraints(None, None, None, None, AnyConstraint()), id: Option[String] = None)
+case class SchemaArray(schemaType: () => SchemaType, constraints: ArrayConstraints = ArrayConstraints(false, None, None, None, None, AnyConstraint()), id: Option[String] = None)
   extends SchemaContainer {
 
   lazy val items = schemaType()
@@ -119,21 +132,21 @@ case class SchemaArray(schemaType: () => SchemaType, constraints: ArrayConstrain
   override def validate(json: => JsValue, context: Context): VA[JsValue] = ArrayConstraintValidator.validateArray(this, json, context)
 }
 
-case class SchemaString(constraints: StringConstraints = StringConstraints(None, None, None, AnyConstraint())) extends SchemaType {
+case class SchemaString(constraints: StringConstraints = StringConstraints(false, None, None, None, AnyConstraint())) extends PrimitiveSchemaType {
   override def validate(json: => JsValue, context: Context): VA[JsValue] = StringValidator.validate(this, json, context)
 }
 
 /**
  * Number
  */
-case class SchemaNumber(constraints: NumberConstraints = NumberConstraints(None, None, None, AnyConstraint())) extends SchemaType {
+case class SchemaNumber(constraints: NumberConstraints = NumberConstraints(false, None, None, None, AnyConstraint())) extends PrimitiveSchemaType {
   override def validate(json: => JsValue, context: Context): VA[JsValue] = NumberConstraintValidator.validate(json, constraints)
 }
 
 /**
  * Integer
  */
-case class SchemaInteger(constraints: NumberConstraints = NumberConstraints(None, None, None, AnyConstraint())) extends SchemaType {
+case class SchemaInteger(constraints: NumberConstraints = NumberConstraints(false, None, None, None, AnyConstraint())) extends PrimitiveSchemaType {
 
   def isInt(json: JsValue): VA[JsValue] = json match {
     case JsNumber(number) if number.isValidInt => Success(json)
@@ -149,15 +162,15 @@ case class SchemaInteger(constraints: NumberConstraints = NumberConstraints(None
 
 }
 
-case class SchemaBoolean(constraints: BooleanConstraints = BooleanConstraints(AnyConstraint())) extends SchemaType {
+case class SchemaBoolean(constraints: BooleanConstraints = BooleanConstraints(false, AnyConstraint())) extends PrimitiveSchemaType {
   override def validate(json: => JsValue, context: Context): VA[JsValue] = AnyConstraintValidator.validate(json, constraints.any, context)
 }
 
-/**
- * ----------------------------------------------------------
- * 	Annotations
- * ----------------------------------------------------------
- */
+///**
+// * ----------------------------------------------------------
+// * 	Annotations
+// * ----------------------------------------------------------
+// */
 trait SchemaAnnotation
 case class SchemaAttribute(name: String, schemaType: SchemaType, annotations: Seq[SchemaAnnotation] = Seq.empty) {
   def addAnnotation(annotation: SchemaAnnotation): SchemaAttribute =

@@ -37,12 +37,15 @@ object RefResolver {
         }).fold(context.id)(i => Some(i))
 
         // find and replace any ref, if available
-        val substitutedType = cls.properties.collectFirst {
+        val (substitutedType, updContext) = cls.properties.collectFirst {
           case attr@SchemaAttribute(_, ref: SchemaRef, _) if !context.visited.contains(ref) => ref
-        }.flatMap(ref => resolveRef(ref, context.copy(visited = context.visited + ref, id = id)) ).getOrElse(cls)
+        }.flatMap(ref => {
+          val c = context.copy(visited = context.visited + ref, id = id)
+          resolveRef(ref, c).map(res => (res, c))
+        }).getOrElse((cls, context))
         substitutedType match {
           // if resolved type is a class, resolve all refs it contains
-          case c: SchemaObject => c.copy(constraints = c.constraints.updated(replaceRefs(context.copy(id = id))))
+          case c: SchemaObject => c.copy(constraints = c.constraints.updated(replaceRefs(updContext)))
           case x => x
         }
       case z => z

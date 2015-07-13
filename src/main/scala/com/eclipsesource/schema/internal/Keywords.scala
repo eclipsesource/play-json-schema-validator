@@ -8,7 +8,6 @@ object Keywords {
   val Description = "description"
 
   val Default = "default"
-  val Type = "type"
 
   object Object {
     val Properties = "properties"
@@ -25,11 +24,12 @@ object Keywords {
     val OneOf = "oneOf"
     val Definitions = "definitions"
     val Enum = "enum"
+    val Type = "type"
   }
 
   object Number {
-    val Max = "max"
-    val Min = "min"
+    val Max = "maximum"
+    val Min = "minimum"
     val ExclusiveMax = "exclusiveMax"
     val ExclusiveMin = "exclusiveMin"
     val MultipleOf = "multipleOf"
@@ -53,7 +53,6 @@ object Keywords {
     //
     // TODO: default is not yet implemented
     Keywords.Default,
-    Keywords.Type,
     Keywords.Object.Ref,
     Keywords.Object.Properties,
     Keywords.Object.PatternProperties,
@@ -61,6 +60,8 @@ object Keywords {
     Keywords.Object.Required,
     Keywords.Object.Dependencies,
     Keywords.Any.AllOf,
-    Keywords.Any.AnyOf
+    Keywords.Any.AnyOf,
+    Keywords.Any.OneOf,
+    Keywords.Any.Type
   )
 }
