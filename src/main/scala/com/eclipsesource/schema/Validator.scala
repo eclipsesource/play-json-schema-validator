@@ -51,8 +51,8 @@ trait Validator {
         schemaNull.validate(json, context)
       case (undefined: JsUndefined, _) =>
         schema.validate(undefined, context)
-//      case (_, _: PrimitiveSchemaType) if !schema.constraints.explicitType =>
-//        Success(json)
+      case (_, _: PrimitiveSchemaType) if !schema.constraints.explicitType =>
+        Success(json)
       case _ =>
         Failure(List(context.path -> List(ValidationError("diff.types", Json.obj("schema" -> schema, "instance" -> json)))))
     }
