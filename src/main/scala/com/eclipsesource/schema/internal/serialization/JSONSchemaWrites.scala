@@ -118,7 +118,10 @@ trait JSONSchemaWrites {
 
   lazy val arrayConstraintWriter: OWrites[ArrayConstraints] = OWrites[ArrayConstraints] {
     constraints =>
-      toJsObject(Keywords.Array.AdditionalItems, constraints.additionalItems)
+      toJsObject(Keywords.Array.AdditionalItems, constraints.additionalItems) ++
+      toJsObject(Keywords.Array.MaxItems, constraints.maxItems) ++
+      toJsObject(Keywords.Array.MinItems, constraints.minItems) ++
+      toJsObject(Keywords.Array.UniqueItems, constraints.unique)
   }
 
   lazy val numberConstraintWriter: OWrites[NumberConstraints] = OWrites[NumberConstraints] {

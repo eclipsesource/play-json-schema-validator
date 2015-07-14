@@ -32,6 +32,7 @@ trait Validator {
   }
 
   private[schema] def process(schema: SchemaType, json: JsValue, context: Context): VA[JsValue] = {
+
     (json, schema) match {
       case (_, schemaObject: SchemaObject) =>
         schemaObject.validate(json, context)
@@ -51,7 +52,7 @@ trait Validator {
         schemaNull.validate(json, context)
       case (undefined: JsUndefined, _) =>
         schema.validate(undefined, context)
-      case (_, _: PrimitiveSchemaType) if !schema.constraints.explicitType =>
+      case (_, _) if !schema.constraints.explicitType =>
         Success(json)
       case _ =>
         Failure(List(context.path -> List(ValidationError("diff.types", Json.obj("schema" -> schema, "instance" -> json)))))

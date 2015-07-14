@@ -2,7 +2,7 @@ package com.eclipsesource.schema
 
 import java.net.URL
 
-import com.eclipsesource.schema.test.JsonSpec
+import com.eclipsesource.schema.test.{JsonSpec}
 import org.specs2.mutable.Specification
 
 class AdditionalItemsSpec extends Specification {
@@ -15,4 +15,5 @@ class AdditionalItemsSpec extends Specification {
       foreach(JsonSpec.examplesFromUrl(resourceUrl))(_.execute)
     }
   }
+
 }

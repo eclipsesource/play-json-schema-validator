@@ -91,7 +91,10 @@ import com.eclipsesource.schema.internal.{Keywords, Context}
                                unique: Option[Boolean], any: AnyConstraint) extends Constraint with HasAnyConstraint {
     override type Sub = ArrayConstraints
 
-    override def updated(fn: (SchemaType) => SchemaType): Sub = copy(any = any.updated(fn))
+    override def updated(fn: (SchemaType) => SchemaType): Sub = copy(
+      additionalItems = additionalItems.map(fn),
+      any = any.updated(fn)
+    )
   }
 
   case class Minimum(min: Double, isExclusive: Option[Boolean])

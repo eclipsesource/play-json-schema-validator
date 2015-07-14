@@ -1,9 +1,9 @@
 package com.eclipsesource.schema
 
-import com.eclipsesource.schema.test.{JSONSource, JsonSpec}
-import org.specs2.mutable.Specification
 import java.net.URL
-import play.api.libs.json.{JsString, JsNumber, JsResult, Json}
+
+import com.eclipsesource.schema.test.JsonSpec
+import org.specs2.mutable.Specification
 
 class MaximumSpec extends Specification {
 
@@ -13,22 +13,4 @@ class MaximumSpec extends Specification {
       foreach(JsonSpec.examplesFromUrl(resourceUrl))(example => example.execute)
     }
   }
-
-  "maximum validation" should {
-
-    val schema = JSONSource.schemaFromString(
-      """{
-        |"maximum": 3.0
-      }""".stripMargin).get
-
-    println(Json.prettyPrint(Json.toJson(schema)))
-
-    "ignores non-number" in {
-      val data = JsString("x")
-      val result = Validator.validate(schema, data)
-      println(result)
-      result.isSuccess must beTrue
-    }
-  }
-
 }

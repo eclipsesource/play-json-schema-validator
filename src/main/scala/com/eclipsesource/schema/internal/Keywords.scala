@@ -43,6 +43,9 @@ object Keywords {
 
   object Array {
     val AdditionalItems = "additionalItems"
+    val MinItems = "minItems"
+    val MaxItems = "maxItems"
+    val UniqueItems = "uniqueItems"
   }
 
   val ofObject = List(
