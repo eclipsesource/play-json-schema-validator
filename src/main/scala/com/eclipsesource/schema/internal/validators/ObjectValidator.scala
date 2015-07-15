@@ -23,7 +23,7 @@ object ObjectValidator {
             remaining <- validateProps(updSchema, jsObject)
             unmatched <- validatePatternProps(updSchema, remaining)
             _ <- validateAdditionalProps(updSchema, unmatched)
-            //            _ <- validateMinProperties(updSchema, jsObject)
+            _ <- validateMinProperties(updSchema, jsObject)
             _ <- validateMaxProperties(updSchema, jsObject)
           // TODO: validate min, max properties etc.
           } yield updSchema
@@ -207,6 +207,21 @@ object ObjectValidator {
           Success(obj)
         } else {
           Results.failure(s"maxProperties violated. Max: $max, was $size")
+        }
+      }
+      ((), (), Results.merge(status, result))
+    }
+  }
+
+  def validateMinProperties(schema: SchemaObject, obj: JsObject): ReaderWriterState[Context, Unit, VA[JsValue], Unit] = {
+    ReaderWriterState { (context, status) =>
+      val size = obj.fields.size
+      val result: VA[JsValue] = schema.constraints.minProperties match {
+        case None => Success(obj)
+        case Some(min) => if (size >= min) {
+          Success(obj)
+        } else {
+          Results.failure(s"minProperties violated. Min: $min, was $size")
         }
       }
       ((), (), Results.merge(status, result))
