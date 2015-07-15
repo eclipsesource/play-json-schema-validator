@@ -1,18 +1,16 @@
 package com.eclipsesource.schema
 
 import java.net.URL
-
 import com.eclipsesource.schema.test.JsonSpec
 import org.specs2.mutable.Specification
 
-class MaxItemsSpec extends Specification {
+class MaxLengthSpec extends Specification {
 
-  "MaxItems" should {
+  "MaxLength" should {
     "validate" in {
-      val resourceUrl: URL = getClass.getResource("/draft4/maxItems.json")
+      val resourceUrl: URL = getClass.getResource("/draft4/maxLength.json")
       foreach(JsonSpec.examplesFromUrl(resourceUrl))(example => example.execute)
     }
   }
 
 }
-

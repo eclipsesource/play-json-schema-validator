@@ -1,5 +1,7 @@
 package com.eclipsesource.schema.internal.validators
 
+import java.util.regex.Pattern
+
 import com.eclipsesource.schema.SchemaString
 import com.eclipsesource.schema.internal.constraints.Constraints.StringConstraints
 import com.eclipsesource.schema.internal.{Context, Results}
@@ -48,7 +50,7 @@ object StringValidator {
     val minLength = constraints.minLength.getOrElse(0)
     Rule.fromMapping {
       case json@JsString(string) =>
-        if (string.length >= minLength) {
+        if (lengthOf(string) >= minLength) {
           Success(json)
         } else {
           Failure(
@@ -69,7 +71,7 @@ object StringValidator {
       case json@JsString(string) => maxLength match {
         case None => Success(json)
         case Some(max) =>
-          if (string.length < max) {
+          if (lengthOf(string) <= max) {
             Success(json)
           } else {
             Failure(
@@ -85,5 +87,12 @@ object StringValidator {
     }
   }
 
-  private def expectedString = Failure(Seq(ValidationError("Expected tring")))
+  private def expectedString = Failure(Seq(ValidationError("Expected string")))
+
+  private def lengthOf(str: String): Int = {
+    val pattern = Pattern.compile("\u0B95\u0BCD\u0BB7\\p{M}?|\\p{L}\\p{M}?")
+    val matcher = pattern.matcher(str)
+    val chars = Iterator.continually(matcher.find()).takeWhile(_ == true)
+    chars.size
+  }
 }
