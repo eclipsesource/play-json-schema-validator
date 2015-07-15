@@ -9,6 +9,8 @@ import play.api.libs.json._
 
 import scalaz.ReaderWriterState
 
+
+// TODO: cleanup
 object ObjectValidator {
 
   def validateObject(schema: SchemaObject, json: => JsValue, context: Context): VA[JsValue] = {
@@ -21,7 +23,9 @@ object ObjectValidator {
             remaining <- validateProps(updSchema, jsObject)
             unmatched <- validatePatternProps(updSchema, remaining)
             _ <- validateAdditionalProps(updSchema, unmatched)
-            // TODO: validate min, max properties etc.
+            //            _ <- validateMinProperties(updSchema, jsObject)
+            _ <- validateMaxProperties(updSchema, jsObject)
+          // TODO: validate min, max properties etc.
           } yield updSchema
 
           val (_, updatedSchema, va1) = validation.run(c, Success(json))
@@ -29,7 +33,7 @@ object ObjectValidator {
           val (_, _, va2) = anyValidation(updatedSchema, jsObject).run(c, Success(jsObject))
           Results.merge(va1, va2)
 
-        case _  =>  anyValidation(schema, json).run(c, Success(json))._3
+        case _ => anyValidation(schema, json).run(c, Success(json))._3
       }
     }
 
@@ -44,7 +48,7 @@ object ObjectValidator {
         if (schema.isSubSetOf(cls) && !json.isInstanceOf[JsObject]) {
           Success(json)
         } else {
-          val z = if (context.root == schema) context.copy(root = cls, visited = context.visited + reference.get) else context.copy( visited = context.visited + reference.get)
+          val z = if (context.root == schema) context.copy(root = cls, visited = context.visited + reference.get) else context.copy(visited = context.visited + reference.get)
           validateJson(cls, z)
         }
       case x =>
@@ -81,10 +85,10 @@ object ObjectValidator {
         validatedProperties.contains(field._1)
       )
 
-      ((), unvalidatedProps, Results.merge(status, Results.aggregateAsObject(validated.filterNot( prop => prop._2 match {
+      ((), unvalidatedProps, Results.merge(status, Results.aggregateAsObject(validated.filterNot(prop => prop._2 match {
         case Success(JsAbsent) => true
         case _ => false
-      } ), context)))
+      }), context)))
     }
 
 
@@ -163,8 +167,8 @@ object ObjectValidator {
 
       // if present, make sure all dependencies are fulfilled
       val result = mandatoryProps.map(prop => obj.fields.find(_._1 == prop).fold(
-          prop -> Results.failure(context.path \ prop, s"Missing property dependency $prop.")
-        )((field: (String, JsValue)) => Results.success(field))
+        prop -> Results.failure(context.path \ prop, s"Missing property dependency $prop.")
+      )((field: (String, JsValue)) => Results.success(field))
       )
 
       Results.aggregateAsObject(result, context)
@@ -176,7 +180,7 @@ object ObjectValidator {
       val (updatedSchema, updatedStatus) = dependencies.foldLeft((schema, status))((acc, dep) => dep match {
         case (name, arr: SchemaArrayConstant) =>
           // collecting strings should not be necessary at this point
-          val validated = validatePropertyDependency(name, arr.seq.collect { case JsString(str) => str }, context)
+          val validated = validatePropertyDependency(name, arr.seq.collect { case JsString(str) => str}, context)
           (acc._1, Results.merge(acc._2, validated))
         case (name, cls: SchemaObject) if obj.keys.contains(name) => (extendSchemaByDependency(acc._1, dep._2), acc._2)
         case _ => acc
@@ -193,14 +197,23 @@ object ObjectValidator {
         AnyConstraintValidator.validate(obj, schema.constraints.any, context))
     }
   }
+
+  def validateMaxProperties(schema: SchemaObject, obj: JsObject): ReaderWriterState[Context, Unit, VA[JsValue], Unit] = {
+    ReaderWriterState { (context, status) =>
+      val size = obj.fields.size
+      val result: VA[JsValue] = schema.constraints.maxProperties match {
+        case None => Success(obj)
+        case Some(max) => if (size <= max) {
+          Success(obj)
+        } else {
+          Results.failure(s"maxProperties violated. Max: $max, was $size")
+        }
+      }
+      ((), (), Results.merge(status, result))
+    }
+  }
 }
 
-//  private def validatePropertiesCount(schema: SchemaObject, json: JsObject): ValidationStep[Unit] = {
-//
-//
-//    ReaderWriterState { (context, status) =>
-//    }
-//  }
 //
 //
 // private def validateMinProperties()

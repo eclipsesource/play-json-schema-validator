@@ -242,7 +242,7 @@ trait JSONSchemaReads {
         anyConstraintReader
       ).tupled.flatMap { read =>
 
-      val (explicitType, properties, id, patternProperties, additionalProperties, required, dependencies, min, max, ref, anyConstraints) = read
+      val (explicitType, properties, id, patternProperties, additionalProperties, required, dependencies, minProperties, maxProperties, ref, anyConstraints) = read
 
       val requiredProperties = required.map(_.toSet).getOrElse(Set.empty)
       val props: List[SchemaAttribute] = properties.map(p => tuples2Attributes(p, requiredProperties)).getOrElse(List.empty)
@@ -256,6 +256,8 @@ trait JSONSchemaReads {
             dependencies,
             patternProperties,
             required,
+            minProperties,
+            maxProperties,
             anyConstraints),
           id
         )

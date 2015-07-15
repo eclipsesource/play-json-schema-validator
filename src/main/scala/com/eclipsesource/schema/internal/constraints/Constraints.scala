@@ -52,7 +52,11 @@ import com.eclipsesource.schema.internal.{Keywords, Context}
                                dependencies: Option[Map[String, SchemaType]] = None,
                                patternProps: Option[Map[String, SchemaType]] = None,
                                required: Option[Seq[String]] = None,
-                               any: AnyConstraint = AnyConstraint(None, None, None, None)) extends Constraint with HasAnyConstraint with Resolvable {
+                               minProperties: Option[Int] = None,
+                               maxProperties: Option[Int] = None,
+                               any: AnyConstraint = AnyConstraint(None, None, None, None))
+    extends Constraint with HasAnyConstraint with Resolvable {
+
     override type Sub = ObjectConstraints
 
 
@@ -68,6 +72,8 @@ import com.eclipsesource.schema.internal.{Keywords, Context}
         dependencies.map(_.map(dep => dep._1 -> fn(dep._2))),
         patternProps.map(_.map(p => p._1 -> fn(p._2))),
         required,
+        minProperties,
+        maxProperties,
         any.updated(fn)
       )
     }

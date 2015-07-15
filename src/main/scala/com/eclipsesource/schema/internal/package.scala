@@ -21,6 +21,7 @@ package object internal {
    * - state
    * - value
    */
+
   type ValidationStep[A] = ReaderWriterState[Context, Unit, VA[JsValue], A]
   type Props = Seq[(String, JsValue)]
   type PropertyValidationResult = (String, VA[JsValue])
