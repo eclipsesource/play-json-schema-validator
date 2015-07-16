@@ -12,28 +12,26 @@ import com.eclipsesource.schema.internal.{Keywords, Context}
   }
 
   trait  Constraint {
-    def explicitType: Boolean
     type Sub <: Constraint
     def updated(fn: SchemaType => SchemaType): Sub
   }
 
-  case class AnyConstraint(allOf: Option[Seq[SchemaType]] = None,
+  case class AnyConstraint(schemaTypeAsString: Option[String] = None,
+                           allOf: Option[Seq[SchemaType]] = None,
                            anyOf: Option[Seq[SchemaType]] = None,
                            oneOf: Option[Seq[SchemaType]] = None,
                            definitions: Option[Map[String, SchemaType]] = None,
                            enum: Option[Seq[JsValue]] = None)
     extends Constraint with Resolvable {
 
-    val explicitType = false
-
     override type Sub = AnyConstraint
 
     override def updated(fn: SchemaType => SchemaType): Sub = {
       copy(
-        allOf.map(schemas => schemas.map(fn)),
-        anyOf.map(schemas => schemas.map(fn)),
-        oneOf.map(schemas => schemas.map(fn)),
-        definitions.map(_.map(entry => entry._1 -> fn(entry._2)))
+        allOf = allOf.map(schemas => schemas.map(fn)),
+        anyOf = anyOf.map(schemas => schemas.map(fn)),
+        oneOf = oneOf.map(schemas => schemas.map(fn)),
+        definitions = definitions.map(_.map(entry => entry._1 -> fn(entry._2)))
       )
     }
 
@@ -47,8 +45,7 @@ import com.eclipsesource.schema.internal.{Keywords, Context}
     }
   }
 
-  case class ObjectConstraints(explicitType: Boolean = false,
-                               additionalProps: Option[SchemaType] = None,
+  case class ObjectConstraints(additionalProps: Option[SchemaType] = None,
                                dependencies: Option[Map[String, SchemaType]] = None,
                                patternProps: Option[Map[String, SchemaType]] = None,
                                required: Option[Seq[String]] = None,
@@ -67,7 +64,6 @@ import com.eclipsesource.schema.internal.{Keywords, Context}
     override def updated(fn: (SchemaType) => SchemaType): Sub = {
       // TODO: copy ain't type safe
       copy(
-        explicitType,
         additionalProps.map(t => fn(t)),
         dependencies.map(_.map(dep => dep._1 -> fn(dep._2))),
         patternProps.map(_.map(p => p._1 -> fn(p._2))),
@@ -90,8 +86,7 @@ import com.eclipsesource.schema.internal.{Keywords, Context}
     def emptyObject: SchemaType = SchemaObject(Seq.empty, ObjectConstraints())
   }
 
-  case class ArrayConstraints(explicitType: Boolean,
-                               maxItems: Option[Int],
+  case class ArrayConstraints(maxItems: Option[Int],
                                minItems: Option[Int],
                                additionalItems: Option[SchemaType],
                                unique: Option[Boolean], any: AnyConstraint) extends Constraint with HasAnyConstraint {
@@ -107,8 +102,7 @@ import com.eclipsesource.schema.internal.{Keywords, Context}
   case class Maximum(max: Double, isExclusive: Option[Boolean])
   case class MultipleOf(factor: Double)
 
-  case class NumberConstraints(explicitType: Boolean,
-                               min: Option[Minimum],
+  case class NumberConstraints(min: Option[Minimum],
                                max: Option[Maximum],
                                multipleOf: Option[Double],
                                any: AnyConstraint) extends Constraint with HasAnyConstraint {
@@ -119,8 +113,7 @@ import com.eclipsesource.schema.internal.{Keywords, Context}
     }
   }
 
-  case class StringConstraints(explicitType: Boolean,
-                                minLength: Option[Int],
+  case class StringConstraints( minLength: Option[Int],
                                 maxLength: Option[Int],
                                 format: Option[String],
                                 any: AnyConstraint) extends Constraint with HasAnyConstraint {
@@ -131,7 +124,7 @@ import com.eclipsesource.schema.internal.{Keywords, Context}
     }
   }
 
-  case class BooleanConstraints(explicitType: Boolean, any: AnyConstraint) extends Constraint with HasAnyConstraint {
+  case class BooleanConstraints(any: AnyConstraint) extends Constraint with HasAnyConstraint {
     override type Sub = BooleanConstraints
 
     override def updated(fn: (SchemaType) => SchemaType): Sub = copy(any = any.updated(fn))
