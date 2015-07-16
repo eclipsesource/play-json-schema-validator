@@ -35,6 +35,8 @@ trait JSONSchemaReads {
     arrayConstantReader.asInstanceOf[Reads[SchemaType]]
   }.or {
     objectReader.asInstanceOf[Reads[SchemaType]]
+  }.or {
+    compoundReader.asInstanceOf[Reads[SchemaType]]
   }
 
   lazy val numberReader: Reads[SchemaNumber] = {
@@ -85,11 +87,10 @@ trait JSONSchemaReads {
   }
 
   lazy val nullReader: Reads[SchemaNull] = {
-    (__ \ "type").readNullable[String](verifying(_ == "null")).flatMap(opt =>
-      opt.fold[Reads[SchemaNull]](Reads.apply(_ => JsError("Expected integer.")))(
-        _ => Reads.pure(SchemaNull())
-      )
-    )
+    anyConstraintReader.flatMap(any => {
+      // TODO: boolean constraint type could be removed
+      Reads.pure(SchemaNull(NullConstraints(any)))
+    })
   }
 
   lazy val booleanReader: Reads[SchemaBoolean] = {
@@ -120,6 +121,21 @@ trait JSONSchemaReads {
     })
   }
 
+  lazy val compoundReader: Reads[CompoundSchemaType] = new Reads[CompoundSchemaType] {
+    override def reads(json: JsValue): JsResult[CompoundSchemaType] = json match {
+      case obj@JsObject(fields) =>
+        obj \ "type" match {
+          case JsArray(values) =>
+            println("found values " + values)
+            val jsResults: Seq[JsResult[SchemaType]] = values.map(value => valueReader.reads(JsObject(List("type" -> value) ++ fields.filterNot(_._1 == "type"))))
+            println("found results " + jsResults)
+            val successes = jsResults.collect { case JsSuccess(succ, _) => succ }
+            JsSuccess(CompoundSchemaType(successes))
+          case _ => JsError("Expected compound.")
+        }
+      case _ => JsError("Expected compund.")
+    }
+  }
 
   lazy val arrayReader: Reads[SchemaArray] = {
     ((__ \ "items").lazyReadNullable[SchemaType](valueReader) and

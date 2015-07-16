@@ -1,17 +1,17 @@
 package com.eclipsesource.schema.internal.validators
 
 import com.eclipsesource.schema.internal.constraints.Constraints.{Maximum, Minimum, NumberConstraints}
-import play.api.data.mapping.{Failure, Rule, Success, VA}
+import play.api.data.mapping.{VA, Rule, Success, Failure}
 import play.api.data.validation.ValidationError
-import play.api.libs.json.{JsNumber, JsValue, Json}
+import play.api.libs.json.{JsValue, JsNumber, Json}
 
-object NumberConstraintValidator {
+trait NumberConstraintsValidator {
 
-  def validate(json: JsValue, constraint: NumberConstraints): VA[JsValue] = {
-    (
-      validateMax(constraint) |+| validateMin(constraint) |+| validateMultipleOf(constraint)
-    ).validate(json)
-  }
+//  def validateConstraints(json: JsValue, constraint: NumberConstraints): VA[JsValue] = {
+//    (
+//      validateMax(constraint) |+| validateMin(constraint) |+| validateMultipleOf(constraint)
+//      ).validate(json)
+//  }
 
   def validateMin(constraint: NumberConstraints): Rule[JsValue, JsValue] = {
 

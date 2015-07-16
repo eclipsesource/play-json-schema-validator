@@ -20,8 +20,14 @@ trait JSONSchemaWrites {
     case c: SchemaBooleanConstant => constantWriter.writes(c)
     case a: SchemaArrayConstant => Json.toJson(a.seq)
     case n: SchemaNull => nullWriter.writes(n)
+    case n: CompoundSchemaType => compoundWriter.writes(n)
   }
 
+  lazy val compoundWriter: Writes[CompoundSchemaType] = OWrites[CompoundSchemaType] { compound =>
+    // TODO:!!!
+    println(">>>" + compound.oneOf)
+    compound.oneOf.map(c => schemaTypeWriter.writes(c)).foldLeft(Json.obj())((o, json) => o ++ json.asInstanceOf[JsObject])
+  }
 
   lazy val nullWriter: Writes[SchemaNull] = OWrites[SchemaNull] { nll =>
     Json.obj("type" -> "null")

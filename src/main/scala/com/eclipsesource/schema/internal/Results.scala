@@ -22,7 +22,7 @@ object Results {
       case (Success(_), f@Failure(err)) => f
       case (f@Failure(_), Success(_)) => f
       case (f1@Failure(errs1), f2@Failure(errs2)) => Failure(errs1 ++ errs2)
-      case (Success(JsObject(fields1)), Success(JsObject(fields2))) => Success(JsObject(fields1 ++ fields2))
+      case (Success(obj1@JsObject(_)), Success(obj2@JsObject(_))) => Success(obj1 ++ obj2)
       case (Success(JsArray(values1)), Success(JsArray(values2))) => Success(JsArray(values1 ++ values2))
       case (s@Success(json), Success(_)) => s
     }

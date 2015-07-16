@@ -11,6 +11,10 @@ import com.eclipsesource.schema.internal.{Keywords, Context}
     def any: AnyConstraint
   }
 
+  object NoConstraints extends HasAnyConstraint {
+    override def any: AnyConstraint = AnyConstraint()
+  }
+
   trait  Constraint {
     type Sub <: Constraint
     def updated(fn: SchemaType => SchemaType): Sub
@@ -86,10 +90,11 @@ import com.eclipsesource.schema.internal.{Keywords, Context}
     def emptyObject: SchemaType = SchemaObject(Seq.empty, ObjectConstraints())
   }
 
-  case class ArrayConstraints(maxItems: Option[Int],
-                               minItems: Option[Int],
-                               additionalItems: Option[SchemaType],
-                               unique: Option[Boolean], any: AnyConstraint) extends Constraint with HasAnyConstraint {
+  case class ArrayConstraints(maxItems: Option[Int] = None,
+                               minItems: Option[Int] = None,
+                               additionalItems: Option[SchemaType] = None,
+                               unique: Option[Boolean] = None,
+                               any: AnyConstraint = AnyConstraint()) extends Constraint with HasAnyConstraint {
     override type Sub = ArrayConstraints
 
     override def updated(fn: (SchemaType) => SchemaType): Sub = copy(
@@ -102,10 +107,13 @@ import com.eclipsesource.schema.internal.{Keywords, Context}
   case class Maximum(max: Double, isExclusive: Option[Boolean])
   case class MultipleOf(factor: Double)
 
-  case class NumberConstraints(min: Option[Minimum],
-                               max: Option[Maximum],
-                               multipleOf: Option[Double],
-                               any: AnyConstraint) extends Constraint with HasAnyConstraint {
+
+  case class NumberConstraints(min: Option[Minimum] = None,
+                               max: Option[Maximum] = None,
+                               multipleOf: Option[Double] = None,
+                               any: AnyConstraint = AnyConstraint())
+    extends Constraint with HasAnyConstraint {
+
     override type Sub = NumberConstraints
 
     override def updated(fn: (SchemaType) => SchemaType): Sub = {
@@ -113,10 +121,23 @@ import com.eclipsesource.schema.internal.{Keywords, Context}
     }
   }
 
-  case class StringConstraints( minLength: Option[Int],
-                                maxLength: Option[Int],
-                                format: Option[String],
-                                any: AnyConstraint) extends Constraint with HasAnyConstraint {
+  case class CompoundConstraints(constraints: Seq[Constraint], any: AnyConstraint) extends Constraint  {
+    override type Sub = CompoundConstraints
+
+    override def updated(fn: (SchemaType) => SchemaType): Sub = {
+      copy(
+        constraints = constraints.map(_.updated(fn))
+      )
+    }
+
+  }
+
+  case class StringConstraints( minLength: Option[Int] = None,
+                                maxLength: Option[Int] = None,
+                                format: Option[String] = None,
+                                any: AnyConstraint = AnyConstraint())
+    extends Constraint with HasAnyConstraint {
+
     type Sub = StringConstraints
 
     override def updated(fn: (SchemaType) => SchemaType): Sub = {
@@ -124,8 +145,14 @@ import com.eclipsesource.schema.internal.{Keywords, Context}
     }
   }
 
-  case class BooleanConstraints(any: AnyConstraint) extends Constraint with HasAnyConstraint {
+  case class BooleanConstraints(any: AnyConstraint = AnyConstraint()) extends Constraint with HasAnyConstraint {
     override type Sub = BooleanConstraints
+
+    override def updated(fn: (SchemaType) => SchemaType): Sub = copy(any = any.updated(fn))
+  }
+
+  case class NullConstraints(any: AnyConstraint) extends Constraint with HasAnyConstraint {
+    override type Sub = NullConstraints
 
     override def updated(fn: (SchemaType) => SchemaType): Sub = copy(any = any.updated(fn))
   }

@@ -2,7 +2,7 @@ package com.eclipsesource.schema
 
 import com.eclipsesource.schema.internal.constraints.Constraints._
 import com.eclipsesource.schema.internal.validators._
-import com.eclipsesource.schema.internal.{Context, Keywords, Results}
+import com.eclipsesource.schema.internal.{validators, Context, Keywords, Results}
 import play.api.data.mapping.{Success, VA}
 import play.api.libs.json._
 
@@ -10,45 +10,55 @@ import scala.util.Try
 
 
 sealed trait SchemaType {
-  def validate(json: => JsValue, context: Context): VA[JsValue]
+  self: SchemaType =>
+//  def validate[T](implicit rds: Reads[T]): JsResult[T] = rds.reads(this)
+//  def validate2[S](json: => JsValue, context: Context)(implicit v: Validator3[S]): VA[JsValue] = {
+//    v.validate(this, json, context)
+//  }
+
+  // http://stackoverflow.com/questions/23481991/attempting-to-model-f-bounded-polymorphism-as-a-type-member-in-scala
+//  type Sub >: self.type <: SchemaType
+//  def validator: Validator2[Sub]
+//  def validate(json: => JsValue, context: Context): VA[JsValue] = {
+//    Results.merge(
+//      validator.validate(this, json, context),
+//      AnyConstraintValidator.validate(json, constraints.any, context)
+//    )
+//  }
   def constraints: HasAnyConstraint
+//  private[schema] def noValidator: Validator2[Sub]= new Validator2[Sub] {
+//    override def validate(schema: Sub, json: => JsValue, context: Context): VA[JsValue] = Success(json)
+//  }
+
 }
 
 sealed trait PrimitiveSchemaType extends SchemaType
 
-trait AnySchemaType
-
-case class SchemaNull() extends SchemaType {
-  override def validate(json: => JsValue, context: Context): VA[JsValue] = json match {
-    case JsNull => Success(json)
-    case _ => Results.failure("Expected null")
-  }
-
-  override def constraints = ???
+final case class SchemaNull(constraints: NullConstraints) extends SchemaType {
+//  type Sub = SchemaNull
+//  override def validator: Validator2[SchemaNull] = NullValidator
 }
 
-// TODO
-case class SchemaBooleanConstant(bool: Boolean) extends SchemaType {
-  override def validate(json: => JsValue, context: Context): VA[JsValue] = ???
 
-  override def constraints = ???
-}
-case class SchemaArrayConstant(seq: Seq[JsValue]) extends SchemaType {
-  override def validate(json: => JsValue, context: Context): VA[JsValue] = ???
 
-  override def constraints = ???
+// TODO is the any constraint validator called twice for these types?
+final case class SchemaBooleanConstant(bool: Boolean) extends SchemaType {
+//  type Sub = SchemaBooleanConstant
+  override def constraints: HasAnyConstraint = NoConstraints
+//  def validator: Validator2[SchemaBooleanConstant] = noValidator
 }
-case class SchemaStringConstant(seq: String) extends SchemaType {
-  override def validate(json: => JsValue, context: Context): VA[JsValue] = ???
+final case class SchemaArrayConstant(seq: Seq[JsValue]) extends SchemaType {
+//  type Sub = SchemaArrayConstant
+  override def constraints: HasAnyConstraint = NoConstraints
+//  override def validator: Validator2[SchemaArrayConstant] = noValidator
+}
 
-  override def constraints = ???
-}
 
 trait Resolvable {
   def resolvePath(path: String): Option[SchemaType]
 }
 
-trait SchemaContainer extends SchemaType with Resolvable {
+sealed trait SchemaContainer extends SchemaType with Resolvable {
 
   def id: Option[String]
 
@@ -58,28 +68,33 @@ trait SchemaContainer extends SchemaType with Resolvable {
   // TODO: replace string with node trait
 }
 
-trait HasProperties extends SchemaType with Resolvable {
+sealed trait HasProperties extends SchemaType with Resolvable {
   def properties: Seq[SchemaAttribute]
 }
 
-case class JSONPointer(path: String)
+final case class JSONPointer(path: String)
 
 // TODO: pointer is a JSONSPointer, see http://tools.ietf.org/html/draft-pbryan-zyp-json-pointer-02
-// TODO isRemote also applies for non http?
-case class SchemaRef(pointer: JSONPointer, isAttribute: Boolean = false, isRemote: Boolean = false) extends SchemaType {
-  override def validate(json: => JsValue, context: Context): VA[JsValue] = ???
-
-  override def constraints = ???
+// TODO isRemote also applies for non http
+final case class SchemaRef(pointer: JSONPointer, isAttribute: Boolean = false, isRemote: Boolean = false) extends SchemaType {
+//  type Sub = SchemaRef
+  override def constraints = NoConstraints
+//  override def validator: Validator2[SchemaRef] = noValidator
 }
 
-case class SchemaObject(
-                    properties: Seq[SchemaAttribute] = Seq.empty,
+final case class CompoundSchemaType(oneOf: Seq[SchemaType]) extends SchemaType {
+//  type Sub = CompoundSchemaType
+//  TODO
+  override def constraints: HasAnyConstraint = BooleanConstraints()// CompoundConstraints(oneOf.map(s => s.constraints), AnyConstraint())
+//  override def validator: Validator2[CompoundSchemaType] = CompoundValidator
+}
+
+final case class SchemaObject(properties: Seq[SchemaAttribute] = Seq.empty,
                     constraints: ObjectConstraints = ObjectConstraints(),
                     id: Option[String] = None)
-  extends AnySchemaType with HasProperties {
+  extends HasProperties {
 
-  case class AdditionalProperties(schema: SchemaType)
-
+//  type Sub = SchemaObject
   override def resolvePath(attributeName: String): Option[SchemaType] = attributeName match {
     case Keywords.Object.Properties => Some(SchemaObject(properties))
     case other => properties.find(_.name == other).map(_.schemaType).fold(
@@ -87,11 +102,16 @@ case class SchemaObject(
     )(Some(_))
   }
 
-  override def validate(json: => JsValue, context: Context): VA[JsValue] = ObjectValidator.validateObject(this, json, context)
+//  override val validator: Validator2[SchemaObject] = ObjectValidator
 }
 
-case class SchemaTuple(items: () => Seq[SchemaType], size: Int, constraints: ArrayConstraints = ArrayConstraints(None, None, None, None, AnyConstraint()), id: Option[String] = None) extends SchemaContainer {
+final case class SchemaTuple(items: () => Seq[SchemaType],
+                       size: Int,
+                       constraints: ArrayConstraints = ArrayConstraints(),
+                       id: Option[String] = None)
+  extends SchemaContainer {
 
+//  type Sub = SchemaTuple
   override def resolvePath(index: String): Option[SchemaType] = {
     index match {
       case "items" => Some(this)
@@ -105,17 +125,16 @@ case class SchemaTuple(items: () => Seq[SchemaType], size: Int, constraints: Arr
 
   override def updated(id: Option[String], containedTypes: SchemaType*): SchemaContainer = copy(items = () => containedTypes, id = id)
 
-  override def validate(json: => JsValue, context: Context): VA[JsValue] = ArrayConstraintValidator.validateTuple(this, json, context)
+//  override def validator: Validator2[SchemaTuple] = TupleValidator
 }
 
-case class SchemaArray(schemaType: () => SchemaType, constraints: ArrayConstraints = ArrayConstraints(None, None, None, None, AnyConstraint()), id: Option[String] = None)
+final case class SchemaArray(schemaType: () => SchemaType,
+                       constraints: ArrayConstraints = ArrayConstraints(),
+                       id: Option[String] = None)
   extends SchemaContainer {
 
+//  type Sub = SchemaArray
   lazy val items = schemaType()
-
-  def apply(attr: SchemaType) = {
-    SchemaArray(() => attr, constraints, id)
-  }
 
   def resolvePath(path: String): Option[SchemaType] = {
     if (path == "items") {
@@ -129,41 +148,27 @@ case class SchemaArray(schemaType: () => SchemaType, constraints: ArrayConstrain
 
   override def updated(id: Option[String], containedTypes: SchemaType*): SchemaContainer = copy(schemaType = () => containedTypes.head, id = id)
 
-  override def validate(json: => JsValue, context: Context): VA[JsValue] = ArrayConstraintValidator.validateArray(this, json, context)
+//  override def validator: Validator2[SchemaArray] = ArrayValidator
 }
 
-case class SchemaString(constraints: StringConstraints = StringConstraints(None, None, None, AnyConstraint())) extends PrimitiveSchemaType {
-  override def validate(json: => JsValue, context: Context): VA[JsValue] = StringValidator.validate(this, json, context)
+final case class SchemaString(constraints: StringConstraints = StringConstraints()) extends PrimitiveSchemaType {
+//  type Sub = SchemaString
+//  override def validator: Validator2[SchemaString] = StringValidator
 }
 
-/**
- * Number
- */
-case class SchemaNumber(constraints: NumberConstraints = NumberConstraints(None, None, None, AnyConstraint())) extends PrimitiveSchemaType {
-  override def validate(json: => JsValue, context: Context): VA[JsValue] = NumberConstraintValidator.validate(json, constraints)
+final case class SchemaNumber(constraints: NumberConstraints = NumberConstraints()) extends PrimitiveSchemaType {
+//  type Sub = SchemaNumber
+//  override def validator: Validator2[SchemaNumber] = NumberValidator
 }
 
-/**
- * Integer
- */
-case class SchemaInteger(constraints: NumberConstraints = NumberConstraints(None, None, None, AnyConstraint())) extends PrimitiveSchemaType {
-
-  def isInt(json: JsValue): VA[JsValue] = json match {
-    case JsNumber(number) if number.isValidInt => Success(json)
-    case _ => Results.failure("Expected integer")
-  }
-
-  override def validate(json: => JsValue, context: Context): VA[JsValue] = {
-    Results.merge(
-      NumberConstraintValidator.validate(json, constraints),
-      isInt(json)
-    )
-  }
-
+final case class SchemaInteger(constraints: NumberConstraints = NumberConstraints()) extends PrimitiveSchemaType {
+//  type Sub = SchemaInteger
+//  override def validator: Validator2[SchemaInteger] = IntegerValidator
 }
 
-case class SchemaBoolean(constraints: BooleanConstraints = BooleanConstraints(AnyConstraint())) extends PrimitiveSchemaType {
-  override def validate(json: => JsValue, context: Context): VA[JsValue] = AnyConstraintValidator.validate(json, constraints.any, context)
+final case class SchemaBoolean(constraints: BooleanConstraints = BooleanConstraints()) extends PrimitiveSchemaType {
+//  type Sub = SchemaBoolean
+//  override def validator: Validator2[SchemaBoolean] = noValidator
 }
 
 ///**

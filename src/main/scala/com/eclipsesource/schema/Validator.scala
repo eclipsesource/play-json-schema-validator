@@ -1,7 +1,7 @@
 package com.eclipsesource.schema
 
-import com.eclipsesource.schema.internal.constraints.Constraints.HasAnyConstraint
-import com.eclipsesource.schema.internal.validators.AnyConstraintValidator
+import com.eclipsesource.schema
+import com.eclipsesource.schema._
 import com.eclipsesource.schema.internal.{Context, RefResolver}
 import play.api.data.mapping.{Success, Failure, Path, VA}
 import play.api.data.validation.ValidationError
@@ -35,8 +35,14 @@ trait Validator {
   private[schema] def process(schema: SchemaType, json: JsValue, context: Context): VA[JsValue] = {
 
     (json, schema) match {
-      case (_, schemaObject: SchemaObject) =>
+      case (_, schemaObject: SchemaObject) if !schema.constraints.any.schemaTypeAsString.isDefined =>
         schemaObject.validate(json, context)
+      case (_: JsObject, schemaObject: SchemaObject) if schema.constraints.any.schemaTypeAsString.isDefined =>
+        schemaObject.validate(json, context)
+
+      case (_, c: CompoundSchemaType) =>
+        c.validate(json, context)
+
       case (jsArray: JsArray, schemaArray: SchemaArray) =>
         schemaArray.validate(jsArray, context)
       case (jsArray: JsArray, schemaTuple: SchemaTuple) =>
@@ -55,7 +61,6 @@ trait Validator {
         schema.validate(undefined, context)
       case (_, _) if !schema.constraints.any.schemaTypeAsString.isDefined =>
         Success(json)
-//        AnyConstraintValidator.validate(json, schema.constraints.any, context)
       case _ =>
         Failure(List(context.path -> List(ValidationError("diff.types", Json.obj("schema" -> schema, "instance" -> json)))))
     }

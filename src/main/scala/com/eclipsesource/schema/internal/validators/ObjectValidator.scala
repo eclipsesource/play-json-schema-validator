@@ -9,12 +9,10 @@ import play.api.libs.json._
 
 import scalaz.ReaderWriterState
 
-
 // TODO: cleanup
-object ObjectValidator {
+object ObjectValidator extends Validator2[SchemaObject] {
 
-  def validateObject(schema: SchemaObject, json: => JsValue, context: Context): VA[JsValue] = {
-
+  override def validate(schema: SchemaObject, json: => JsValue, context: Context): VA[JsValue] = {
     def validateJson(schema: SchemaObject, c: Context): VA[JsValue] = {
       json match {
         case jsObject@JsObject(props) =>
@@ -28,11 +26,14 @@ object ObjectValidator {
           // TODO: validate min, max properties etc.
           } yield updSchema
 
-          val (_, updatedSchema, va1) = validation.run(c, Success(json))
-          // TODO: figure out parameters
-          val (_, _, va2) = anyValidation(updatedSchema, jsObject).run(c, Success(jsObject))
-          Results.merge(va1, va2)
 
+          val (_, updatedSchema, va1) = validation.run(c, Success(json))
+          va1
+//          TODO: figure out parameters
+//          val (_, _, va2) = anyValidation(updatedSchema, jsObject).run(c, Success(jsObject))
+//          Results.merge(va1, va2)
+
+//        case _ => Success(json)
         case _ => anyValidation(schema, json).run(c, Success(json))._3
       }
     }
@@ -227,6 +228,7 @@ object ObjectValidator {
       ((), (), Results.merge(status, result))
     }
   }
+
 }
 
 //

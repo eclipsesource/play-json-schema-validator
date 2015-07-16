@@ -9,11 +9,11 @@ import play.api.data.mapping.{Failure, Rule, Success, VA}
 import play.api.data.validation.ValidationError
 import play.api.libs.json.{JsString, JsValue, Json}
 
-object StringValidator {
+object StringValidator extends Validator2[SchemaString] {
 
   def validate(schema: SchemaString, json: => JsValue, context: Context): VA[JsValue] = {
     val constraints = schema.constraints
-    Results.merge(
+    val res = Results.merge(
       (
         validateMinLength(constraints) |+|
           validateMaxLength(constraints) |+|
@@ -21,6 +21,8 @@ object StringValidator {
         ).validate(json),
       AnyConstraintValidator.validate(json, constraints.any, context)
     )
+    println(res)
+    res
   }
 
   def validateFormat(constraints: StringConstraints): Rule[JsValue, JsValue] = {
@@ -41,8 +43,8 @@ object StringValidator {
             )
           }
           case None => Success(json)
-        case _ => expectedString
       }
+        case _ => expectedString
     }
   }
 
@@ -82,8 +84,8 @@ object StringValidator {
               )
             )
           }
-        case _ => expectedString
       }
+      case _ => expectedString
     }
   }
 

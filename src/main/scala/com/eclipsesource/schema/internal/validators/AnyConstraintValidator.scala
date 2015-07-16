@@ -7,7 +7,7 @@ import play.api.data.mapping._
 import play.api.data.validation.ValidationError
 import play.api.libs.json.{JsObject, JsValue, Json}
 
-object AnyConstraintValidator {
+object AnyConstraintValidator extends Validator {
 
   def validate(json: JsValue, any: AnyConstraint, context: Context): VA[JsValue] = {
     (validateAllOf(any, context) |+|
