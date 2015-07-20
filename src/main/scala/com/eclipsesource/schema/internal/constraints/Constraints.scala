@@ -103,14 +103,14 @@ import com.eclipsesource.schema.internal.{Keywords, Context}
     )
   }
 
-  case class Minimum(min: Double, isExclusive: Option[Boolean])
-  case class Maximum(max: Double, isExclusive: Option[Boolean])
-  case class MultipleOf(factor: Double)
+  case class Minimum(min: BigDecimal, isExclusive: Option[Boolean])
+  case class Maximum(max: BigDecimal, isExclusive: Option[Boolean])
+  case class MultipleOf(factor: BigDecimal)
 
 
   case class NumberConstraints(min: Option[Minimum] = None,
                                max: Option[Maximum] = None,
-                               multipleOf: Option[Double] = None,
+                               multipleOf: Option[BigDecimal] = None,
                                any: AnyConstraint = AnyConstraint())
     extends Constraint with HasAnyConstraint {
 

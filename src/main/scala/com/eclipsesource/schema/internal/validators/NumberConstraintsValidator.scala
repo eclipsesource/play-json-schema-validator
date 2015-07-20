@@ -78,7 +78,7 @@ trait NumberConstraintsValidator {
     Rule.fromMapping[JsValue, JsValue] {
       case number@JsNumber(n) => constraint.multipleOf match {
         case Some(factor) =>
-          if (n.toDouble % factor == 0) {
+          if (n.remainder(factor) == BigDecimal(0)) {
             Success(number)
           } else {
             Failure(

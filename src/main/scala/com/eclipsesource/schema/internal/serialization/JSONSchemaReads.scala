@@ -44,7 +44,7 @@ trait JSONSchemaReads {
       (__ \ "maximum").readNullable[Double] and
       (__ \ "exclusiveMinimum").readNullable[Boolean] and
       (__ \ "exclusiveMaximum").readNullable[Boolean] and
-      (__ \ "multipleOf").readNullable[Double] and
+      (__ \ "multipleOf").readNullable[BigDecimal] and
       anyConstraintReader
       ).tupled.flatMap(read => {
 
@@ -105,7 +105,7 @@ trait JSONSchemaReads {
       (__ \ "maximum").readNullable[Int] and
       (__ \ "exclusiveMinimum").readNullable[Boolean] and
       (__ \ "exclusiveMaximum").readNullable[Boolean] and
-      (__ \ "multipleOf").readNullable[Double] and
+      (__ \ "multipleOf").readNullable[BigDecimal] and
       anyConstraintReader
       ).tupled.flatMap(read => {
 
