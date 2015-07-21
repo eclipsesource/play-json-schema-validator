@@ -28,7 +28,6 @@ class PropertiesSpec extends Specification {
       "patternProperty invalidates property" in {
         val data = Json.obj("foo" -> Json.arr())
         val res = Validator.validate(schema, data)
-        println(res)
         res.isFailure must beTrue
       }
     }

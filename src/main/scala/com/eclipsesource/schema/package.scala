@@ -13,8 +13,7 @@ package object schema
   with JSONSchemaWrites
   with JSONSchemaReads {
 
-  implicit def noValidator[S <: SchemaType] = new Validator2[S] {
-        println("no validator")
+  implicit def noValidator[S <: SchemaType] = new SchemaTypeValidator[S] {
         override def validate(schema: S, json: => JsValue, context: Context): VA[JsValue] = Success(json)
       }
   implicit val compoundValidator = CompoundValidator
@@ -26,13 +25,12 @@ package object schema
   implicit val stringValidator = StringValidator
   implicit val booleanValidator = noValidator[SchemaBoolean]
   implicit val nullValidator = noValidator[SchemaNull]
-//  implicit val anyValidator = noValidator[SchemaType]
 
   implicit class SchemaTypeExtensionOps[S <: SchemaType](schemaType: S) {
 
     def prettyPrint: String = SchemaUtil.prettyPrint(schemaType)
 
-    def validate(json: => JsValue, context: Context)(implicit validator: Validator2[S]): VA[JsValue] = {
+    def validate(json: => JsValue, context: Context)(implicit validator: SchemaTypeValidator[S]): VA[JsValue] = {
       Results.merge(
         validator.validate(schemaType, json, context),
         AnyConstraintValidator.validate(json, schemaType.constraints.any, context)

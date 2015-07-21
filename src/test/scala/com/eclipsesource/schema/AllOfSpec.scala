@@ -35,12 +35,9 @@ class AllOfSpec extends Specification {
         """.stripMargin).get
 
 
-      println(Json.prettyPrint(Json.toJson(schema)))
-
       "wrong type" in {
         val data = Json.obj("foo" -> "baz", "bar" -> "quux")
         val res = Validator.validate(schema, data)
-        println(res)
         res.isFailure must beTrue
       }
     }

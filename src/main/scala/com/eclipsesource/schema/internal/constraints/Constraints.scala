@@ -25,17 +25,19 @@ import com.eclipsesource.schema.internal.{Keywords, Context}
                            anyOf: Option[Seq[SchemaType]] = None,
                            oneOf: Option[Seq[SchemaType]] = None,
                            definitions: Option[Map[String, SchemaType]] = None,
-                           enum: Option[Seq[JsValue]] = None)
+                           enum: Option[Seq[JsValue]] = None,
+                           not: Option[SchemaType] = None)
     extends Constraint with Resolvable {
 
     override type Sub = AnyConstraint
 
     override def updated(fn: SchemaType => SchemaType): Sub = {
       copy(
-        allOf = allOf.map(schemas => schemas.map(fn)),
-        anyOf = anyOf.map(schemas => schemas.map(fn)),
-        oneOf = oneOf.map(schemas => schemas.map(fn)),
-        definitions = definitions.map(_.map(entry => entry._1 -> fn(entry._2)))
+        allOf = allOf.map(_.map(fn)),
+        anyOf = anyOf.map(_.map(fn)),
+        oneOf = oneOf.map(_.map(fn)),
+        definitions = definitions.map(_.map(entry => entry._1 -> fn(entry._2))),
+        not  = not.map(fn)
       )
     }
 

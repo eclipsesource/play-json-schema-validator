@@ -10,7 +10,7 @@ import play.api.libs.json._
 import scalaz.ReaderWriterState
 
 // TODO: cleanup
-object ObjectValidator extends Validator2[SchemaObject] {
+object ObjectValidator extends SchemaTypeValidator[SchemaObject] {
 
   override def validate(schema: SchemaObject, json: => JsValue, context: Context): VA[JsValue] = {
     def validateJson(schema: SchemaObject, c: Context): VA[JsValue] = {

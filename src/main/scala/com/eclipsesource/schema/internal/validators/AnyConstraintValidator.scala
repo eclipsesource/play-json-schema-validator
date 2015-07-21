@@ -13,8 +13,25 @@ object AnyConstraintValidator extends Validator {
     (validateAllOf(any, context) |+|
       validateAnyOf(any) |+|
       validateOneOf(any) |+|
-      validateEnum(any)
+      validateEnum(any) |+|
+      validateNot(any)
       ).validate(json)
+  }
+
+  def validateNot(any: AnyConstraint): Rule[JsValue, JsValue] = {
+    Rule.fromMapping { json =>
+      any.not.map(schema =>
+        if (Validator.validate(schema, json).isFailure) {
+         Success(json)
+        } else {
+          Failure(
+            Seq(
+              ValidationError("not violated")
+            )
+          )
+        }
+      ).getOrElse(Success(json))
+    }
   }
 
   def validateAllOf(any: AnyConstraint, context: Context): Rule[JsValue, JsValue] = {

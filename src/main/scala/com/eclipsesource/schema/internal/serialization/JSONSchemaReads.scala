@@ -126,9 +126,7 @@ trait JSONSchemaReads {
       case obj@JsObject(fields) =>
         obj \ "type" match {
           case JsArray(values) =>
-            println("found values " + values)
             val jsResults: Seq[JsResult[SchemaType]] = values.map(value => valueReader.reads(JsObject(List("type" -> value) ++ fields.filterNot(_._1 == "type"))))
-            println("found results " + jsResults)
             val successes = jsResults.collect { case JsSuccess(succ, _) => succ }
             JsSuccess(CompoundSchemaType(successes))
           case _ => JsError("Expected compound.")
@@ -266,12 +264,13 @@ trait JSONSchemaReads {
         (__ \ "anyOf").lazyReadNullable[Seq[SchemaType]](readSeqOfSchemaTypeInstance) and
         (__ \ "oneOf").lazyReadNullable[Seq[SchemaType]](readSeqOfSchemaTypeInstance) and
         (__ \ "definitions").lazyReadNullable(readsInstance) and
-        (__ \ "enum").readNullable[Seq[JsValue]]
+        (__ \ "enum").readNullable[Seq[JsValue]] and
+        (__ \ "not").lazyReadNullable(valueReader)
       ).tupled.map(
         read => {
-          val (schemaType, allOf, anyOf, oneOf, definitions, enum) = read
+          val (schemaType, allOf, anyOf, oneOf, definitions, enum, not) = read
 
-          AnyConstraint(schemaType, allOf, anyOf, oneOf, definitions, enum)
+          AnyConstraint(schemaType, allOf, anyOf, oneOf, definitions, enum, not)
         }
       )
   }

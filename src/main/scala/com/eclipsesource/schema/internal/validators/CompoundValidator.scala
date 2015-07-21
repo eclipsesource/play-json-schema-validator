@@ -5,10 +5,8 @@ import com.eclipsesource.schema.internal.{Context, Results}
 import play.api.data.mapping.VA
 import play.api.libs.json.JsValue
 
-object CompoundValidator extends Validator2[CompoundSchemaType] {
+object CompoundValidator extends SchemaTypeValidator[CompoundSchemaType] {
   override def validate(schema: CompoundSchemaType, json: => JsValue, context: Context): VA[JsValue] = {
-    val res = schema.oneOf.map(s => Validator.validate(s, json)).find(_.isSuccess).getOrElse(Results.failure("No schema applied"))
-    println("compound "  +res)
-    res
+    schema.oneOf.map(s => Validator.validate(s, json)).find(_.isSuccess).getOrElse(Results.failure("No schema applied"))
   }
 }

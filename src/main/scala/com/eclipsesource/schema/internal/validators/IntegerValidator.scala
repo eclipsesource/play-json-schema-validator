@@ -6,7 +6,7 @@ import play.api.data.mapping.{Failure, Rule, Success, VA}
 import play.api.data.validation.ValidationError
 import play.api.libs.json.{Json, JsNumber, JsValue}
 
-object IntegerValidator extends Validator2[SchemaInteger] with NumberConstraintsValidator {
+object IntegerValidator extends SchemaTypeValidator[SchemaInteger] with NumberConstraintsValidator {
 
   val isInt: Rule[JsValue, JsValue] = Rule.fromMapping {
     case json@JsNumber(number) if number.isValidInt => Success(json)

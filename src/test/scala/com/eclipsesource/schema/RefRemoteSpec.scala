@@ -33,8 +33,6 @@ object RefRemoteSpec extends PlaySpecification {
         |}
         }""".stripMargin).get
 
-    println(Json.prettyPrint(Json.toJson(schema)))
-
     "changed scope ref valid" in new WithServer(app = new FakeApplication(withRoutes = routes), port = 1234) {
 
       val data = Json.arr(Json.arr(JsNumber(1)))

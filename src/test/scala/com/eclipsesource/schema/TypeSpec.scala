@@ -20,20 +20,9 @@ class TypeSpec  extends Specification {
   "object type matches objects" should {
     val schema = JSONSource.schemaFromString("""{"type": ["integer", "string"]}""").get
 
-    println(Json.prettyPrint(Json.toJson(schema)))
-    println("<" + schema)
-
-//    "an integer is valid" in {
-//      val data = JsNumber(1)
-//      val res = Validator.validate(schema, data)
-//      println(res)
-//      res.isSuccess must beTrue
-//    }
-
     "an boolean is invalid" in {
       val data = JsBoolean(true)
       val res = Validator.validate(schema, data)
-      println(res)
       res.isFailure must beTrue
     }
   }

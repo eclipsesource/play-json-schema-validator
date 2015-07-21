@@ -9,7 +9,7 @@ import play.api.data.mapping.{Failure, Rule, Success, VA}
 import play.api.data.validation.ValidationError
 import play.api.libs.json.{JsString, JsValue, Json}
 
-object StringValidator extends Validator2[SchemaString] {
+object StringValidator extends SchemaTypeValidator[SchemaString] {
 
   def validate(schema: SchemaString, json: => JsValue, context: Context): VA[JsValue] = {
     val constraints = schema.constraints
@@ -21,7 +21,6 @@ object StringValidator extends Validator2[SchemaString] {
         ).validate(json),
       AnyConstraintValidator.validate(json, constraints.any, context)
     )
-    println(res)
     res
   }
 

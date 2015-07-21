@@ -56,8 +56,6 @@ object JsonSpec extends ThrownExpectations {
 
   private def executeSpec(spec: JsonSchemaSpec): Seq[SpecResult] = {
     val schema = spec.schema
-//    println(s"Schema of spec ${spec.description}")
-//    println(Json.prettyPrint(Json.toJson(schema)))
     spec.tests.map(spec => {
       val result = Validator.validate(schema)(spec.data)
       SpecResult(spec.description,

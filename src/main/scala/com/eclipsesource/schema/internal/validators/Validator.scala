@@ -15,11 +15,8 @@ import play.api.libs.json.JsValue
 //  }
 //}
 
-trait Validator2[S] {
+trait SchemaTypeValidator[S] {
   def validate(schema: S, json: => JsValue, context: Context): VA[JsValue]
 }
 
-trait Validator3[S <: SchemaType] {
-  def validate(schema: S, json: => JsValue, context: Context): VA[JsValue]
-}
 

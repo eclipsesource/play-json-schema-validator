@@ -6,7 +6,7 @@ import play.api.data.mapping.{Success, Failure, VA}
 import play.api.libs.json.{JsArray, JsValue}
 
 
-object ArrayValidator extends Validator2[SchemaArray] with ArrayConstraintValidator {
+object ArrayValidator extends SchemaTypeValidator[SchemaArray] with ArrayConstraintValidator {
 
   override def validate(schema: SchemaArray, json: => JsValue, context: Context): VA[JsValue] = json match {
     case JsArray(values) =>

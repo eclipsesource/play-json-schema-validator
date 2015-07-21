@@ -5,7 +5,7 @@ import com.eclipsesource.schema.internal.{Context, Results}
 import play.api.data.mapping.{Failure, Success, VA}
 import play.api.libs.json.{JsArray, JsValue}
 
-object TupleValidator extends Validator2[SchemaTuple] with ArrayConstraintValidator {
+object TupleValidator extends SchemaTypeValidator[SchemaTuple] with ArrayConstraintValidator {
 
   override def validate(schema: SchemaTuple, json: => JsValue, context: Context): VA[JsValue] = json match {
     case JsArray(values) =>

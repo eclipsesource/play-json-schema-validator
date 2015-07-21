@@ -24,8 +24,7 @@ trait JSONSchemaWrites {
   }
 
   lazy val compoundWriter: Writes[CompoundSchemaType] = OWrites[CompoundSchemaType] { compound =>
-    // TODO:!!!
-    println(">>>" + compound.oneOf)
+    // TODO: cast
     compound.oneOf.map(c => schemaTypeWriter.writes(c)).foldLeft(Json.obj())((o, json) => o ++ json.asInstanceOf[JsObject])
   }
 
