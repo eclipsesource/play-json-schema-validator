@@ -160,7 +160,7 @@ trait JSONSchemaWrites {
         stringConstraints.maxLength.fold(emptyObject)(maxLength =>
           Json.obj(Keywords.String.MaxLength -> maxLength)
         ) ++
-        stringConstraints.format.fold(emptyObject)(format =>
+        stringConstraints.pattern.fold(emptyObject)(format =>
           Json.obj(Keywords.String.Format -> format)
         ) ++
        anyConstraintWriter.writes(stringConstraints.any)

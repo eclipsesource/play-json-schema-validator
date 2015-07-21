@@ -17,7 +17,7 @@ object StringValidator extends Validator2[SchemaString] {
       (
         validateMinLength(constraints) |+|
           validateMaxLength(constraints) |+|
-          validateFormat(constraints)
+          validatePattern(constraints)
         ).validate(json),
       AnyConstraintValidator.validate(json, constraints.any, context)
     )
@@ -25,13 +25,15 @@ object StringValidator extends Validator2[SchemaString] {
     res
   }
 
-  def validateFormat(constraints: StringConstraints): Rule[JsValue, JsValue] = {
-    val format: Option[String] = constraints.format
+  def validatePattern(constraints: StringConstraints): Rule[JsValue, JsValue] = {
+    val format: Option[String] = constraints.pattern
     Rule.fromMapping {
-        case json@JsString(string) => format match {
-          case Some(pattern) =>
+      case json@JsString(string) => format match {
+        case Some(pattern) =>
+          val compiled = Pattern.compile(pattern)
+          val matcher = compiled.matcher(string)
           // TODO: matcher
-          if(pattern.matches(string)) {
+          if(matcher.find()) {
             Success(json)
           } else {
             Failure(
@@ -42,9 +44,9 @@ object StringValidator extends Validator2[SchemaString] {
               )
             )
           }
-          case None => Success(json)
+        case None => Success(json)
       }
-        case _ => expectedString
+      case _ => expectedString
     }
   }
 

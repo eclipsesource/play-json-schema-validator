@@ -134,7 +134,7 @@ import com.eclipsesource.schema.internal.{Keywords, Context}
 
   case class StringConstraints( minLength: Option[Int] = None,
                                 maxLength: Option[Int] = None,
-                                format: Option[String] = None,
+                                pattern: Option[String] = None,
                                 any: AnyConstraint = AnyConstraint())
     extends Constraint with HasAnyConstraint {
 
