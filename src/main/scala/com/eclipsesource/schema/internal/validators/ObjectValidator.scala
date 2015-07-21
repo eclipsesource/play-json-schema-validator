@@ -19,8 +19,8 @@ object ObjectValidator extends Validator2[SchemaObject] {
           val validation = for {
             updSchema <- validateDependencies(schema, jsObject)
             remaining <- validateProps(updSchema, jsObject)
-            unmatched <- validatePatternProps(updSchema, remaining)
-            _ <- validateAdditionalProps(updSchema, unmatched)
+            unmatched <- validatePatternProps(updSchema, jsObject.fields)
+            _ <- validateAdditionalProps(updSchema, unmatched.intersect(remaining)) // TODO review intersect
             _ <- validateMinProperties(updSchema, jsObject)
             _ <- validateMaxProperties(updSchema, jsObject)
           // TODO: validate min, max properties etc.
