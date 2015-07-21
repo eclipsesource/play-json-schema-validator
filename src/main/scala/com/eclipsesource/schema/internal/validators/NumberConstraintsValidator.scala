@@ -17,9 +17,9 @@ trait NumberConstraintsValidator {
 
     def isValid(n: JsNumber, minConstraint: Minimum) = {
       if (minConstraint.isExclusive.getOrElse(false)) {
-        n.value.toDouble > minConstraint.min
+        n.value > minConstraint.min
       } else {
-        n.value.toDouble >= minConstraint.min
+        n.value >= minConstraint.min
       }
     }
 
@@ -47,9 +47,9 @@ trait NumberConstraintsValidator {
 
     def isValid(n: JsNumber, maxConstraint: Maximum) = {
       if (maxConstraint.isExclusive.getOrElse(false)) {
-        n.value.toDouble < maxConstraint.max
+        n.value < maxConstraint.max
       } else {
-        n.value.toDouble <= maxConstraint.max
+        n.value <= maxConstraint.max
       }
     }
 
@@ -63,7 +63,6 @@ trait NumberConstraintsValidator {
             Failure(
               Seq(
                 ValidationError("max violated",
-                  // TODO: naming
                   Json.obj("max" -> m.max, "number" -> number)
                 )
               )

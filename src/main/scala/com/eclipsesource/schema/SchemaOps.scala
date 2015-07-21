@@ -114,33 +114,6 @@ trait SchemaOps extends BaseSchemaOps { self =>
     def keep(attributes: List[String]): SchemaObject = retain(schema)("", attributes)
 
     /**
-     * Makes all values referenced by the given list of paths
-     * optional.
-     *
-     * @param paths
-     *              the paths to be marked as optional
-     *
-     * @return the updated schema with the specified paths being marked as optional
-     */
-    def ?(paths: String*): SchemaObject = makeOptional(schema, paths.toList.map(string2SchemaPath))
-
-    /**
-     * Makes all values referenced by the given list of paths
-     * optional.
-     *
-     * @param subSchema
-     *              the sub-schema to be marked as optional
-     *
-     * @return the updated schema with the sub-schema being marked as optional
-     */
-    def ?(subSchema: SchemaObject): SchemaObject = pathOfSubSchema(schema, subSchema).fold {
-      schema
-    } { subPath =>
-      val optionalSubSchema = subSchema.updateAttributesByPredicate(_ => true)(attr => attr.addAnnotation(SchemaOptionalAnnotation()))
-      updateByPath[SchemaObject](schema, subPath.toString.substring(1).replace("/", "."), _ => optionalSubSchema)
-    }
-
-    /**
      * Adds the given attribute at the path of this schema.
      *
      * @param path
@@ -235,34 +208,6 @@ trait SchemaOps extends BaseSchemaOps { self =>
     def --(paths: List[String]): SchemaObject = remove(schema, toSchemaPaths(paths))
 
     /**
-     * Makes all values referenced by the given list of paths
-     * read-only.
-     *
-     * @param paths
-     *           the paths to the attributes to be marked as read-only
-     *
-     * @return the updated schema with the given paths being marked as read-only
-     */
-    def readOnly(paths: String*) = makeReadOnly(schema, toSchemaPaths(paths.toList))
-
-    /**
-     * Marks all attributes of the given sub-schema as read-only.
-     *
-     * @param subSchema
-     *                  the sub-schema whose attributes should be marked as read-only
-     *
-     * @return the updated schema, if the sub-schema exists, the unchanged schema otherwise
-     */
-    def readOnly(subSchema: SchemaObject) = {
-      pathOfSubSchema(schema, subSchema).fold {
-        schema
-      } { subPath =>
-        val readOnlySubSchema = subSchema.updateAttributesByPredicate(_ => true)(_.addAnnotation(SchemaReadOnlyAnnotation()))
-        updateByPath[SchemaObject](schema, subPath.toString.substring(1).replace("/", "."), _ => readOnlySubSchema)
-      }
-    }
-
-    /**
      * Update this schema by predicate.
      *
      * @param predicate
@@ -305,8 +250,6 @@ trait SchemaOps extends BaseSchemaOps { self =>
     def update(schemaType: SchemaType, pf: PartialFunction[SchemaType, SchemaType]) =
       self.updateIf(schemaType, pf)
 
-    def transform(obj: JsObject)(transformers: (SchemaType => Boolean, PartialFunction[JsValue, JsValue])*): JsObject = self.transform(schema, obj)(transformers)
-
     /**
      * Checks if a given predicate holds for all attributes.
      *
@@ -340,10 +283,5 @@ trait SchemaOps extends BaseSchemaOps { self =>
     def isSubSetOf(otherSchema: SchemaObject): Boolean =
       isSubSet(schema, otherSchema)
 
-    def isOptional(path: SchemaPath): Boolean = {
-      resolveAttribute(path, schema).fold(false)(attr =>
-        attr.annotations.exists(_.isInstanceOf[SchemaOptionalAnnotation])
-      )
-    }
   }
 }

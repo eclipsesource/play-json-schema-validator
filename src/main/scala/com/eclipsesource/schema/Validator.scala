@@ -1,16 +1,13 @@
 package com.eclipsesource.schema
 
-import com.eclipsesource.schema
-import com.eclipsesource.schema._
 import com.eclipsesource.schema.internal.{Context, RefResolver}
-import play.api.data.mapping.{Success, Failure, Path, VA}
+import play.api.data.mapping.{Failure, Path, Success, VA}
 import play.api.data.validation.ValidationError
 import play.api.libs.json._
 
 trait Validator {
 
   def validate(schema: SchemaType)(input: => JsValue): VA[JsValue] = {
-    // TODO: cast
     val id = schema match {
       case container: SchemaContainer => container.id
       case _ => None

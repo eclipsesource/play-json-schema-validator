@@ -3,7 +3,6 @@ package com.eclipsesource.schema.internal
 import java.net.URLDecoder
 
 import com.eclipsesource.schema._
-import com.eclipsesource.schema.internal.constraints.Constraints.Constraint
 import play.api.data.mapping.Path
 import play.api.libs.json.Json
 
@@ -12,7 +11,6 @@ import scala.util.Try
 
 object RefResolver {
 
-  // TODO: replace context parameter, unclear what for this is needed
   def replaceRefs(context: Context)(schema: SchemaType): SchemaType = {
     schema match {
       case container: SchemaContainer =>
@@ -38,7 +36,7 @@ object RefResolver {
 
         // find and replace any ref, if available
         val (substitutedType, updContext) = cls.properties.collectFirst {
-          case attr@SchemaAttribute(_, ref: SchemaRef, _) if !context.visited.contains(ref) => ref
+          case attr@SchemaAttribute(_, ref: SchemaRef) if !context.visited.contains(ref) => ref
         }.flatMap(ref => {
           val c = context.copy(visited = context.visited + ref, id = id)
           resolveRef(ref, c).map(res => (res, c))
@@ -46,9 +44,9 @@ object RefResolver {
         substitutedType match {
           // if resolved type is a class, resolve all refs it contains
           case c: SchemaObject => c.copy(constraints = c.constraints.updated(replaceRefs(updContext)))
-          case x => x
+          case other => other
         }
-      case z => z
+      case other => other
     }
   }
 
@@ -65,7 +63,7 @@ object RefResolver {
   private def isRemoteRef(attr: SchemaAttribute): Boolean = attr.name == "$ref" && isRemoteRef(attr.schemaType)
 
   private def isRemoteRef: SchemaType => Boolean = {
-    case r@SchemaRef(_, _, true) => true
+    case SchemaRef(_, _, true) => true
     case cls: SchemaObject if cls.properties.exists(isRemoteRef(_)) => true
     case _ => false
   }
@@ -111,22 +109,13 @@ object RefResolver {
         // TODO container is not supposed to contain a ref at this point
         // resolve single segment
         container.resolvePath(fragment).flatMap(resolvedType => {
-
-          // TODO: ugly, is this actually needed?
-          val f: List[String] = if (isRef(resolvedType)) {
-            toFragments(resolvedType.asInstanceOf[SchemaObject].properties.collectFirst {
-              case SchemaAttribute(_, ref: SchemaRef, _) => ref.pointer.path
-            }.getOrElse("")) ++ fragments.tail
-          } else {
-            fragments.tail
-          }
-          resolveRef(resolvedType, f.filterNot(_ == ""), //fragments.tail,
+          resolveRef(resolvedType, fragments.tail,
             newContext.copy(path = newContext.path.compose(Path(fragment))))
         })
 
       case (ref: SchemaRef, None) => resolveRef(ref.pointer.path, newContext.copy(visited =  newContext.visited + ref))
       case (cls: SchemaObject, None) if isSchemaRefClass(cls)   =>
-        val ref = cls.properties.collectFirst { case SchemaAttribute("$ref", ref: SchemaRef, _) => ref}
+        val ref = cls.properties.collectFirst { case SchemaAttribute("$ref", ref: SchemaRef) => ref}
         if (ref.isDefined && ref.get.pointer.path == "#") {
           Some(cls)
         } else {
@@ -140,7 +129,6 @@ object RefResolver {
     }
   }
 
-  // TODO rename
   private def toFragments(uri: String): List[String] = {
     val fragmentStartIndex = uri.indexOf("#")
     val fragments: List[String] = uri.find((c: Char) => c == '#').map(_ => uri.substring(fragmentStartIndex, uri.length)).getOrElse("").split("/").toList.map(segment =>

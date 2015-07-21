@@ -12,51 +12,74 @@ import shapeless.syntax.std.tuple._
 
 trait JSONSchemaReads {
 
-  // TODO: asInstanceOf..
   implicit val valueReader: Reads[SchemaType] = (__ \ "type").read[String].flatMap {
-    case "boolean" => booleanReader.asInstanceOf[Reads[SchemaType]]
-    case "string"  => stringReader.asInstanceOf[Reads[SchemaType]]
-    case "integer" => integerReader.asInstanceOf[Reads[SchemaType]]
-    case "number"  => numberReader.asInstanceOf[Reads[SchemaType]]
-    case "array"   => arrayReader.asInstanceOf[Reads[SchemaType]]
-    case "object"  => objectReader.asInstanceOf[Reads[SchemaType]]
-    case "null"    => nullReader.asInstanceOf[Reads[SchemaType]]
+    case "boolean" => booleanReader.map(s => s : SchemaType)
+    case "string"  => stringReader.map(s => s : SchemaType)
+    case "integer" => integerReader.map(s => s : SchemaType)
+    case "number"  => numberReader.map(s => s : SchemaType)
+    case "array"   => arrayReader.map(s => s : SchemaType).orElse(tupleReader.map(s => s : SchemaType))
+    case "object"  => objectReader.map(s => s : SchemaType)
+    case "null"    => nullReader.map(s => s : SchemaType)
   }.or {
-    tupleReader.asInstanceOf[Reads[SchemaType]]
+    tupleReader.map(s => s : SchemaType)
   }.or {
-    arrayReader.asInstanceOf[Reads[SchemaType]]
+    arrayReader.map(s => s : SchemaType)
   }.or {
-    stringReader.asInstanceOf[Reads[SchemaType]]
+    stringReader.map(s => s : SchemaType)
   }.or {
-    numberReader.asInstanceOf[Reads[SchemaType]]
+    numberReader.map(s => s : SchemaType)
   }.or {
-    booleanConstantReader.asInstanceOf[Reads[SchemaType]]
+    booleanConstantReader.map(s => s : SchemaType)
   }.or {
-    arrayConstantReader.asInstanceOf[Reads[SchemaType]]
+    arrayConstantReader.map(s => s : SchemaType)
   }.or {
-    objectReader.asInstanceOf[Reads[SchemaType]]
+    objectReader.map(s => s : SchemaType)
   }.or {
-    compoundReader.asInstanceOf[Reads[SchemaType]]
+    compoundReader.map(s => s : SchemaType)
   }
 
   lazy val numberReader: Reads[SchemaNumber] = {
-    ((__ \ "minimum").readNullable[Double] and
-      (__ \ "maximum").readNullable[Double] and
-      (__ \ "exclusiveMinimum").readNullable[Boolean] and
-      (__ \ "exclusiveMaximum").readNullable[Boolean] and
-      (__ \ "multipleOf").readNullable[BigDecimal] and
+    ((__ \ Keywords.Number.Min).readNullable[BigDecimal] and
+      (__ \ Keywords.Number.Max).readNullable[BigDecimal] and
+      (__ \ Keywords.Number.ExclusiveMin).readNullable[Boolean] and
+      (__ \ Keywords.Number.ExclusiveMax).readNullable[Boolean] and
+      (__ \ Keywords.Number.MultipleOf).readNullable[BigDecimal] and
       anyConstraintReader
       ).tupled.flatMap(read => {
 
       val (min, max, exclusiveMin, exclusiveMax, multipleOf, anyConstraints) = read
-      val minConstraint = min.map(Minimum(_, exclusiveMin))
-      val maxConstraint = max.map(Maximum(_, exclusiveMax))
+      val minimum = min.map(Minimum(_, exclusiveMin))
+      val maximum = max.map(Maximum(_, exclusiveMax))
+      val typeAsString = anyConstraints.schemaTypeAsString
 
-      if (anyConstraints.schemaTypeAsString.exists(_ != "number") ||
-        (anyConstraints.schemaTypeAsString.isEmpty && read.take(5).toList.forall(_.isEmpty))) {
+      if (typeAsString.exists(_ != "number")
+        || (typeAsString.isEmpty && read.take(5).toList.forall(_.isEmpty))) {
         Reads.apply(_ => JsError("Expected number"))
       } else {
-        Reads.pure(SchemaNumber(NumberConstraints(minConstraint, maxConstraint, multipleOf, anyConstraints)))
+        Reads.pure(SchemaNumber(NumberConstraints(minimum, maximum, multipleOf, anyConstraints)))
+      }
+    })
+  }
+
+  lazy val integerReader: Reads[SchemaInteger] = {
+    ((__ \ Keywords.Number.Min).readNullable[Int] and
+      (__ \ Keywords.Number.Max).readNullable[Int] and
+      (__ \ Keywords.Number.ExclusiveMin).readNullable[Boolean] and
+      (__ \ Keywords.Number.ExclusiveMax).readNullable[Boolean] and
+      (__ \ Keywords.Number.MultipleOf).readNullable[BigDecimal] and
+      anyConstraintReader
+      ).tupled.flatMap(read => {
+
+      val (min, max, exclusiveMin, exclusiveMax, multipleOf, anyConstraints) = read
+      val minimum = min.map(Minimum(_, exclusiveMin))
+      val maximum = max.map(Maximum(_, exclusiveMax))
+      val typeAsString = anyConstraints.schemaTypeAsString
+
+      if (typeAsString.exists(_ != "integer")
+        || (typeAsString.isEmpty && read.take(5).toList.forall(_.isEmpty))) {
+        Reads.apply(_ => JsError("Expected integer."))
+      } else {
+        Reads.pure(SchemaInteger(NumberConstraints(minimum, maximum, multipleOf, anyConstraints)))
       }
     })
   }
@@ -97,27 +120,6 @@ trait JSONSchemaReads {
     anyConstraintReader.flatMap(any => {
       // TODO: boolean constraint type could be removed
       Reads.pure(SchemaBoolean(BooleanConstraints(any)))
-    })
-  }
-
-  lazy val integerReader: Reads[SchemaInteger] = {
-    ((__ \ "minimum").readNullable[Int] and
-      (__ \ "maximum").readNullable[Int] and
-      (__ \ "exclusiveMinimum").readNullable[Boolean] and
-      (__ \ "exclusiveMaximum").readNullable[Boolean] and
-      (__ \ "multipleOf").readNullable[BigDecimal] and
-      anyConstraintReader
-      ).tupled.flatMap(read => {
-
-      val (min, max, exclusiveMin, exclusiveMax, multipleOf, anyConstraints) = read
-      val minimum = min.map(Minimum(_, exclusiveMin))
-      val maximum = max.map(Maximum(_, exclusiveMax))
-
-      if (anyConstraints.schemaTypeAsString.exists(_ != "integer") || (anyConstraints.schemaTypeAsString.isEmpty && read.take(5).toList.forall(_.isEmpty))) {
-        Reads.apply(_ => JsError("Expected integer."))
-      } else {
-        Reads.pure(SchemaInteger(NumberConstraints(minimum, maximum, multipleOf, anyConstraints)))
-      }
     })
   }
 
@@ -238,8 +240,7 @@ trait JSONSchemaReads {
 
       val (properties, id, patternProperties, additionalProperties, required, dependencies, minProperties, maxProperties, ref, anyConstraints) = read
 
-      val requiredProperties = required.map(_.toSet).getOrElse(Set.empty)
-      val props: List[SchemaAttribute] = properties.map(p => tuples2Attributes(p, requiredProperties)).getOrElse(List.empty)
+      val props: List[SchemaAttribute] = properties.map(tuples2Attributes).getOrElse(List.empty)
 
       Reads.pure(
         SchemaObject(
@@ -298,13 +299,7 @@ trait JSONSchemaReads {
     }
   }
 
-  private def tuples2Attributes(props: Iterable[(String, SchemaType)], requiredProperties: Set[String]): List[SchemaAttribute] = {
-    props.map(property =>
-      if (requiredProperties.contains(property._1)) {
-        SchemaAttribute(property._1, property._2, List())
-      } else {
-        SchemaAttribute(property._1, property._2, List(SchemaOptionalAnnotation()))
-      }
-    ).toList
+  private def tuples2Attributes(props: Iterable[(String, SchemaType)]): List[SchemaAttribute] = {
+    props.map(property => SchemaAttribute(property._1, property._2)).toList
   }
 }

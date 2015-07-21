@@ -2,7 +2,6 @@ package com.eclipsesource.schema.internal
 
 object Keywords {
 
-
   val Id = "id"
   val Schema = "$schema"
   val Description = "description"
@@ -28,17 +27,17 @@ object Keywords {
   }
 
   object Number {
-    val Max = "maximum"
     val Min = "minimum"
-    val ExclusiveMax = "exclusiveMax"
-    val ExclusiveMin = "exclusiveMin"
+    val Max = "maximum"
+    val ExclusiveMin = "exclusiveMinimum"
+    val ExclusiveMax = "exclusiveMaximum"
     val MultipleOf = "multipleOf"
   }
 
   object String {
     val MinLength = "minLength"
     val MaxLength = "maxLength"
-    val Format = "format"
+    val Pattern = "format"
   }
 
   object Array {
@@ -46,15 +45,14 @@ object Keywords {
     val MinItems = "minItems"
     val MaxItems = "maxItems"
     val UniqueItems = "uniqueItems"
+    val Items = "items"
   }
 
   val ofObject = List(
-    // TODO these actually only apply to schema
     Keywords.Id,
     Keywords.Schema,
     Keywords.Description,
-    //
-    // TODO: default is not yet implemented
+
     Keywords.Default,
     Keywords.Object.Ref,
     Keywords.Object.Properties,

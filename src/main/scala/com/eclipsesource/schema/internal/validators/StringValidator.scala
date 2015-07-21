@@ -31,7 +31,6 @@ object StringValidator extends SchemaTypeValidator[SchemaString] {
         case Some(pattern) =>
           val compiled = Pattern.compile(pattern)
           val matcher = compiled.matcher(string)
-          // TODO: matcher
           if(matcher.find()) {
             Success(json)
           } else {

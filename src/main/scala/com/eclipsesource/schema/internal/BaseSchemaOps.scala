@@ -31,7 +31,6 @@ trait BaseSchemaOps {
     def build(initialValue: SchemaType) = {
       if (descriptions.nonEmpty) {
         val (obj, fieldName) = descriptions.head
-        // TODO: recheck parent,
         val init = updateAttributeByPath(obj)(fieldName, _ => SchemaAttribute(fieldName, initialValue))
         descriptions.tail.foldLeft(init)((updated, desc) => {
           updateAttributeByPath(desc._1)(desc._2, _ => SchemaAttribute(desc._2, updated))
@@ -161,7 +160,6 @@ trait BaseSchemaOps {
     schemaType match {
       case cls: SchemaObject =>
         val updatedSchemaObject = cls.copy(properties = cls.properties.map { attr =>
-          // TODO check parent
           SchemaAttribute(attr.name, updateIf[A](attr.schemaType)(predicate)(modifier))
         })
         if (predicate(cls)) {
@@ -169,7 +167,6 @@ trait BaseSchemaOps {
         } else {
           updatedSchemaObject
         }
-        // TODO: check parent
       case arr: SchemaArray => SchemaArray(() => updateIf[A](arr.items)(predicate)(modifier))
       case q if predicate(q) => modifier(q.asInstanceOf[A])
       case _ => schemaType
@@ -208,7 +205,7 @@ trait BaseSchemaOps {
             modifiedAttribute.copy(schemaType = modifiedAttribute.schemaType)
           case attr if attr.schemaType.isInstanceOf[SchemaObject] =>
             // TODO check parent
-            SchemaAttribute(attr.name, updateAttributeIf(attr.schemaType.asInstanceOf[SchemaObject])(predicate)(modifier), attr.annotations)
+            SchemaAttribute(attr.name, updateAttributeIf(attr.schemaType.asInstanceOf[SchemaObject])(predicate)(modifier))
           case attr => attr
         })
     }).asInstanceOf[SchemaObject]
@@ -262,12 +259,6 @@ trait BaseSchemaOps {
           }))
       case q => adapter(path, q)
     }
-  }
-
-  def transform(schema: SchemaObject, obj: JsObject)(transformers: Seq[(SchemaType => Boolean, PartialFunction[JsValue, JsValue])]): JsObject = {
-    transformers.foldLeft(new JsValueUpdateBuilder(schema))((builder, entry) =>
-      builder.byPredicate(entry._1)(entry._2)
-    ).go(obj)
   }
 
   /**
@@ -380,32 +371,6 @@ trait BaseSchemaOps {
   def renameAttribute(root: SchemaObject)(path: SchemaPath, newAttributeName: String): SchemaObject =
     updateAttributeByPath(root)(path, attr => attr.copy(name = newAttributeName))
 
-  /**
-   * Makes all values referenced by the given list of paths
-   * optional.
-   *
-   * @param cls
-   *            the schema object definition which contains attributes that should be marked
-   *            as optional
-   * @param paths
-   *            a list containing all attribute paths that should be marked as optional
-   *
-   * @return the updated schema with the referenced attributes being marked as optional
-   */
-  def makeOptional(cls: SchemaObject, paths: List[SchemaPath]): SchemaObject =
-    paths.foldLeft(cls)((obj, path) =>
-      updateAttributeByPath(obj)(path, _.addAnnotation(SchemaOptionalAnnotation())))
-
-  /**
-   * Marks all values referenced by the given list of paths as read-only.
-   *
-   * @param schema
-   *         the schema that is supposed to contain the attributes that are referenced by the given paths
-   * @return the updated schema with the referenced attributes being marked as read-only
-   */
-  def makeReadOnly(schema: SchemaObject, paths: List[SchemaPath]): SchemaObject =
-    paths.foldLeft(schema)((obj, path) =>
-      updateAttributeByPath(obj)(path, _.addAnnotation(SchemaReadOnlyAnnotation())))
 
   /**
    * Returns the path of the given sub schema, if it is contained in the schema.

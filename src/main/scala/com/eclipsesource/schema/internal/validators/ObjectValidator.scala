@@ -1,60 +1,60 @@
 package com.eclipsesource.schema.internal.validators
 
 import java.util.regex.Pattern
-
 import com.eclipsesource.schema._
 import com.eclipsesource.schema.internal._
 import play.api.data.mapping._
 import play.api.libs.json._
-
 import scalaz.ReaderWriterState
 
-// TODO: cleanup
 object ObjectValidator extends SchemaTypeValidator[SchemaObject] {
 
   override def validate(schema: SchemaObject, json: => JsValue, context: Context): VA[JsValue] = {
+
     def validateJson(schema: SchemaObject, c: Context): VA[JsValue] = {
       json match {
         case jsObject@JsObject(props) =>
           val validation = for {
-            updSchema <- validateDependencies(schema, jsObject)
-            remaining <- validateProps(updSchema, jsObject)
-            unmatched <- validatePatternProps(updSchema, jsObject.fields)
-            _ <- validateAdditionalProps(updSchema, unmatched.intersect(remaining)) // TODO review intersect
-            _ <- validateMinProperties(updSchema, jsObject)
-            _ <- validateMaxProperties(updSchema, jsObject)
-          // TODO: validate min, max properties etc.
-          } yield updSchema
+            updatedSchema <- validateDependencies(schema, jsObject)
+            remaining     <- validateProps(updatedSchema, jsObject)
+            unmatched     <- validatePatternProps(updatedSchema, jsObject.fields)
+            _             <- validateAdditionalProps(updatedSchema, unmatched.intersect(remaining))
+            _             <- validateMinProperties(updatedSchema, jsObject)
+            _             <- validateMaxProperties(updatedSchema, jsObject)
+          } yield updatedSchema
 
-
-          val (_, updatedSchema, va1) = validation.run(c, Success(json))
-          va1
-//          TODO: figure out parameters
-//          val (_, _, va2) = anyValidation(updatedSchema, jsObject).run(c, Success(jsObject))
-//          Results.merge(va1, va2)
-
-//        case _ => Success(json)
-        case _ => anyValidation(schema, json).run(c, Success(json))._3
+          val (_, _, result) = validation.run(c, Success(json))
+          result
+        case _ =>
+          val (_, _, result) = validationAny(schema, json).run(c, Success(json))
+          result
       }
     }
 
     // check if any property is a ref
-    val reference = schema.properties.collectFirst { case SchemaAttribute("$ref", ref@SchemaRef(_, _, _), _) => ref}
+    val reference = schema.properties.collectFirst { case SchemaAttribute("$ref", ref@SchemaRef(_, _, _)) => ref}
 
-    // TODO: Validator
     reference.flatMap(ref => RefResolver.resolveRef(ref, context)).map {
       case _ if context.visited.contains(reference.get) => Success(json)
-      case cls: SchemaObject =>
-        // TODO: get
-        if (schema.isSubSetOf(cls) && !json.isInstanceOf[JsObject]) {
+      case obj: SchemaObject =>
+        // TODO: isInstanceOf
+        if (schema.isSubSetOf(obj) && !json.isInstanceOf[JsObject]) {
           Success(json)
         } else {
-          val z = if (context.root == schema) context.copy(root = cls, visited = context.visited + reference.get) else context.copy(visited = context.visited + reference.get)
-          validateJson(cls, z)
+          val updatedContext = if (context.root == schema) {
+            context.copy(root = obj, visited = context.visited + reference.get)
+          } else {
+            context.copy(visited = context.visited + reference.get)
+          }
+          validateJson(obj, updatedContext)
         }
-      case x =>
-        val z = if (context.root == schema) context.copy(root = x) else context
-        Validator.process(x, json, z)
+      case other =>
+        val updateContext = if (context.root == schema) {
+          context.copy(root = other)
+        } else {
+          context
+        }
+        Validator.process(other, json, updateContext)
     }.getOrElse(validateJson(schema, context))
   }
 
@@ -74,8 +74,7 @@ object ObjectValidator extends SchemaTypeValidator[SchemaObject] {
             attr.schemaType,
             value,
             context.copy(
-              path = context.path \ "properties" \ attr.name,
-              annotations = attr.annotations
+              path = context.path \ "properties" \ attr.name
             )
           )
         }
@@ -99,13 +98,12 @@ object ObjectValidator extends SchemaTypeValidator[SchemaObject] {
       // find all matching properties and validate them
       val validated: Seq[(String, VA[JsValue])] = props.flatMap {
         prop => {
-          val matchedPPs = schema.constraints.patternProps.getOrElse(Seq.empty).filter(pp => {
+          val matchedPatternProperties = schema.constraints.patternProps.getOrElse(Seq.empty).filter(pp => {
             val pattern = Pattern.compile(pp._1)
             val matcher = pattern.matcher(prop._1)
             matcher.find()
           })
-          matchedPPs.map(pp =>
-            // TODO: Validator
+          matchedPatternProperties.map(pp =>
             prop._1 -> Validator.process(pp._2, prop._2, context)
           )
         }
@@ -191,11 +189,10 @@ object ObjectValidator extends SchemaTypeValidator[SchemaObject] {
     }
   }
 
-  def anyValidation(schema: SchemaObject, obj: JsValue): ReaderWriterState[Context, Unit, VA[JsValue], VA[JsValue]] = {
+  def validationAny(schema: SchemaObject, obj: JsValue): ReaderWriterState[Context, Unit, VA[JsValue], VA[JsValue]] = {
     ReaderWriterState { (context, status) =>
-      ((),
-        AnyConstraintValidator.validate(obj, schema.constraints.any, context),
-        AnyConstraintValidator.validate(obj, schema.constraints.any, context))
+      val result = AnyConstraintValidator.validate(obj, schema.constraints.any, context)
+      ((), result, result)
     }
   }
 
@@ -228,44 +225,5 @@ object ObjectValidator extends SchemaTypeValidator[SchemaObject] {
       ((), (), Results.merge(status, result))
     }
   }
-
 }
 
-//
-//
-// private def validateMinProperties()
-//        if (obj.fieldSet.size >= minProperties) {
-//          Success(obj)
-//        } else {
-//          Failure(
-//            List(
-//              ValidationError("minProperties violated",
-//                Json.obj("minProperties" -> minProperties, "object" -> obj)
-//              )
-//            )
-//          )
-//        }
-//      case _ => Failure(List(ValidationError("object expected")))
-//    }
-//  }
-//
-//  case class MaxPropertiesRule(maxProperties: Int) extends ValidationRule {
-//
-//    val rule: Rule[JsValue, JsValue] = Rule.fromMapping {
-//      case obj: JsObject =>
-//        if (obj.fieldSet.size <= maxProperties) {
-//          Success(obj)
-//        } else {
-//          Failure(
-//            List(
-//              ValidationError("maxProperties violated",
-//                Json.obj("maxProperties" -> maxProperties, "object" -> obj)
-//              )
-//            )
-//          )
-//        }
-//      case _ => Failure(List(ValidationError("object expected")))
-//    }
-//
-//  }
-//}

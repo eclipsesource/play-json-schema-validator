@@ -5,7 +5,7 @@ import play.api.libs.json.JsValue
 
 object Constraints {
 import com.eclipsesource.schema._
-import com.eclipsesource.schema.internal.{Keywords, Context}
+import com.eclipsesource.schema.internal.Keywords
 
   trait HasAnyConstraint {
     def any: AnyConstraint

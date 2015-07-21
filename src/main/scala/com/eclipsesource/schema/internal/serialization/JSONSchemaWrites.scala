@@ -82,17 +82,6 @@ trait JSONSchemaWrites {
     JsBoolean(const.bool)
   }
 
-  /**
-   * Extensions whose result gets merged into the written property like, for instance, the type:
-   */
-  def propertyExtensions: List[SchemaAttribute => JsObject] = List()
-
-  /**
-   * Extensions which act on a object and produce a result which contains 
-   * information about multiple fields. For instance, required property.
-   */
-  def extensions: List[SchemaObject => JsObject] = List()
-
   implicit val objectWriter: Writes[SchemaObject] = OWrites[SchemaObject] {
     obj => {
       val o = Json.obj(
@@ -100,38 +89,30 @@ trait JSONSchemaWrites {
         "properties" -> JsObject(obj.properties.map(attr => attr.name -> Json.toJson(attr.schemaType)))
       )
 
-
-      val written = o.deepMerge(
-        objectConstraintWriter.writes(obj.constraints)
-      )
-
-      val written2 = extensions.foldLeft(written)((o, extension) =>
-        o.deepMerge(extension(obj)))
-
-      written2
+      o.deepMerge(objectConstraintWriter.writes(obj.constraints))
     }
   }
 
   lazy val objectConstraintWriter: OWrites[ObjectConstraints] = OWrites[ObjectConstraints] {
     constraints =>
-      toJsObject(Keywords.Object.AdditionalProperties, constraints.additionalProps) ++
-      toJsObject(Keywords.Object.PatternProperties, constraints.patternProps) ++
-      toJsObject(Keywords.Object.Dependencies, constraints.dependencies) ++
-      toJsObject(Keywords.Object.Required, constraints.required) ++
+      asJsObject(Keywords.Object.AdditionalProperties, constraints.additionalProps) ++
+      asJsObject(Keywords.Object.PatternProperties, constraints.patternProps) ++
+      asJsObject(Keywords.Object.Dependencies, constraints.dependencies) ++
+      asJsObject(Keywords.Object.Required, constraints.required) ++
       anyConstraintWriter.writes(constraints.any)
   }
 
   lazy val arrayConstraintWriter: OWrites[ArrayConstraints] = OWrites[ArrayConstraints] {
     constraints =>
-      toJsObject(Keywords.Array.AdditionalItems, constraints.additionalItems) ++
-      toJsObject(Keywords.Array.MaxItems, constraints.maxItems) ++
-      toJsObject(Keywords.Array.MinItems, constraints.minItems) ++
-      toJsObject(Keywords.Array.UniqueItems, constraints.unique)
+      asJsObject(Keywords.Array.AdditionalItems, constraints.additionalItems) ++
+      asJsObject(Keywords.Array.MaxItems, constraints.maxItems) ++
+      asJsObject(Keywords.Array.MinItems, constraints.minItems) ++
+      asJsObject(Keywords.Array.UniqueItems, constraints.unique)
   }
 
   lazy val numberConstraintWriter: OWrites[NumberConstraints] = OWrites[NumberConstraints] {
     constraints =>
-      toJsObject(Keywords.Any.Type, Some(Json.obj("type" -> "number")))
+      asJsObject(Keywords.Any.Type, Some(Json.obj("type" -> "number")))
       constraints.max.fold(emptyObject)(max => max.isExclusive match {
         case Some(isExclusive) => Json.obj(Keywords.Number.Max -> max.max, Keywords.Number.ExclusiveMax -> isExclusive)
         case _ => Json.obj(Keywords.Number.Max -> max.max)
@@ -146,38 +127,28 @@ trait JSONSchemaWrites {
   }
 
   lazy val booleanConstraintWriter: OWrites[BooleanConstraints] = OWrites[BooleanConstraints] {
-    constraints =>
-      // TODO
-      Json.obj()
+    constraints => Json.obj()
   }
 
   lazy val stringConstraintWriter: OWrites[StringConstraints] = OWrites[StringConstraints] {
     stringConstraints =>
-      stringConstraints.minLength.fold(emptyObject)(minLength =>
-        Json.obj(Keywords.String.MinLength -> minLength)
-      ) ++
-        stringConstraints.maxLength.fold(emptyObject)(maxLength =>
-          Json.obj(Keywords.String.MaxLength -> maxLength)
-        ) ++
-        stringConstraints.pattern.fold(emptyObject)(format =>
-          Json.obj(Keywords.String.Format -> format)
-        ) ++
-       anyConstraintWriter.writes(stringConstraints.any)
+      asJsObject(Keywords.String.MinLength, stringConstraints.minLength) ++
+      asJsObject(Keywords.String.MaxLength, stringConstraints.maxLength) ++
+      asJsObject(Keywords.String.Pattern, stringConstraints.pattern)
+      anyConstraintWriter.writes(stringConstraints.any)
   }
 
   lazy val anyConstraintWriter: OWrites[AnyConstraint] = OWrites[AnyConstraint] {
     anyConstraint =>
-      toJsObject(Keywords.Any.AllOf, anyConstraint.allOf) ++
-      toJsObject(Keywords.Any.AnyOf, anyConstraint.anyOf) ++
-      toJsObject(Keywords.Any.OneOf, anyConstraint.oneOf) ++
-      toJsObject(Keywords.Any.Definitions, anyConstraint.definitions) ++
-      toJsObject(Keywords.Any.Enum, anyConstraint.enum)
+      asJsObject(Keywords.Any.AllOf, anyConstraint.allOf) ++
+      asJsObject(Keywords.Any.AnyOf, anyConstraint.anyOf) ++
+      asJsObject(Keywords.Any.OneOf, anyConstraint.oneOf) ++
+      asJsObject(Keywords.Any.Definitions, anyConstraint.definitions) ++
+      asJsObject(Keywords.Any.Enum, anyConstraint.enum)
   }
 
-  private def toJsObject[A : Writes](key: String, opt: Option[A]): JsObject = {
-    opt.fold(emptyObject)(value =>
-      Json.obj(key -> value)
-    )
+  private def asJsObject[A : Writes](key: String, opt: Option[A]): JsObject = {
+    opt.fold(emptyObject)(value => Json.obj(key -> value))
   }
 
   private def emptyObject = Json.obj()

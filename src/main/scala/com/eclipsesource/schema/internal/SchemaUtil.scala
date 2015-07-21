@@ -30,13 +30,13 @@ object SchemaUtil {
   }
 
 
-  def prettyPrint(schemaType: SchemaType, printAnnotations: Boolean = false, indent: Int = 0): String = schemaType match {
+  def prettyPrint(schemaType: SchemaType, indent: Int = 0): String = schemaType match {
     case obj: SchemaObject => "{\n" +
       obj.properties.map { field =>
-        " " * (indent + 2)  + field.name + ": " + (if (printAnnotations) field.annotations.mkString(",") else "") +
-          prettyPrint(field.schemaType, printAnnotations, indent + 2) + "\n"}.mkString +
+        " " * (indent + 2)  + field.name + ": " +
+          prettyPrint(field.schemaType, indent + 2) + "\n"}.mkString +
         " " * indent + "}"
-    case arr: SchemaArray => "[" + prettyPrint(arr.items, printAnnotations, indent) + "]"
-    case q => q.toString
+    case arr: SchemaArray => "[" + prettyPrint(arr.items, indent) + "]"
+    case other => other.toString
   }
 }
