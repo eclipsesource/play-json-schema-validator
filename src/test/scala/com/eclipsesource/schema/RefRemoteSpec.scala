@@ -2,11 +2,9 @@ package com.eclipsesource.schema
 
 import java.net.URL
 
-import com.eclipsesource.schema.internal.{Context, RefResolver}
 import com.eclipsesource.schema.test.{JSONSource, JsonSpec}
 import controllers.Assets
-import play.api.data.mapping.Path
-import play.api.libs.json.{JsString, JsArray, Json, JsNumber}
+import play.api.libs.json.{JsNumber, JsString, Json}
 import play.api.mvc.Handler
 import play.api.test._
 
@@ -16,13 +14,13 @@ object RefRemoteSpec extends PlaySpecification {
     case (_, path) => Assets.versioned("/remotes", path)
   }
 
-  //  "Remote ref" should {
-  //
-  //    "validate" in new WithServer(app = new FakeApplication(withRoutes = routes), port = 1234) {
-  //      val resourceUrl: URL = getClass.getResource("/draft4/refRemote.json")
-  //      foreach(JsonSpec.examplesFromUrl(resourceUrl))(example => example.execute)
-  //    }
-  //  }
+    "Remote ref" should {
+
+      "validate" in new WithServer(app = new FakeApplication(withRoutes = routes), port = 1234) {
+        val resourceUrl: URL = getClass.getResource("/draft4/refRemote.json")
+        foreach(JsonSpec.examplesFromUrl(resourceUrl))(example => example.execute)
+      }
+    }
 
   "change resolution scope" should {
 

@@ -1,10 +1,20 @@
 package com.eclipsesource.schema
 
-import com.eclipsesource.schema.test.JSONSource
+import com.eclipsesource.schema.test.{JsonSpec, JSONSource}
 import org.specs2.mutable.Specification
 import play.api.libs.json.Json
+import java.net.URL
 
 class RequiredSpec extends Specification {
+
+  "Required" should {
+
+    "validate" in {
+      val resourceUrl: URL = getClass.getResource("/draft4/required.json")
+      foreach(JsonSpec.examplesFromUrl(resourceUrl))(example => example.execute)
+    }
+  }
+
 
 
   "required validation" should {
@@ -17,7 +27,6 @@ class RequiredSpec extends Specification {
         |},
         |"required": ["foo"]
       }""".stripMargin).get
-
 
     "present required property is valid" in {
       val data = Json.obj("foo" -> 1)
