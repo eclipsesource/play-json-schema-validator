@@ -33,7 +33,7 @@ object Results {
       case (Success(_), f@Failure(err)) => f
       case (f@Failure(_), Success(_)) => f
       case (f1@Failure(errs1), f2@Failure(errs2)) => Failure(errs1 ++ errs2)
-      case (Success(obj@JsObject(fields)), Success(s2)) => Success(JsObject(fields :+ (result._1, s2)))
+      case (Success(obj@JsObject(fields)), Success(s2)) => Success(JsObject(obj.fields :+ (result._1, s2)))
     })
   }
 

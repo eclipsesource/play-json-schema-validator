@@ -17,12 +17,16 @@ sealed trait SchemaType {
 
 sealed trait PrimitiveSchemaType extends SchemaType
 
-final case class SchemaNull(constraints: NullConstraints) extends SchemaType
+final case class SchemaNull(constraints: NullConstraints) extends SchemaType {
+  override def toString: String = "null"
+}
 
 final case class SchemaBooleanConstant(bool: Boolean) extends SchemaType {
+  override def toString: String = "boolean value"
   override def constraints: HasAnyConstraint = NoConstraints
 }
 final case class SchemaArrayConstant(seq: Seq[JsValue]) extends SchemaType {
+  override def toString: String = "array"
   override def constraints: HasAnyConstraint = NoConstraints
 }
 
@@ -44,6 +48,7 @@ final case class SchemaRef(pointer: JSONPointer, isAttribute: Boolean = false, i
 }
 
 final case class CompoundSchemaType(oneOf: Seq[SchemaType]) extends SchemaType {
+  override def toString: String = oneOf.map(_.toString).mkString(" ")
 //  TODO: BooleanConstraints is just a placeholder
   override def constraints: HasAnyConstraint = BooleanConstraints()// CompoundConstraints(oneOf.map(s => s.constraints), AnyConstraint())
 }
@@ -52,6 +57,8 @@ final case class SchemaObject(properties: Seq[SchemaAttribute] = Seq.empty,
                     constraints: ObjectConstraints = ObjectConstraints(),
                     id: Option[String] = None)
   extends HasProperties {
+
+  override def toString: String = "object"
 
   override def resolvePath(attributeName: String): Option[SchemaType] = attributeName match {
     case Keywords.Object.Properties => Some(SchemaObject(properties))
@@ -66,6 +73,8 @@ final case class SchemaTuple(items: () => Seq[SchemaType],
                        constraints: ArrayConstraints = ArrayConstraints(),
                        id: Option[String] = None)
   extends SchemaContainer {
+
+  override def toString: String = "tuple"
 
   override def resolvePath(index: String): Option[SchemaType] = {
     index match {
@@ -88,6 +97,8 @@ final case class SchemaArray(schemaType: () => SchemaType,
                        id: Option[String] = None)
   extends SchemaContainer {
 
+  override def toString: String = "array"
+
   lazy val items = schemaType()
 
   def resolvePath(path: String): Option[SchemaType] = {
@@ -103,13 +114,20 @@ final case class SchemaArray(schemaType: () => SchemaType,
     copy(schemaType = () => containedTypes.head, id = id)
 }
 
-final case class SchemaString(constraints: StringConstraints = StringConstraints()) extends PrimitiveSchemaType
+final case class SchemaString(constraints: StringConstraints = StringConstraints()) extends PrimitiveSchemaType {
+  override def toString: String = "string"
+}
 
-final case class SchemaNumber(constraints: NumberConstraints = NumberConstraints()) extends PrimitiveSchemaType
+final case class SchemaNumber(constraints: NumberConstraints = NumberConstraints()) extends PrimitiveSchemaType {
+  override def toString: String = "number"
+}
 
-final case class SchemaInteger(constraints: NumberConstraints = NumberConstraints()) extends PrimitiveSchemaType
+final case class SchemaInteger(constraints: NumberConstraints = NumberConstraints()) extends PrimitiveSchemaType {
+  override def toString: String = "integer"
+}
 
-final case class SchemaBoolean(constraints: BooleanConstraints = BooleanConstraints()) extends PrimitiveSchemaType
+final case class SchemaBoolean(constraints: BooleanConstraints = BooleanConstraints()) extends PrimitiveSchemaType {
+  override def toString: String = "boolean"
+}
 
-trait SchemaAnnotation
 case class SchemaAttribute(name: String, schemaType: SchemaType)

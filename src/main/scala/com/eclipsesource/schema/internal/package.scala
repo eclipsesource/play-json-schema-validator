@@ -12,8 +12,6 @@ package object internal {
     override def append(f1: Unit, f2: => Unit): Unit = ()
   }
 
-  case object JsAbsent extends JsUndefined("optional")
-
   /**
    * Type params in this order are:
    * - reader

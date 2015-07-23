@@ -4,11 +4,12 @@ import java.net.URL
 
 import com.eclipsesource.schema.test.{JSONSource, JsonSpec}
 import controllers.Assets
+import org.specs2.mutable.Specification
 import play.api.libs.json.{JsNumber, JsString, Json}
-import play.api.mvc.Handler
+import play.api.mvc.{Results, Handler}
 import play.api.test._
 
-object RefRemoteSpec extends PlaySpecification {
+class RefRemoteSpec extends PlaySpecification {
 
   val routes: PartialFunction[(String, String), Handler] = {
     case (_, path) => Assets.versioned("/remotes", path)

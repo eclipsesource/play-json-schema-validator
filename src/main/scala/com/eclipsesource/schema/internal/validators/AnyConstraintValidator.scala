@@ -83,20 +83,13 @@ object AnyConstraintValidator extends Validator {
           val allValidationResults = schemas.map(schema => Validator.validate(schema)(json))
           allValidationResults.count(_.isSuccess) match {
             case 0 => Failure(
-              Seq(
-                ValidationError("oneOf violated (none applies)",
-                  Json.obj("schemas" -> Json.arr(schemas.map(_.prettyPrint)), "object" -> json)
-                )
+              Seq(ValidationError("oneOf violated, no schema matches")
               )
             )
             case 1 => Success(json)
             case _ =>
               Failure(
-                Seq(
-                  ValidationError("oneOf violated (multiple apply)",
-                    Json.obj("schemas" -> Json.arr(schemas.map(_.prettyPrint)), "object" -> json)
-                  )
-                )
+                Seq(ValidationError("oneOf violated, multiple schemas match"))
               )
           }
         }
@@ -109,12 +102,8 @@ object AnyConstraintValidator extends Validator {
     Rule.fromMapping { json =>
         enums match {
           case Some(values) if values.contains(json) => Success(json)
-          case Some(_) => Failure(
-            Seq(
-              ValidationError("enum violated",
-                Json.obj("enum" -> enums)
-              )
-            )
+          case Some(values) => Failure(
+            Seq(ValidationError(s"enum violated. $json is not part of $values"))
           )
           case None => Success(json)
         }

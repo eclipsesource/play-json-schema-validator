@@ -21,11 +21,7 @@ trait ArrayConstraintValidator {
           Success(json)
         } else {
           Failure(
-            Seq(
-              ValidationError("maxItems violated",
-                Json.obj("maxItems" -> maxItems, "array" -> values)
-              )
-            )
+            Seq(ValidationError(s"maxItems violated. Actual items: ${values.size}, maxItems: $max"))
           )
         }
         case None => Success(json)

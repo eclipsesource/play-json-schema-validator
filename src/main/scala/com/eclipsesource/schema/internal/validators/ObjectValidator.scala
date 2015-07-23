@@ -63,32 +63,29 @@ object ObjectValidator extends SchemaTypeValidator[SchemaObject] {
 
       val required = schema.constraints.required.getOrElse(List.empty[String])
 
-      val validated: Seq[(String, VA[JsValue])] = schema.properties.map { attr =>
+      val validated = schema.properties.foldLeft(List.empty[(String, VA[JsValue])])((props, attr) =>
         obj \ attr.name match {
           case _: JsUndefined => if (required.contains(attr.name)) {
-            attr.name -> Results.failure(s"Property ${attr.name} missing")
+            (attr.name -> Results.failure(s"Property ${attr.name} missing")) :: props
           } else {
-            attr.name -> Success(JsAbsent)
+            props
           }
-          case value => attr.name -> Validator.process(
+          case JsDefined(value) => (attr.name -> Validator.process(
             attr.schemaType,
             value,
             context.copy(
               path = context.path \ "properties" \ attr.name
             )
-          )
+          )) :: props
         }
-      }
+      )
 
       val validatedProperties = validated.map(_._1)
       val unvalidatedProps: Props = obj.fields.filterNot(field =>
         validatedProperties.contains(field._1)
       )
 
-      ((), unvalidatedProps, Results.merge(status, Results.aggregateAsObject(validated.filterNot(prop => prop._2 match {
-        case Success(JsAbsent) => true
-        case _ => false
-      }), context)))
+      ((), unvalidatedProps, Results.merge(status, Results.aggregateAsObject(validated, context)))
     }
 
 

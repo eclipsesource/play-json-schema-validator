@@ -253,10 +253,7 @@ trait BaseSchemaOps {
     schema match {
       case obj: SchemaObject =>
         val fields = obj.properties.map(fd => fd.name -> adapt(fd.schemaType, path \ fd.name, adapter))
-          JsSuccess(JsObject(fields.collect {
-            case (fieldName, JsSuccess(res, _)) if !res.isInstanceOf[JsUndefined] =>
-              (fieldName, res)
-          }))
+          JsSuccess(JsObject(fields.collect { case (fieldName, JsSuccess(res, _)) => (fieldName, res)}))
       case q => adapter(path, q)
     }
   }

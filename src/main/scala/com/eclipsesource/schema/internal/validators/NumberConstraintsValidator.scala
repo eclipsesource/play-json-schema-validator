@@ -32,8 +32,8 @@ trait NumberConstraintsValidator {
           } else {
             Failure(
               Seq(
-                ValidationError("min violated",
-                  Json.obj("min" -> min.min, "number" -> number)
+                ValidationError("minimum violated." +
+                  s"$number must be ${if (min.isExclusive.getOrElse(false)) ">" else ">="} ${min.min}"
                 )
               )
             )

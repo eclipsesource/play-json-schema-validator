@@ -127,13 +127,15 @@ trait JSONSchemaReads {
     override def reads(json: JsValue): JsResult[CompoundSchemaType] = json match {
       case obj@JsObject(fields) =>
         obj \ "type" match {
-          case JsArray(values) =>
-            val jsResults: Seq[JsResult[SchemaType]] = values.map(value => valueReader.reads(JsObject(List("type" -> value) ++ fields.filterNot(_._1 == "type"))))
-            val successes = jsResults.collect { case JsSuccess(succ, _) => succ }
+          case JsDefined(JsArray(values)) =>
+            val jsResults: Seq[JsResult[SchemaType]] = values.map(value =>
+              valueReader.reads(JsObject(List("type" -> value) ++ fields.filterNot(_._1 == "type")))
+            )
+            val successes = jsResults.collect { case JsSuccess(success, _) => success }
             JsSuccess(CompoundSchemaType(successes))
-          case _ => JsError("Expected compound.")
+          case _ => JsError("Expected compound type.")
         }
-      case _ => JsError("Expected compund.")
+      case _ => JsError("Expected json object.")
     }
   }
 
@@ -201,8 +203,8 @@ trait JSONSchemaReads {
     }
   }
 
-  def addRemainingProps(initObject: SchemaObject, props: Seq[(String, JsValue)], occupiedPropNames: List[String]) = {
-    val remainingProps: Seq[(String, JsValue)] = props.filterNot(prop => occupiedPropNames.contains(prop._1))
+  def addRemainingProps(initObject: SchemaObject, props: Iterable[(String, JsValue)], occupiedPropNames: List[String]) = {
+    val remainingProps: Iterable[(String, JsValue)] = props.filterNot(prop => occupiedPropNames.contains(prop._1))
     remainingProps.foldLeft(initObject)((acc, prop) =>
       acc ++ valueReader.reads(prop._2).asOpt.fold[SchemaObject](SchemaObject())(value => SchemaObject(Seq(SchemaAttribute(prop._1, value))))
     )
@@ -214,7 +216,7 @@ trait JSONSchemaReads {
         json match {
           case JsObject(props) =>
             fallBackReader.reads(json).map(schemaObject => {
-              addRemainingProps(schemaObject, props, Keywords.ofObject)
+              addRemainingProps(schemaObject, props.toList, Keywords.ofObject)
             })
           case err => JsError(s"Expected object. Got $err")
         }

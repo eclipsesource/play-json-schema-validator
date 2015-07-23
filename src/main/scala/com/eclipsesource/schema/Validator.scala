@@ -12,7 +12,7 @@ trait Validator {
       case container: SchemaContainer => container.id
       case _ => None
     }
-    val context = Context(Path, schema, Seq.empty, Set.empty, id)
+    val context = Context(Path, schema, Set.empty, id)
     val updatedRoot = RefResolver.replaceRefs(context)(schema)
     process(
       updatedRoot,
@@ -24,7 +24,7 @@ trait Validator {
   def validate[A: Writes](schema: SchemaType, input: A): VA[JsValue] = {
     val writer = implicitly[Writes[A]]
     val inputJs = writer.writes(input)
-    val context = Context(Path, schema, Seq.empty, Set.empty)
+    val context = Context(Path, schema, Set.empty)
     val updatedRoot = RefResolver.replaceRefs(context)(schema)
     process(updatedRoot, inputJs, context.copy(root = updatedRoot))
   }
@@ -32,7 +32,7 @@ trait Validator {
   private[schema] def process(schema: SchemaType, json: JsValue, context: Context): VA[JsValue] = {
 
     (json, schema) match {
-      case (_, schemaObject: SchemaObject) if !schema.constraints.any.schemaTypeAsString.isDefined =>
+      case (_, schemaObject: SchemaObject) if schema.constraints.any.schemaTypeAsString.isEmpty =>
         schemaObject.validate(json, context)
       case (_: JsObject, schemaObject: SchemaObject) if schema.constraints.any.schemaTypeAsString.isDefined =>
         schemaObject.validate(json, context)
@@ -54,9 +54,7 @@ trait Validator {
         schemaString.validate(jsString, context)
       case (JsNull, schemaNull: SchemaNull) =>
         schemaNull.validate(json, context)
-      case (undefined: JsUndefined, _) =>
-        schema.validate(undefined, context)
-      case (_, _) if !schema.constraints.any.schemaTypeAsString.isDefined =>
+      case (_, _) if schema.constraints.any.schemaTypeAsString.isEmpty =>
         Success(json)
       case _ =>
         Failure(List(context.path -> List(ValidationError("diff.types", Json.obj("schema" -> schema, "instance" -> json)))))

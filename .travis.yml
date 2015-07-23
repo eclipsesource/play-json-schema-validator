@@ -4,7 +4,6 @@ script:
 after_success:
     sbt coveralls
 scala:
-  - "2.10.4"
-  - "2.11.2"
+  - "2.11.4"
 jdk:
-  - oraclejdk7
+  - oraclejdk8
