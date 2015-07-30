@@ -95,32 +95,6 @@ trait BaseSchemaOps {
     _resolve(path, resolvable, BuildDescription.emptyDescription)
   }
 
-
-  def resolveAttribute(path: SchemaPath, resolvable: SchemaObject): Option[SchemaAttribute] = {
-
-    @tailrec
-    def _resolve(path: SchemaPath, attribute: Option[SchemaAttribute], resolvable: SchemaObject): Option[SchemaAttribute] = {
-      path match {
-        case Nil =>
-          attribute
-        case pathHead :: pathTail if pathHead.isEmpty => // safety check for root paths
-          attribute
-        case pathHead :: pathTail =>
-          if (pathHead.isEmpty) {
-            attribute
-          } else {
-            val attr = resolvable.properties.find(_.name == pathHead).getOrElse(fail("field.does.not.exist [" + pathHead + "]"))
-            attr.schemaType match {
-              case cls: SchemaObject => _resolve(pathTail, Some(attr), cls)
-              case otherType => Some(attr)
-            }
-          }
-      }
-    }
-
-    _resolve(path, None, resolvable)
-  }
-
   //
   // Extension methods based on update --
   //
@@ -145,71 +119,6 @@ trait BaseSchemaOps {
     buildDescription.build(updated)
   }
 
-  /**
-   * Traverses the given type and executes the given modifier if the predicate evaluates to true.
-   *
-   * @param schemaType
-   *               the type to be traversed
-   * @param predicate
-   *               the predicate that must be fulfilled in order to execute the update function
-   * @param modifier
-   *               the update function that is called if the predicate is fulfilled
-   * @return the updated schema  type
-   */
-  def updateIf[A <: SchemaType](schemaType: SchemaType)(predicate: SchemaType => Boolean)(modifier: A => SchemaType): SchemaType = {
-    schemaType match {
-      case cls: SchemaObject =>
-        val updatedSchemaObject = cls.copy(properties = cls.properties.map { attr =>
-          SchemaAttribute(attr.name, updateIf[A](attr.schemaType)(predicate)(modifier))
-        })
-        if (predicate(cls)) {
-          modifier(updatedSchemaObject.asInstanceOf[A])
-        } else {
-          updatedSchemaObject
-        }
-      case arr: SchemaArray => SchemaArray(() => updateIf[A](arr.items)(predicate)(modifier))
-      case q if predicate(q) => modifier(q.asInstanceOf[A])
-      case _ => schemaType
-    }
-  }
-
-  /**
-   * Traverses the given schema type and executes the given partial function, if matched.
-   *
-   * @param schemaType
-   *               the type to be traversed
-   * @param pf
-   *               the partial function to be executed
-   * @return the updated type
-   */
-  def updateIf(schemaType: SchemaType, pf: PartialFunction[SchemaType, SchemaType]): SchemaType =
-    updateIf(schemaType)(pf.isDefinedAt)(pf.apply)
-
-  /**
-   * Traverses the given schema type and executes the given attribute modifier if the predicate evaluates to true.
-   *
-   * @param schemaType
-   *               the type to be traversed
-   * @param predicate
-   *               the predicate that must be fulfilled in order to execute the update function
-   * @param modifier
-   *               the attribute update function that is called if the predicate is fulfilled
-   * @return the updated schema type
-   */
-  def updateAttributeIf(schemaType: SchemaObject)(predicate: SchemaAttribute => Boolean)(modifier: SchemaAttribute => SchemaAttribute): SchemaObject = {
-    updateIf(schemaType, {
-      case obj: SchemaObject =>
-        obj.copy(properties = obj.properties.collect {
-          case attr if predicate(attr) =>
-            val modifiedAttribute = modifier(attr)
-            modifiedAttribute.copy(schemaType = modifiedAttribute.schemaType)
-          case attr if attr.schemaType.isInstanceOf[SchemaObject] =>
-            // TODO check parent
-            SchemaAttribute(attr.name, updateAttributeIf(attr.schemaType.asInstanceOf[SchemaObject])(predicate)(modifier))
-          case attr => attr
-        })
-    }).asInstanceOf[SchemaObject]
-  }
 
   /**
    * Resolves the given path on the given schema object definition, executes the modifier
@@ -234,28 +143,6 @@ trait BaseSchemaOps {
         case idx => cls.copy(properties = cls.properties.updated(idx, modifier(currentAttribute)))
       }
     })
-  }
-
-  /**
-   * Traverses the given schema and executes the adapter function in order
-   * to derive a JSON value.
-   *
-   * @param schema
-   *             the schema to be traversed
-   * @param path
-   *             the current path
-   * @param adapter
-   *             the adapter to function that is used to produce a JSON value
-   *
-   * @return the derived JSON vlaue
-   */
-  def adapt(schema: SchemaType, path: JsPath, adapter: (JsPath, SchemaType) => JsResult[JsValue]): JsResult[JsValue] = {
-    schema match {
-      case obj: SchemaObject =>
-        val fields = obj.properties.map(fd => fd.name -> adapt(fd.schemaType, path \ fd.name, adapter))
-          JsSuccess(JsObject(fields.collect { case (fieldName, JsSuccess(res, _)) => (fieldName, res)}))
-      case q => adapter(path, q)
-    }
   }
 
   /**
@@ -290,99 +177,6 @@ trait BaseSchemaOps {
   }
 
   /**
-   * Folds over the given schema definition, executes the modifier
-   * for each encountered attribute, if the given type is encountered
-   * and joins the result by means of the monoid append operation in scope.
-   *
-   * @param matcher
-   *               the predicate to be fulfilled in order to execute the modifier
-   * @param schema
-   *               the schema to be fold over
-   * @param modifier
-   *               the modifier to be executed for each attribute
-   * @tparam B the result type of the modifier. Must be a monoid instance
-   * @return the folded result
-   */
-  def collapseWithPath[B : Monoid](matcher: SchemaType => Boolean)(schema: SchemaObject)(modifier: (SchemaAttribute, JsPath) => B): B = {
-
-    def _collapseWithPath(matcher: SchemaType => Boolean)(obj: SchemaObject, path: JsPath, result: B)(modifier: (SchemaAttribute, JsPath) => B): B = {
-      obj.properties.foldLeft(result)((res, attr) => attr.schemaType match {
-        case obj: SchemaObject if matcher(obj) =>
-          _collapseWithPath(matcher)(obj, path \ attr.name, res |+| modifier(attr, path \ attr.name))(modifier)
-        case obj: SchemaObject =>
-          _collapseWithPath(matcher)(obj, path, result)(modifier)
-        case a if matcher(a) => res |+| modifier(attr, path)
-        case a => res
-      })
-    }
-
-    val m = implicitly[Monoid[B]]
-    _collapseWithPath(matcher)(schema, JsPath(), m.zero)(modifier)
-  }
-
-  /**
-   * Resolves the given path against the given schema object definition.
-   *
-   * @param root
-   *            the schema object definition against which the path will be resolved
-   * @param path
-   *            the path to be resolved
-   * @return the resolved schema type
-   *
-   * @tparam A the expected type after resolving is finished
-   */
-  def resolvePath[A <: SchemaType](root: SchemaObject)(path: SchemaPath): A =
-    resolve(path, root)._2.asInstanceOf[A]
-
-  /**
-   * Retains all attributes of the schema object definition at the given path based
-   * on the given sequence of attribute names.
-   *
-   * @param root
-   *            the schema object definition against which the path will be resolved
-   * @param path
-   *            the path to be resolved
-   * @param attributes
-   *            the name of the attributes to be retained
-   *
-   * @return the updated schema object definition
-   */
-  def retain(root: SchemaObject)(path: SchemaPath, attributes: Seq[String]): SchemaObject =
-    updateByPath[SchemaObject](root, path, cls => {
-      cls.copy(properties = cls.properties.filter(field => attributes.contains(field.name)))
-    })
-
-  /**
-   * Renames the attribute located at the given path.
-   *
-   * @param root
-   *            the schema object definition against which the path will be resolved
-   * @param path
-   *            the path to be resolved
-   * @param newAttributeName
-   *            the new attribute name
-   *
-   * @return the schema object definition with the renamed attribute
-   */
-  // TODO: duplicate check, TEST
-  def renameAttribute(root: SchemaObject)(path: SchemaPath, newAttributeName: String): SchemaObject =
-    updateAttributeByPath(root)(path, attr => attr.copy(name = newAttributeName))
-
-
-  /**
-   * Returns the path of the given sub schema, if it is contained in the schema.
-   *
-   * @param schema
-   *          the schema that is supposed to contain the sub-schema
-   * @param subSchema
-   *          the sub-schema that is supposed to be contained in the first schema
-   * @return the path of sub-schema in the schema, if it is contained, None otherwise
-   */
-  def pathOfSubSchema(schema: SchemaObject, subSchema: SchemaObject): Option[String] = {
-    collapseWithPath(_ => true)(schema)((attr, path) => if (attr.schemaType == subSchema) Some(path.toString()) else None)
-  }
-
-  /**
    * Adds the given fields to the object located at the path of the given object.
    *
    * @param schema
@@ -399,23 +193,6 @@ trait BaseSchemaOps {
   }
 
   /**
-   * Removes all values that are referenced by the list of paths within the given object.
-   *
-   * @param schema
-   *            the schema from which to remove attributes
-   * @param paths
-   *            the paths to the attributes that are to be removed
-   */
-  def remove(schema: SchemaObject, paths: Seq[SchemaPath]): SchemaObject =
-    paths.foldLeft(schema)((obj, path) => {
-      val objPath = if (path.size > 1) path.init else List("")
-      val attributeName = if (path.size == 1) path.head else path.last
-      updateByPath[SchemaObject](obj, objPath, cls => {
-        cls.copy(properties = cls.properties.filterNot(_ == attribute(cls, attributeName)))
-      })
-    })
-
-  /**
    * Merges the attributes of the second schema into the first one.
    *
    * @param schema
@@ -427,30 +204,6 @@ trait BaseSchemaOps {
    */
   // TODO: duplicate check
   def merge(schema: SchemaObject, otherSchema: SchemaObject) = add(schema)(emptyPath, otherSchema.properties)
-
-  /**
-   * Removes all attributes from the first schema that are also part of the second given schema.
-   *
-   * @param schemaObj
-   *           the schema object definition from which attributes should be removed
-   * @param otherObj
-   *           the schema object definition that contains all attributes that should be removed from the first one
-   *
-   * @return the schema object definition without any attributes that are contained in the second
-   */
-  def extract(schemaObj: SchemaObject, otherObj: SchemaObject) = remove(schemaObj, otherObj.properties.map(field => string2SchemaPath(field.name)))
-
-  /**
-   * Compares the schemas with each other.
-   *
-   * @param schema
-   *               the schema to be compared
-   * @param otherSchema
-     *             the schema to be compared against the first one
-   * @return true, if the schemas are equal, false otherwise
-   */
-  def areEqual(schema: SchemaObject, otherSchema: SchemaObject): Boolean =
-    schema.equals(otherSchema)
 
   /**
    * Checks whether the first schema is a subset of the second.
@@ -465,6 +218,6 @@ trait BaseSchemaOps {
     import scalaz.std.anyVal.booleanInstance.disjunction
     implicit val M = disjunction
     subSchema.equals(schema) ||
-      collapse[SchemaObject, Boolean](schema)(_.schemaType.equals(subSchema))
+      collapse[SchemaObject, Boolean](schema)(_.schemaType == subSchema)
   }
 }
