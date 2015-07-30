@@ -54,6 +54,24 @@ object SchemaMacro {
     implicit val booleanLiftable = Liftable[SchemaBoolean] { b =>
       q"${symbolOf[SchemaBoolean].companion}()"
     }
+    implicit val nullLiftable = Liftable[SchemaNull] { n =>
+      q"${symbolOf[SchemaNull].companion}()"
+    }
+    implicit val compoundLiftable = Liftable[CompoundSchemaType] { c =>
+      q"${symbolOf[CompoundSchemaType].companion}()"
+    }
+    implicit val booleanConstantLiftable = Liftable[SchemaBooleanConstant] { c =>
+      q"${symbolOf[SchemaBooleanConstant].companion}()"
+    }
+    implicit val arrayConstantLiftable = Liftable[SchemaArrayConstant] { c =>
+      q"${symbolOf[SchemaArrayConstant].companion}()"
+    }
+    implicit val refLiftable = Liftable[SchemaRef] { c =>
+      q"${symbolOf[SchemaRef].companion}()"
+    }
+    implicit val tupleLiftable = Liftable[SchemaTuple] { c =>
+      q"${symbolOf[SchemaTuple].companion}()"
+    }
     lazy implicit val arrayLiftable: Liftable[SchemaArray] = Liftable[SchemaArray] { (arr: SchemaArray) =>
       val lifted = schemaLiftable(arr.items)
       q"${symbolOf[SchemaArray].companion}($lifted)"
@@ -70,6 +88,12 @@ object SchemaMacro {
       case n: SchemaNumber => numberLiftable(n)
       case a: SchemaArray => arrayLiftable(a)
       case c: SchemaObject => classLiftable(c)
+      case n: SchemaNull => nullLiftable(n)
+      case c: CompoundSchemaType => compoundLiftable(c)
+      case c: SchemaArrayConstant => arrayConstantLiftable(c)
+      case c: SchemaBooleanConstant => booleanConstantLiftable(c)
+      case r: SchemaRef => refLiftable(r)
+      case t: SchemaTuple => tupleLiftable(t)
     }
 
     val weakType = weakTypeOf[T]
