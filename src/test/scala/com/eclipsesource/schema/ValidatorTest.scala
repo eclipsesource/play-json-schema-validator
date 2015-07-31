@@ -29,6 +29,7 @@ class ValidatorTest extends Specification {
       )
 
       val post: VA[Post] = Validator.validate[Post](schema, json, Json.format[Post])
+
       post.asOpt must beSome.which(_.id == 42)
       post.asOpt must beSome.which(_.title == "Hello")
     }

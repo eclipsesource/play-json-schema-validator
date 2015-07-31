@@ -3,8 +3,9 @@ package com.eclipsesource
 import com.eclipsesource.schema.internal.validators._
 import com.eclipsesource.schema.internal.{Results, Context, SchemaUtil}
 import com.eclipsesource.schema.internal.serialization.{JSONSchemaReads, JSONSchemaWrites}
-import play.api.data.mapping.{Success, VA}
-import play.api.libs.json.JsValue
+import play.api.data.mapping.{Path, Success, VA}
+import play.api.data.validation.ValidationError
+import play.api.libs.json.{JsPath, JsValue}
 
 import scalaz.{Failure => _, Success => _}
 
@@ -36,7 +37,11 @@ package object schema
         AnyConstraintValidator.validate(json, schemaType.constraints.any, context)
       )
     }
-
   }
 
+  implicit class FailureExtensions(errors: Seq[(Path, Seq[ValidationError])]) {
+    def toJsError: Seq[(JsPath, Seq[ValidationError])] = {
+      errors.map(e => (JsPath \ e._1.toString(), e._2))
+    }
+  }
 }

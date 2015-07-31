@@ -21,7 +21,7 @@ trait Validator {
     )
   }
 
-  def validate[A](schema: SchemaType, input: => JsValue, format: Format[A]) : VA[A] = {
+  def validate[A](schema: SchemaType, input: => JsValue, reads: Reads[A]) : VA[A] = {
     val id = schema match {
       case container: SchemaContainer => container.id
       case _ => None
@@ -33,10 +33,9 @@ trait Validator {
       input,
       context.copy(root = updatedRoot)
     )
-//    val format: Format[A] = Json.format[A]
     result.fold(
       valid = {
-        json => format.reads(json) match {
+        json => reads.reads(json) match {
           case JsSuccess(success, _) => Success(success)
           case JsError(errors) => Failure(errors.map(e => Path(e._1.toJsonString) -> e._2))
         }
