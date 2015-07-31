@@ -1,6 +1,6 @@
 package com.eclipsesource.schema
 
-import com.eclipsesource.schema.internal.{Context, RefResolver}
+import com.eclipsesource.schema.internal.{Results, Context, RefResolver}
 import play.api.data.mapping.{Failure, Path, Success, VA}
 import play.api.data.validation.ValidationError
 import play.api.libs.json._
@@ -18,6 +18,30 @@ trait Validator {
       updatedRoot,
       input,
       context.copy(root = updatedRoot)
+    )
+  }
+
+  def validate[A](schema: SchemaType, input: => JsValue, format: Format[A]) : VA[A] = {
+    val id = schema match {
+      case container: SchemaContainer => container.id
+      case _ => None
+    }
+    val context = Context(Path, schema, Set.empty, id)
+    val updatedRoot = RefResolver.replaceRefs(context)(schema)
+    val result: VA[JsValue] = process(
+      updatedRoot,
+      input,
+      context.copy(root = updatedRoot)
+    )
+//    val format: Format[A] = Json.format[A]
+    result.fold(
+      valid = {
+        json => format.reads(json) match {
+          case JsSuccess(success, _) => Success(success)
+          case JsError(errors) => Failure(errors.map(e => Path(e._1.toJsonString) -> e._2))
+        }
+      },
+      invalid = errors => Failure(errors)
     )
   }
 
