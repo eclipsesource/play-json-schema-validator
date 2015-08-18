@@ -15,8 +15,8 @@ object Version {
   val akka          = "2.3.6"
   val scalaLogging  = "3.1.0"
   val shapeless     = "2.1.0"
-  val jtoValidationCore = "1.0-1c770f4"
-  val jtoValidationJson = "1.0-1c770f4"
+  val jtoValidationCore = "1.1"
+  val jtoValidationJson = "1.1"
 }
 
 object Library {
