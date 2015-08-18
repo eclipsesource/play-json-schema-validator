@@ -18,7 +18,7 @@ trait JSONSchemaReads {
     case "integer" => integerReader.map(s => s : SchemaType)
     case "number"  => numberReader.map(s => s : SchemaType)
     case "array"   => arrayReader.map(s => s : SchemaType).orElse(tupleReader.map(s => s : SchemaType))
-    case "object"  => objectReader.map(s => s : SchemaType)
+    case "object"  => delegatingObjectReader.map(s => s : SchemaType)
     case "null"    => nullReader.map(s => s : SchemaType)
   }.or {
     tupleReader.map(s => s : SchemaType)
@@ -33,7 +33,7 @@ trait JSONSchemaReads {
   }.or {
     arrayConstantReader.map(s => s : SchemaType)
   }.or {
-    objectReader.map(s => s : SchemaType)
+    delegatingObjectReader.map(s => s : SchemaType)
   }.or {
     compoundReader.map(s => s : SchemaType)
   }
@@ -85,9 +85,9 @@ trait JSONSchemaReads {
   }
 
   lazy val stringReader: Reads[SchemaString] = {
-    ((__ \ "minLength").readNullable[Int] and
-        (__ \ "maxLength").readNullable[Int] and
-        (__ \ "pattern").readNullable[String] and
+    ((__ \ Keywords.String.MinLength).readNullable[Int] and
+        (__ \ Keywords.String.MaxLength).readNullable[Int] and
+        (__ \ Keywords.String.Pattern).readNullable[String] and
         anyConstraintReader
       ).tupled.flatMap(read => {
 
@@ -111,7 +111,7 @@ trait JSONSchemaReads {
 
   lazy val nullReader: Reads[SchemaNull] = {
     anyConstraintReader.flatMap(any => {
-      // TODO: boolean constraint type could be removed
+      // TODO: null constraint type could be removed
       Reads.pure(SchemaNull(NullConstraints(any)))
     })
   }
@@ -140,12 +140,12 @@ trait JSONSchemaReads {
   }
 
   lazy val arrayReader: Reads[SchemaArray] = {
-    ((__ \ "items").lazyReadNullable[SchemaType](valueReader) and
-      (__ \ "additionalItems").lazyReadNullable[SchemaType](valueReader) and
-      (__ \ "minItems").readNullable[Int] and
-      (__ \ "maxItems").readNullable[Int] and
-      (__ \ "uniqueItems").readNullable[Boolean] and
-      (__ \ "id").readNullable[String] and
+    ((__ \ Keywords.Array.Items).lazyReadNullable[SchemaType](valueReader) and
+      (__ \ Keywords.Array.AdditionalItems).lazyReadNullable[SchemaType](valueReader) and
+      (__ \ Keywords.Array.MinItems).readNullable[Int] and
+      (__ \ Keywords.Array.MaxItems).readNullable[Int] and
+      (__ \ Keywords.Array.UniqueItems).readNullable[Boolean] and
+      (__ \ Keywords.Id).readNullable[String] and
       anyConstraintReader
       ).tupled.flatMap(
         read => {
@@ -165,15 +165,15 @@ trait JSONSchemaReads {
   }
 
   lazy val tupleReader: Reads[SchemaTuple] = {
-    ((__ \ "items").lazyReadNullable[Seq[SchemaType]](readSeqOfSchemaTypeInstance) and
-        (__ \ "minItems").readNullable[Int] and
-        (__ \ "maxItems").readNullable[Int] and
-        (__ \ "additionalItems").lazyReadNullable[SchemaType](valueReader) and
-        (__ \ "uniqueItems").readNullable[Boolean] and
-        (__ \ "id").readNullable[String] and
+    ((__ \ Keywords.Array.Items).lazyReadNullable[Seq[SchemaType]](readSeqOfSchemaTypeInstance) and
+        (__ \ Keywords.Array.AdditionalItems).lazyReadNullable[SchemaType](valueReader) and
+        (__ \ Keywords.Array.MinItems).readNullable[Int] and
+        (__ \ Keywords.Array.MaxItems).readNullable[Int] and
+        (__ \ Keywords.Array.UniqueItems).readNullable[Boolean] and
+        (__ \ Keywords.Id).readNullable[String] and
         anyConstraintReader
       ).tupled.flatMap { read =>
-      val (items, minItems, maxItems, additionalItems, uniqueItems, id, any) = read
+      val (items, additionalItems, minItems, maxItems, uniqueItems, id, any) = read
 
       if (any.schemaTypeAsString.exists(_ != "array") ||
         (any.schemaTypeAsString.isEmpty &&read.take(6).toList.forall(_.isEmpty) || items.isEmpty)) {
@@ -183,7 +183,6 @@ trait JSONSchemaReads {
           SchemaTuple(() => items.get,
             items.size,
             // initialize with empty schema
-            // TODO: additionalItems also could be an boolean
             ArrayConstraints(maxItems, minItems, additionalItems, uniqueItems, any),
             id
           )
@@ -203,19 +202,22 @@ trait JSONSchemaReads {
     }
   }
 
-  def addRemainingProps(initObject: SchemaObject, props: Iterable[(String, JsValue)], occupiedPropNames: List[String]) = {
+  def addRemainingProps(initObject: SchemaObject, props: Iterable[(String, JsValue)],
+                        occupiedPropNames: List[String]) = {
     val remainingProps: Iterable[(String, JsValue)] = props.filterNot(prop => occupiedPropNames.contains(prop._1))
     remainingProps.foldLeft(initObject)((acc, prop) =>
-      acc ++ valueReader.reads(prop._2).asOpt.fold[SchemaObject](SchemaObject())(value => SchemaObject(Seq(SchemaAttribute(prop._1, value))))
+      acc ++ valueReader.reads(prop._2).asOpt.fold[SchemaObject](SchemaObject())(value =>
+        SchemaObject(Seq(SchemaAttribute(prop._1, value)))
+      )
     )
   }
 
-  lazy val objectReader: Reads[SchemaObject] = {
+  lazy val delegatingObjectReader: Reads[SchemaObject] = {
     new Reads[SchemaObject] {
       override def reads(json: JsValue): JsResult[SchemaObject] = {
         json match {
           case JsObject(props) =>
-            fallBackReader.reads(json).map(schemaObject => {
+            objectReader.reads(json).map(schemaObject => {
               addRemainingProps(schemaObject, props.toList, Keywords.ofObject)
             })
           case err => JsError(s"Expected object. Got $err")
@@ -227,26 +229,28 @@ trait JSONSchemaReads {
   def emptyObject: SchemaType = SchemaObject(Seq.empty, ObjectConstraints())
 
   // TODO: extract into objectConstraintReader
-  lazy val fallBackReader: Reads[SchemaObject] = {
-    ((__ \ "properties").lazyReadNullable[Map[String, SchemaType]](readsInstance) and
-        (__ \ "id").readNullable[String] and
-        (__ \ "patternProperties").lazyReadNullable[Map[String, SchemaType]](readsInstance) and
-        (__ \ "additionalProperties").lazyReadNullable[SchemaType](valueReader) and
-        (__ \ "required").readNullable[List[String]] and
-        (__ \ "dependencies").lazyReadNullable[Map[String, SchemaType]](readsInstance) and
-        (__ \ "minProperties").readNullable[Int] and
-        (__ \ "maxProperties").readNullable[Int] and
-        (__ \ "$ref").readNullable[String] and
+  lazy val objectReader: Reads[SchemaObject] = {
+    ((__ \ Keywords.Object.Properties).lazyReadNullable[Map[String, SchemaType]](readsInstance) and
+        (__ \ Keywords.Object.PatternProperties).lazyReadNullable[Map[String, SchemaType]](readsInstance) and
+        (__ \ Keywords.Object.AdditionalProperties).lazyReadNullable[SchemaType](valueReader) and
+        (__ \ Keywords.Object.Required).readNullable[List[String]] and
+        (__ \ Keywords.Object.Dependencies).lazyReadNullable[Map[String, SchemaType]](readsInstance) and
+        (__ \ Keywords.Object.MinProperties).readNullable[Int] and
+        (__ \ Keywords.Object.MaxProperties).readNullable[Int] and
+        (__ \ Keywords.Object.Ref).readNullable[String] and
+        (__ \ Keywords.Id).readNullable[String] and
         anyConstraintReader
       ).tupled.flatMap { read =>
 
-      val (properties, id, patternProperties, additionalProperties, required, dependencies, minProperties, maxProperties, ref, anyConstraints) = read
+      val (properties, patternProperties, additionalProperties, required, dependencies, minProperties, maxProperties, ref, id, anyConstraints) = read
 
       val props: List[SchemaAttribute] = properties.map(tuples2Attributes).getOrElse(List.empty)
 
       Reads.pure(
         SchemaObject(
-          props ++ ref.map(path => Seq(SchemaAttribute(Keywords.Object.Ref, SchemaRef(JSONPointer(path), isAttribute = true, isRemote = path.startsWith("http"))))).getOrElse(Seq.empty),
+          props ++ ref.map(path => Seq(SchemaAttribute(Keywords.Object.Ref,
+            SchemaRef(JSONPointer(path), isAttribute = true, isRemote = path.startsWith("http"))))
+          ).getOrElse(Seq.empty),
           ObjectConstraints(
             additionalProperties,
             dependencies,
@@ -262,13 +266,13 @@ trait JSONSchemaReads {
   }
 
   lazy val anyConstraintReader: Reads[AnyConstraint] = {
-    ((__ \ "type").readNullable[String] and
-      (__ \ "allOf").lazyReadNullable[Seq[SchemaType]](readSeqOfSchemaTypeInstance) and
-        (__ \ "anyOf").lazyReadNullable[Seq[SchemaType]](readSeqOfSchemaTypeInstance) and
-        (__ \ "oneOf").lazyReadNullable[Seq[SchemaType]](readSeqOfSchemaTypeInstance) and
-        (__ \ "definitions").lazyReadNullable(readsInstance) and
-        (__ \ "enum").readNullable[Seq[JsValue]] and
-        (__ \ "not").lazyReadNullable(valueReader)
+    ((__ \ Keywords.Any.Type).readNullable[String] and
+      (__ \ Keywords.Any.AllOf).lazyReadNullable[Seq[SchemaType]](readSeqOfSchemaTypeInstance) and
+        (__ \ Keywords.Any.AnyOf).lazyReadNullable[Seq[SchemaType]](readSeqOfSchemaTypeInstance) and
+        (__ \ Keywords.Any.OneOf).lazyReadNullable[Seq[SchemaType]](readSeqOfSchemaTypeInstance) and
+        (__ \ Keywords.Any.Definitions).lazyReadNullable(readsInstance) and
+        (__ \ Keywords.Any.Enum).readNullable[Seq[JsValue]] and
+        (__ \ Keywords.Any.Not).lazyReadNullable(valueReader)
       ).tupled.map(
         read => {
           val (schemaType, allOf, anyOf, oneOf, definitions, enum, not) = read

@@ -47,9 +47,9 @@ final case class SchemaRef(pointer: JSONPointer, isAttribute: Boolean = false, i
   override def constraints = NoConstraints
 }
 
-final case class CompoundSchemaType(oneOf: Seq[SchemaType]) extends SchemaType {
-  override def toString: String = oneOf.map(_.toString).mkString(" ")
-//  TODO: BooleanConstraints is just a placeholder
+final case class CompoundSchemaType(alternatives: Seq[SchemaType]) extends SchemaType {
+  override def toString: String = alternatives.map(_.toString).mkString(" ")
+//  TODO: BooleanConstraints is just a placeholder, how to actually handle this case?
   override def constraints: HasAnyConstraint = BooleanConstraints()// CompoundConstraints(oneOf.map(s => s.constraints), AnyConstraint())
 }
 

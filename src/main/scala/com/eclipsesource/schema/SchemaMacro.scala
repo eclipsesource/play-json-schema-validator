@@ -36,7 +36,6 @@ object SchemaMacro {
             name.toString -> attrType
           }
 
-          // TODO annotations missing
           SchemaObject(attributes.map(attr => SchemaAttribute(attr._1, attr._2)))
       }
     }

@@ -28,7 +28,7 @@ class ValidatorTest extends Specification {
         "body"  -> "This is some text"
       )
 
-      val post: VA[Post] = Validator.validate[Post](schema, json, Json.format[Post])
+      val post: VA[Post] = SchemaValidator.validate[Post](schema, json, Json.format[Post])
 
       post.asOpt must beSome.which(_.id == 42)
       post.asOpt must beSome.which(_.title == "Hello")

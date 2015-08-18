@@ -51,7 +51,7 @@ object RefResolver {
   }
 
   // TODO: switch to Either in order to provide more fine-grained error message
-  def fetchSchema(url: String, context: Context): Option[SchemaType] = {
+  private[schema] def fetchSchema(url: String, context: Context): Option[SchemaType] = {
     val contents: BufferedSource = Source.fromURL(url)
 
     for {
@@ -64,17 +64,16 @@ object RefResolver {
 
   private def isRemoteRef: SchemaType => Boolean = {
     case SchemaRef(_, _, true) => true
-    case cls: SchemaObject if cls.properties.exists(isRemoteRef(_)) => true
+    case cls: SchemaObject if cls.properties.exists(isRemoteRef) => true
     case _ => false
   }
 
-  private[schema] def isRef: SchemaType => Boolean = {
+  private def isRef: SchemaType => Boolean = {
     case ref@SchemaRef(_, _, false) => true
     case _ => false
 
   }
 
-  // TODO: is this ever called?
   private def isSchemaRefClass: SchemaType => Boolean = {
     case cls: SchemaObject if cls.properties.exists(p => isRef(p.schemaType)) => true
     case _ => false
@@ -95,34 +94,32 @@ object RefResolver {
   }
 
 
-  private def resolveRef(current: SchemaType, fragments: List[String], newContext: Context): Option[SchemaType] = {
+  private[schema] def resolveRef(current: SchemaType, fragments: List[String], context: Context): Option[SchemaType] = {
 
     (current, fragments.headOption) match {
 
       case (_, Some(ref)) if ref.startsWith("http") =>
         for {
-          schema <- fetchSchema(ref, newContext)
-          result <- resolveRef(schema, fragments.tail, if (newContext.root == current) newContext.copy(root = schema)  else newContext )
+          schema <- fetchSchema(ref, context)
+          result <- resolveRef(schema, fragments.tail, if (context.root == current) context.copy(root = schema) else context )
         } yield result
-      case (_, Some("#")) => resolveRef(newContext.root, fragments.tail, newContext)
+      case (_, Some("#")) => resolveRef(context.root, fragments.tail, context)
       case (container: Resolvable, Some(fragment)) =>
-        // TODO container is not supposed to contain a ref at this point
-        // resolve single segment
+        // container is not supposed to contain a ref at this point
+        // resolve single fragment
         container.resolvePath(fragment).flatMap(resolvedType => {
           resolveRef(resolvedType, fragments.tail,
-            newContext.copy(path = newContext.path.compose(Path(fragment))))
+            context.copy(path = context.path.compose(Path(fragment))))
         })
 
-      case (ref: SchemaRef, None) => resolveRef(ref.pointer.path, newContext.copy(visited =  newContext.visited + ref))
+      case (ref: SchemaRef, None) => resolveRef(ref.pointer.path, context.copy(visited =  context.visited + ref))
       case (cls: SchemaObject, None) if isSchemaRefClass(cls)   =>
-        val ref = cls.properties.collectFirst { case SchemaAttribute("$ref", ref: SchemaRef) => ref}
-        if (ref.isDefined && ref.get.pointer.path == "#") {
-          Some(cls)
-        } else {
-          for {
+        cls.properties.collectFirst { case SchemaAttribute("$ref", ref: SchemaRef) => ref } match {
+          case Some(ref) if ref.pointer.path == "#" => Some(cls)
+          case ref => for {
             r <- ref
-            l <- resolveRef(r, newContext)
-          } yield l
+            resolved <- resolveRef(r, context)
+          } yield resolved
         }
       case (_, None) => Some(current)
       case _ => None
@@ -131,12 +128,16 @@ object RefResolver {
 
   private def toFragments(uri: String): List[String] = {
     val fragmentStartIndex = uri.indexOf("#")
-    val fragments: List[String] = uri.find((c: Char) => c == '#').map(_ => uri.substring(fragmentStartIndex, uri.length)).getOrElse("").split("/").toList.map(segment =>
-      // perform escaping
-      URLDecoder.decode(segment, "UTF-8")
-        .replace("~1", "/")
-        .replace("~0", "~")
-    )
+    val fragments: List[String] = uri.find((c: Char) => c == '#')
+      .map(_ => uri.substring(fragmentStartIndex, uri.length))
+      .getOrElse("").split("/").toList
+      .map(
+        segment =>
+          // perform escaping
+          URLDecoder.decode(segment, "UTF-8")
+            .replace("~1", "/")
+            .replace("~0", "~")
+      )
     if (fragmentStartIndex < 0) {
       List(uri)
     } else if (fragmentStartIndex == 0) {

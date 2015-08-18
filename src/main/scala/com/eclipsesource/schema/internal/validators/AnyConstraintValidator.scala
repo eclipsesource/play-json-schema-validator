@@ -1,13 +1,13 @@
 package com.eclipsesource.schema.internal.validators
 
-import com.eclipsesource.schema.Validator
+import com.eclipsesource.schema.{SchemaValidator, SchemaValidator$}
 import com.eclipsesource.schema.internal._
 import com.eclipsesource.schema.internal.constraints.Constraints.AnyConstraint
 import play.api.data.mapping._
 import play.api.data.validation.ValidationError
 import play.api.libs.json.{JsObject, JsValue, Json}
 
-object AnyConstraintValidator extends Validator {
+object AnyConstraintValidator {
 
   def validate(json: JsValue, any: AnyConstraint, context: Context): VA[JsValue] = {
     (validateAllOf(any, context) |+|
@@ -21,7 +21,7 @@ object AnyConstraintValidator extends Validator {
   def validateNot(any: AnyConstraint): Rule[JsValue, JsValue] = {
     Rule.fromMapping { json =>
       any.not.map(schema =>
-        if (Validator.validate(schema, json).isFailure) {
+        if (SchemaValidator.validate(schema, json).isFailure) {
          Success(json)
         } else {
           Failure(
@@ -38,7 +38,7 @@ object AnyConstraintValidator extends Validator {
     Rule.fromMapping { json =>
       any.allOf.map(
         schemas => {
-          val allValidationResults = schemas.map(schema => Validator.process(schema, json, context))
+          val allValidationResults = schemas.map(schema => SchemaValidator.process(schema, json, context))
           val allMatch = allValidationResults.forall(_.isSuccess)
           if (allMatch) {
             Success(json)
@@ -60,7 +60,7 @@ object AnyConstraintValidator extends Validator {
     Rule.fromMapping { json =>
       any.anyOf.map(
         schemas => {
-          val allValidationResults = schemas.map(Validator.validate(_)(json))
+          val allValidationResults = schemas.map(SchemaValidator.validate(_)(json))
           val maybeSuccess = allValidationResults.find(_.isSuccess)
           maybeSuccess.map(success => Success(json)).getOrElse(
             Failure(
@@ -80,7 +80,7 @@ object AnyConstraintValidator extends Validator {
     Rule.fromMapping { json =>
       any.oneOf.map(
         schemas => {
-          val allValidationResults = schemas.map(schema => Validator.validate(schema)(json))
+          val allValidationResults = schemas.map(schema => SchemaValidator.validate(schema)(json))
           allValidationResults.count(_.isSuccess) match {
             case 0 => Failure(
               Seq(ValidationError("oneOf violated, no schema matches")

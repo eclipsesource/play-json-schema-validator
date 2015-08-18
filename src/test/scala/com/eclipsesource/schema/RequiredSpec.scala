@@ -30,13 +30,13 @@ class RequiredSpec extends Specification {
 
     "present required property is valid" in {
       val data = Json.obj("foo" -> 1)
-      val result = Validator.validate(schema)(data)
+      val result = SchemaValidator.validate(schema)(data)
       result.isSuccess must beTrue
     }
 
     "non-present required property is invalid" in {
       val data = Json.obj("bar" -> 1)
-      val result = Validator.validate(schema)(data)
+      val result = SchemaValidator.validate(schema)(data)
       result.isFailure must beTrue
     }
 

@@ -20,17 +20,17 @@ object TupleValidator extends SchemaTypeValidator[SchemaTuple] with ArrayConstra
           case SchemaBooleanConstant(true) => values.map(Success(_))
           case items =>
             val instanceValuesValidated: Seq[VA[JsValue]] = schema.items().zipWithIndex.map { case (item, idx) =>
-              Validator.process(item, values(idx), context.copy(path = context.path \ idx))
+              SchemaValidator.process(item, values(idx), context.copy(path = context.path \ idx))
             }
             val additionalInstanceValuesValidated: Seq[VA[JsValue]] = additionalInstanceValues.zipWithIndex.map {
               case (jsValue, idx) =>
-                Validator.process(items, jsValue, context.copy(path = context.path \ idx))
+                SchemaValidator.process(items, jsValue, context.copy(path = context.path \ idx))
             }
             instanceValuesValidated ++ additionalInstanceValuesValidated
         }
       } else {
         values.zipWithIndex.map { case (jsValue, idx) =>
-          Validator.process(schema.items()(idx), jsValue, context.copy(path = context.path \ idx))
+          SchemaValidator.process(schema.items()(idx), jsValue, context.copy(path = context.path \ idx))
         }
       }
 

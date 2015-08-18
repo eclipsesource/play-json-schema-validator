@@ -5,7 +5,7 @@ import play.api.data.mapping.{Failure, Path, Success, VA}
 import play.api.data.validation.ValidationError
 import play.api.libs.json._
 
-trait Validator {
+trait SchemaValidator {
 
   def validate(schema: SchemaType)(input: => JsValue): VA[JsValue] = {
     val id = schema match {
@@ -44,12 +44,33 @@ trait Validator {
     )
   }
 
-  def validate[A: Writes](schema: SchemaType, input: A): VA[JsValue] = {
-    val writer = implicitly[Writes[A]]
-    val inputJs = writer.writes(input)
+  def validate[A](schema: SchemaType, input: A, writes: Writes[A]): VA[JsValue] = {
+    val inputJs = writes.writes(input)
     val context = Context(Path, schema, Set.empty)
     val updatedRoot = RefResolver.replaceRefs(context)(schema)
     process(updatedRoot, inputJs, context.copy(root = updatedRoot))
+  }
+
+  def validate[A: Format](schema: SchemaType, input: A): VA[A] = {
+    val writes = implicitly[Writes[A]]
+    val reads = implicitly[Reads[A]]
+    val inputJs = writes.writes(input)
+    val context = Context(Path, schema, Set.empty)
+    val updatedRoot = RefResolver.replaceRefs(context)(schema)
+    val result: VA[JsValue] = process(
+      updatedRoot,
+      inputJs,
+      context.copy(root = updatedRoot)
+    )
+    result.fold(
+      valid = {
+        json => reads.reads(json) match {
+          case JsSuccess(success, _) => Success(success)
+          case JsError(errors) => Failure(errors.map(e => Path(e._1.toJsonString) -> e._2))
+        }
+      },
+      invalid = errors => Failure(errors)
+    )
   }
 
   private[schema] def process(schema: SchemaType, json: JsValue, context: Context): VA[JsValue] = {
@@ -59,10 +80,8 @@ trait Validator {
         schemaObject.validate(json, context)
       case (_: JsObject, schemaObject: SchemaObject) if schema.constraints.any.schemaTypeAsString.isDefined =>
         schemaObject.validate(json, context)
-
       case (_, c: CompoundSchemaType) =>
         c.validate(json, context)
-
       case (jsArray: JsArray, schemaArray: SchemaArray) =>
         schemaArray.validate(jsArray, context)
       case (jsArray: JsArray, schemaTuple: SchemaTuple) =>
@@ -80,9 +99,13 @@ trait Validator {
       case (_, _) if schema.constraints.any.schemaTypeAsString.isEmpty =>
         Success(json)
       case _ =>
-        Failure(List(context.path -> List(ValidationError("diff.types", Json.obj("schema" -> schema, "instance" -> json)))))
+        Failure(List(
+          context.path -> List(
+            ValidationError("Incompatible types",
+              Json.obj("schema" -> schema, "instance" -> json))))
+        )
     }
   }
 }
 
-object Validator extends Validator
+object SchemaValidator extends SchemaValidator

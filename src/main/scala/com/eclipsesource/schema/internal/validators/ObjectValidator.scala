@@ -16,11 +16,11 @@ object ObjectValidator extends SchemaTypeValidator[SchemaObject] {
         case jsObject@JsObject(props) =>
           val validation = for {
             updatedSchema <- validateDependencies(schema, jsObject)
-            remaining     <- validateProps(updatedSchema, jsObject)
-            unmatched     <- validatePatternProps(updatedSchema, jsObject.fields)
-            _             <- validateAdditionalProps(updatedSchema, unmatched.intersect(remaining))
-            _             <- validateMinProperties(updatedSchema, jsObject)
-            _             <- validateMaxProperties(updatedSchema, jsObject)
+            remaining <- validateProps(updatedSchema, jsObject)
+            unmatched <- validatePatternProps(updatedSchema, jsObject.fields)
+            _ <- validateAdditionalProps(updatedSchema, unmatched.intersect(remaining))
+            _ <- validateMinProperties(updatedSchema, jsObject)
+            _ <- validateMaxProperties(updatedSchema, jsObject)
           } yield updatedSchema
 
           val (_, _, result) = validation.run(c, Success(json))
@@ -32,30 +32,36 @@ object ObjectValidator extends SchemaTypeValidator[SchemaObject] {
     }
 
     // check if any property is a ref
-    val reference = schema.properties.collectFirst { case SchemaAttribute("$ref", ref@SchemaRef(_, _, _)) => ref}
+    val reference = schema.properties.collectFirst { case SchemaAttribute("$ref", ref@SchemaRef(_, _, _)) => ref }
 
-    reference.flatMap(ref => RefResolver.resolveRef(ref, context)).map {
-      case _ if context.visited.contains(reference.get) => Success(json)
-      case obj: SchemaObject =>
-        // TODO: isInstanceOf
-        if (schema.isSubSetOf(obj) && !json.isInstanceOf[JsObject]) {
-          Success(json)
-        } else {
-          val updatedContext = if (context.root == schema) {
-            context.copy(root = obj, visited = context.visited + reference.get)
+    val validatedOpt: Option[VA[JsValue]] = for {
+      ref <- reference
+      resolved <- RefResolver.resolveRef(ref, context)
+    } yield resolved match {
+        case _ if context.visited.contains(ref) => Success(json)
+        case obj: SchemaObject =>
+          // TODO: isInstanceOf
+          if (schema.isSubSetOf(obj) && !json.isInstanceOf[JsObject]) {
+            Success(json)
           } else {
-            context.copy(visited = context.visited + reference.get)
+            val updatedContext = if (context.root == schema) {
+              context.copy(root = obj, visited = context.visited + ref)
+            } else {
+              context.copy(visited = context.visited + ref)
+            }
+            validateJson(obj, updatedContext)
           }
-          validateJson(obj, updatedContext)
-        }
-      case other =>
-        val updateContext = if (context.root == schema) {
-          context.copy(root = other)
-        } else {
-          context
-        }
-        Validator.process(other, json, updateContext)
-    }.getOrElse(validateJson(schema, context))
+        case other =>
+          val updatedContext = if (context.root == schema) {
+            context.copy(root = other)
+          } else {
+            context
+          }
+          SchemaValidator.process(other, json, updatedContext)
+
+      }
+
+    validatedOpt.getOrElse(validateJson(schema, context))
   }
 
   private def validateProps(schema: SchemaObject, obj: => JsObject): ValidationStep[Props] =
@@ -70,7 +76,7 @@ object ObjectValidator extends SchemaTypeValidator[SchemaObject] {
           } else {
             props
           }
-          case JsDefined(value) => (attr.name -> Validator.process(
+          case JsDefined(value) => (attr.name -> SchemaValidator.process(
             attr.schemaType,
             value,
             context.copy(
@@ -101,7 +107,7 @@ object ObjectValidator extends SchemaTypeValidator[SchemaObject] {
             matcher.find()
           })
           matchedPatternProperties.map(pp =>
-            prop._1 -> Validator.process(pp._2, prop._2, context)
+            prop._1 -> SchemaValidator.process(pp._2, prop._2, context)
           )
         }
       }
@@ -118,7 +124,7 @@ object ObjectValidator extends SchemaTypeValidator[SchemaObject] {
 
     def validateUnmatched(schemaType: SchemaType, context: Context): VA[JsValue] = {
       val validated = unmatchedFields.map { attr =>
-        attr._1 -> Validator.process(
+        attr._1 -> SchemaValidator.process(
           schemaType, attr._2, context.copy(path = context.path \ attr._1)
         )
       }

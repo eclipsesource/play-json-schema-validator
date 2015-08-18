@@ -3,7 +3,7 @@ package com.eclipsesource.schema.test
 import java.io.InputStream
 import java.net.URL
 
-import com.eclipsesource.schema.{Validator, SchemaArrayConstant, SchemaType}
+import com.eclipsesource.schema.{SchemaValidator, SchemaValidator$, SchemaArrayConstant, SchemaType}
 import org.specs2.execute.Result
 import org.specs2.matcher.ThrownExpectations
 import org.specs2.specification.Example
@@ -57,7 +57,7 @@ object JsonSpec extends ThrownExpectations {
   private def executeSpec(spec: JsonSchemaSpec): Seq[SpecResult] = {
     val schema = spec.schema
     spec.tests.map(spec => {
-      val result = Validator.validate(schema)(spec.data)
+      val result = SchemaValidator.validate(schema)(spec.data)
       SpecResult(spec.description,
         result.isSuccess == spec.valid,
         result.asEither.left.toOption

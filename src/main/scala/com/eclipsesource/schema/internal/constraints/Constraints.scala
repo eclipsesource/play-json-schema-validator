@@ -68,7 +68,6 @@ import com.eclipsesource.schema.internal.Keywords
     }
 
     override def updated(fn: (SchemaType) => SchemaType): Sub = {
-      // TODO: copy ain't type safe
       copy(
         additionalProps.map(t => fn(t)),
         dependencies.map(_.map(dep => dep._1 -> fn(dep._2))),

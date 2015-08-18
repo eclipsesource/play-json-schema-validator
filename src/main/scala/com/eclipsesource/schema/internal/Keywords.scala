@@ -14,6 +14,8 @@ object Keywords {
     val AdditionalProperties = "additionalProperties"
     val Required = "required"
     val Dependencies = "dependencies"
+    val MinProperties = "minProperties"
+    val MaxProperties = "maxProperties"
     val Ref = "$ref"
   }
 
@@ -21,6 +23,7 @@ object Keywords {
     val AllOf = "allOf"
     val AnyOf = "anyOf"
     val OneOf = "oneOf"
+    val Not = "not"
     val Definitions = "definitions"
     val Enum = "enum"
     val Type = "type"
@@ -37,7 +40,7 @@ object Keywords {
   object String {
     val MinLength = "minLength"
     val MaxLength = "maxLength"
-    val Pattern = "format"
+    val Pattern = "pattern"
   }
 
   object Array {

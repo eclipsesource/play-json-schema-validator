@@ -25,7 +25,7 @@ trait JSONSchemaWrites {
 
   lazy val compoundWriter: Writes[CompoundSchemaType] = OWrites[CompoundSchemaType] { compound =>
     // TODO: cast
-    compound.oneOf.map(c => schemaTypeWriter.writes(c)).foldLeft(Json.obj())((o, json) => o ++ json.asInstanceOf[JsObject])
+    compound.alternatives.map(c => schemaTypeWriter.writes(c)).foldLeft(Json.obj())((o, json) => o ++ json.asInstanceOf[JsObject])
   }
 
   lazy val nullWriter: Writes[SchemaNull] = OWrites[SchemaNull] { nll =>
@@ -48,26 +48,17 @@ trait JSONSchemaWrites {
    numberConstraintWriter.writes(num.constraints)
   }
 
-  // TODO: do arrays have additionalitems?
   implicit val arrayWriter: Writes[SchemaArray] = Writes[SchemaArray] { arr =>
     Json.obj(
       "items" -> Json.toJson(arr.items)
-      // TODO: write any other props, too
-    ).deepMerge(
-        arr.id.fold(Json.obj())(id => Json.obj("id" -> id))
-      ) ++ arrayConstraintWriter.writes(arr.constraints)
+    ) ++ arrayConstraintWriter.writes(arr.constraints)
 
   }
 
-  // TODO: duplicate code
   implicit val tupleWriter: Writes[SchemaTuple] = Writes[SchemaTuple] { arr =>
     Json.obj(
       "items" -> Json.toJson(arr.schemaTypes)
-    ).deepMerge(
-        arr.constraints.additionalItems.fold(Json.obj())(items =>
-          Json.obj("additionalItems" -> items)
-        )
-      ) ++ arrayConstraintWriter.writes(arr.constraints)
+    ) ++ arrayConstraintWriter.writes(arr.constraints)
   }
 
   implicit val refWriter: Writes[SchemaRef] = Writes[SchemaRef] { ref =>
@@ -107,7 +98,8 @@ trait JSONSchemaWrites {
       asJsObject(Keywords.Array.AdditionalItems, constraints.additionalItems) ++
       asJsObject(Keywords.Array.MaxItems, constraints.maxItems) ++
       asJsObject(Keywords.Array.MinItems, constraints.minItems) ++
-      asJsObject(Keywords.Array.UniqueItems, constraints.unique)
+      asJsObject(Keywords.Array.UniqueItems, constraints.unique) ++
+      anyConstraintWriter.writes(constraints.any)
   }
 
   lazy val numberConstraintWriter: OWrites[NumberConstraints] = OWrites[NumberConstraints] {

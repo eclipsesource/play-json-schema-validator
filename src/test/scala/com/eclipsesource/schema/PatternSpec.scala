@@ -20,7 +20,7 @@ class PatternSpec extends Specification {
 
     "a non-matching pattern is invalid" in {
       val data = JsString("abc")
-      val res = Validator.validate(schema, data)
+      val res = SchemaValidator.validate(schema, data)
       res.isFailure must beTrue
     }
   }

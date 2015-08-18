@@ -37,7 +37,7 @@ class AllOfSpec extends Specification {
 
       "wrong type" in {
         val data = Json.obj("foo" -> "baz", "bar" -> "quux")
-        val res = Validator.validate(schema, data)
+        val res = SchemaValidator.validate(schema, data)
         res.isFailure must beTrue
       }
     }

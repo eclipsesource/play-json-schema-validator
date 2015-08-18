@@ -37,13 +37,13 @@ class RefRemoteSpec extends PlaySpecification {
     "changed scope ref valid" in new WithServer(app = new FakeApplication(withRoutes = routes), port = 1234) {
 
       val data = Json.arr(Json.arr(JsNumber(1)))
-      val result = Validator.validate(schema)(data)
+      val result = SchemaValidator.validate(schema)(data)
       result.isSuccess must beTrue
     }
 
     "changed scope ref invalid" in new WithServer(app = new FakeApplication(withRoutes = routes), port = 1234) {
       val data = Json.arr(Json.arr(JsString("a")))
-      val result = Validator.validate(schema)(data)
+      val result = SchemaValidator.validate(schema)(data)
       result.isFailure must beTrue
     }
   }

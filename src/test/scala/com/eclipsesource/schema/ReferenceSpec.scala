@@ -28,7 +28,7 @@ class ReferenceSpec extends Specification {
 
     "remote ref invalid" in {
       val data = Json.obj("minLength" -> -1)
-      val result = Validator.validate(schema)(data)
+      val result = SchemaValidator.validate(schema)(data)
       result.isFailure must beTrue
     }
   }

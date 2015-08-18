@@ -22,7 +22,7 @@ class TypeSpec  extends Specification {
 
     "an boolean is invalid" in {
       val data = JsBoolean(true)
-      val res = Validator.validate(schema, data)
+      val res = SchemaValidator.validate(schema, data)
       res.isFailure must beTrue
     }
   }
