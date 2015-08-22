@@ -1,5 +1,9 @@
 # Play JSON Schema Validator
 
+[![Build Status](https://travis-ci.org/eclipsesource/play-json-schema-validator.svg?branch=master)](https://travis-ci.org/eclipsesource/play-json-schema-validator) [![Coverage Status](https://coveralls.io/repos/edgarmueller/play-json-schema-validator/badge.svg?branch=master&service=github)](https://coveralls.io/github/edgarmueller/play-json-schema-validator?branch=master)
+
+This is a JSON schema validation library for Scala based on Play's JSON library and the [unified validation library](https://github.com/jto/validation).
+
 ## Installation
 
 In your `build.sbt` file, first add an additional resovler:
@@ -18,8 +22,7 @@ libraryDependencies ++= Seq(
  
 ## Usage
 
-This is a JSON schema validation library for Scala based on Play's JSON library and the [unified validation](https://github.com/jto/validation).
-Schemas can be passed in as strings like this:
+Schemas can be parsed by passing the schema string to `Json.fromJson` like this:
 
 ```Scala
   val schema = Json.fromJson[SchemaType](Json.parse(
