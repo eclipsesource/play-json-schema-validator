@@ -92,7 +92,7 @@ object StringValidator extends SchemaTypeValidator[SchemaString] {
   private def expectedString = Failure(Seq(ValidationError("Expected string")))
 
   private def lengthOf(str: String): Int = {
-    val pattern = Pattern.compile("\u0B95\u0BCD\u0BB7\\p{M}?|\\p{L}\\p{M}?")
+    val pattern = Pattern.compile("\u0B95\u0BCD\u0BB7\\p{M}?|\\p{L}|\\p{Nd}\\p{M}?")
     val matcher = pattern.matcher(str)
     val chars = Iterator.continually(matcher.find()).takeWhile(_ == true)
     chars.size
