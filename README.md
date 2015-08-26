@@ -2,7 +2,7 @@
 
 [![Build Status](https://travis-ci.org/eclipsesource/play-json-schema-validator.svg?branch=master)](https://travis-ci.org/eclipsesource/play-json-schema-validator) [![Coverage Status](https://coveralls.io/repos/edgarmueller/play-json-schema-validator/badge.svg?branch=master&service=github)](https://coveralls.io/github/edgarmueller/play-json-schema-validator?branch=master)
 
-This is a JSON schema validation library for Scala based on Play's JSON library and the [unified validation library](https://github.com/jto/validation).
+This is a JSON schema (draft v4) validation library for Scala based on Play's JSON library and the [unified validation library](https://github.com/jto/validation).
 
 ## Installation
 
