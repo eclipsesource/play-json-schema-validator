@@ -1,6 +1,6 @@
 package com.eclipsesource.schema
 
-import com.eclipsesource.schema.test.{JSONSource, JsonSpec}
+import com.eclipsesource.schema.test.JsonSpec
 import org.specs2.mutable.Specification
 import java.net.URL
 
@@ -16,7 +16,7 @@ class MinLengthSpec extends Specification {
     }
 
     "validate against numeric strings that are long enough" in {
-      val schema = JSONSource.schemaFromString(
+      val schema = JsonSource.schemaFromString(
         """{
           |"minLength": 3
         }""".stripMargin).get
@@ -25,7 +25,7 @@ class MinLengthSpec extends Specification {
     }
 
     "not validate against numeric strings that are too short" in {
-      val schema = JSONSource.schemaFromString(
+      val schema = JsonSource.schemaFromString(
         """{
           |"minLength": 3
         }""".stripMargin).get

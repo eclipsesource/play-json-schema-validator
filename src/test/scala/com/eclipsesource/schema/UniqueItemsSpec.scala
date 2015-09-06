@@ -12,5 +12,5 @@ class UniqueItemsSpec extends Specification {
       foreach(JsonSpec.examplesFromUrl(resourceUrl))(example => example.execute)
     }
   }
-
 }
+

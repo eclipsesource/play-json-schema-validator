@@ -1,14 +1,13 @@
-package com.eclipsesource.schema.test
+package com.eclipsesource.schema
 
 import java.net.URL
 
-import com.eclipsesource.schema.SchemaType
 import play.api.libs.json.{JsResult, JsValue, Json}
 
-import scala.io.{BufferedSource, Source}
+import scala.io.Source
 import scala.util.Try
 
-object JSONSource {
+object JsonSource {
 
   def fromString(json: String): Try[JsValue] = Try { Json.parse(json) }
   

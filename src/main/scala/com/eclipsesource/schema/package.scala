@@ -41,7 +41,8 @@ package object schema
 
   implicit class FailureExtensions(errors: Seq[(Path, Seq[ValidationError])]) {
     def toJsError: JsError = {
-      JsError(errors.map(e => (JsPath \ e._1.toString(), e._2)))
+      val groupedErrors = errors.groupBy(_._1).map(x => x._1 -> x._2.flatMap(_._2)).toSeq
+      JsError(groupedErrors.map(e => (JsPath \ e._1.toString(), e._2)))
     }
   }
 }

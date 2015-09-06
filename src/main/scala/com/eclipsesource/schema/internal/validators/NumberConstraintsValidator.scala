@@ -30,11 +30,12 @@ trait NumberConstraintsValidator {
           if (isValid(number, min)) {
             Success(number)
           } else {
+            val isExclusive = min.isExclusive.getOrElse(false)
+            val minType = if (isExclusive) "exclusive minimum" else "minimum"
+            val comparison = if (isExclusive) "less than or equal to" else "less than"
             Failure(
               Seq(
-                ValidationError("minimum violated." +
-                  s"$number must be ${if (min.isExclusive.getOrElse(false)) ">" else ">="} ${min.min}"
-                )
+                ValidationError(s"$minType violated: $number is $comparison ${min.min}")
               )
             )
           }
@@ -56,15 +57,16 @@ trait NumberConstraintsValidator {
     Rule.fromMapping[JsValue, JsValue] {
       case number@JsNumber(_) => constraint.max match {
         case None => Success(number)
-        case Some(m) =>
-          if (isValid(number, m)) {
+        case Some(max) =>
+          if (isValid(number, max)) {
             Success(number)
           } else {
+            val isExclusive = max.isExclusive.getOrElse(false)
+            val maxType = if (isExclusive) "exclusive maximum" else "maximum"
+            val comparison = if (isExclusive) "bigger than or equal to" else "bigger than"
             Failure(
               Seq(
-                ValidationError("max violated",
-                  Json.obj("max" -> m.max, "number" -> number)
-                )
+                ValidationError(s"$maxType violated: $number is $comparison ${max.max}")
               )
             )
           }
@@ -82,8 +84,7 @@ trait NumberConstraintsValidator {
           } else {
             Failure(
               Seq(
-                ValidationError("multipleOf violated",
-                  Json.obj("factor" -> factor), "number" -> number)
+                ValidationError(s"$number is not a multiple of $factor.")
               )
             )
           }
