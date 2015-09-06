@@ -101,9 +101,9 @@ trait SchemaValidator {
       case _ =>
         Failure(List(
           context.path -> List(
-            ValidationError("Incompatible types",
-              Json.obj("schema" -> schema, "instance" -> json))))
-        )
+            ValidationError(s"Incompatible types. Expected $schema, instance is $json.")
+          )
+        ))
     }
   }
 }

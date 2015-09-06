@@ -36,9 +36,7 @@ object StringValidator extends SchemaTypeValidator[SchemaString] {
           } else {
             Failure(
               Seq(
-                ValidationError("format violated",
-                  Json.obj("pattern" -> pattern, "string" -> string)
-                )
+                ValidationError(s"$string does not match pattern $pattern.")
               )
             )
           }
@@ -57,9 +55,7 @@ object StringValidator extends SchemaTypeValidator[SchemaString] {
         } else {
           Failure(
             Seq(
-              ValidationError("minLength violated",
-                Json.obj("minLength" -> minLength, "string" -> string)
-              )
+              ValidationError(s"$string violates minLength of $minLength.")
             )
           )
         }
@@ -78,9 +74,7 @@ object StringValidator extends SchemaTypeValidator[SchemaString] {
           } else {
             Failure(
               Seq(
-                ValidationError("maxLength violated",
-                  Json.obj("maxLength" -> maxLength, "string" -> string)
-                )
+                ValidationError(s"$string violates maxLength of $maxLength.")
               )
             )
           }

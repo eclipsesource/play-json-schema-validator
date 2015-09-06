@@ -1,10 +1,8 @@
 package com.eclipsesource.schema
 
-import com.eclipsesource.schema.test.{JSONSource, JsonSpec}
+import com.eclipsesource.schema.test.JsonSpec
 import org.specs2.mutable.Specification
 import java.net.URL
-
-import play.api.libs.json.JsString
 
 class PatternSpec extends Specification {
 
@@ -15,13 +13,4 @@ class PatternSpec extends Specification {
     }
   }
 
-  "pattern validation" should {
-    val schema = JSONSource.schemaFromString("""{"pattern": "^a*$"}""").get
-
-    "a non-matching pattern is invalid" in {
-      val data = JsString("abc")
-      val res = SchemaValidator.validate(schema, data)
-      res.isFailure must beTrue
-    }
-  }
 }

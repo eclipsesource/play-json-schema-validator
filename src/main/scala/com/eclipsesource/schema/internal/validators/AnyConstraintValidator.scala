@@ -11,8 +11,8 @@ object AnyConstraintValidator {
 
   def validate(json: JsValue, any: AnyConstraint, context: Context): VA[JsValue] = {
     (validateAllOf(any, context) |+|
-      validateAnyOf(any) |+|
-      validateOneOf(any) |+|
+      validateAnyOf(any, context) |+|
+      validateOneOf(any, context) |+|
       validateEnum(any) |+|
       validateNot(any)
       ).validate(json)
@@ -26,7 +26,7 @@ object AnyConstraintValidator {
         } else {
           Failure(
             Seq(
-              ValidationError("not violated")
+              ValidationError(s"$json matches schema '$schema' although it should not.")
             )
           )
         }
@@ -45,9 +45,7 @@ object AnyConstraintValidator {
           } else {
             Failure(
               Seq(
-                ValidationError("allOf violated",
-                  Json.obj("schemas" -> Json.toJson(schemas.map(_.prettyPrint)), "object" -> json)
-                )
+                ValidationError(s"allOf constraint violated. $json does not match at least one schema at ${context.path}.")
               )
             )
           }
@@ -56,7 +54,7 @@ object AnyConstraintValidator {
     }
   }
 
-  def validateAnyOf(any: AnyConstraint): Rule[JsValue, JsValue] = {
+  def validateAnyOf(any: AnyConstraint, context: Context): Rule[JsValue, JsValue] = {
     Rule.fromMapping { json =>
       any.anyOf.map(
         schemas => {
@@ -65,9 +63,7 @@ object AnyConstraintValidator {
           maybeSuccess.map(success => Success(json)).getOrElse(
             Failure(
               Seq(
-                ValidationError("anyOf violated",
-                  Json.obj("schemas" -> Json.arr(schemas.map(_.prettyPrint)), "object" -> json)
-                )
+                ValidationError(s"anyOf constraint violated. $json does not match any of the schemas at ${context.path}.")
               )
             )
           )
@@ -76,20 +72,19 @@ object AnyConstraintValidator {
     }
   }
 
-  def validateOneOf(any: AnyConstraint): Rule[JsValue, JsValue] = {
+  def validateOneOf(any: AnyConstraint, context: Context): Rule[JsValue, JsValue] = {
     Rule.fromMapping { json =>
       any.oneOf.map(
         schemas => {
           val allValidationResults = schemas.map(schema => SchemaValidator.validate(schema)(json))
           allValidationResults.count(_.isSuccess) match {
             case 0 => Failure(
-              Seq(ValidationError("oneOf violated, no schema matches")
-              )
+              Seq(ValidationError(s"oneOf constraint violated. $json does not match any schema at ${context.path}."))
             )
             case 1 => Success(json)
             case _ =>
               Failure(
-                Seq(ValidationError("oneOf violated, multiple schemas match"))
+                Seq(ValidationError(s"oneOf constraint violated. $json does match more than one schema at ${context.path}."))
               )
           }
         }
@@ -103,7 +98,7 @@ object AnyConstraintValidator {
         enums match {
           case Some(values) if values.contains(json) => Success(json)
           case Some(values) => Failure(
-            Seq(ValidationError(s"enum violated. $json is not part of $values"))
+            Seq(ValidationError(s"enum violated. $json is not part of [${values.mkString(", ")}]"))
           )
           case None => Success(json)
         }

@@ -21,7 +21,7 @@ trait ArrayConstraintValidator {
           Success(json)
         } else {
           Failure(
-            Seq(ValidationError(s"maxItems violated. Actual items: ${values.size}, maxItems: $max"))
+            Seq(ValidationError(s"Too many items. ${values.size} items found, but only $max item(s) are allowed."))
           )
         }
         case None => Success(json)
@@ -39,9 +39,7 @@ trait ArrayConstraintValidator {
         } else {
           Failure(
             Seq(
-              ValidationError("minItems violated",
-                Json.obj("minItems" -> minItems, "array" -> values)
-              )
+              ValidationError(s"Not enough items. ${values.size} items found, but at least $minItems item(s) needs to be present.")
             )
           )
         }
@@ -58,9 +56,7 @@ trait ArrayConstraintValidator {
         } else {
           Failure(
             Seq(
-              ValidationError("uniqueItems violated",
-                Json.obj("array" -> values)
-              )
+              ValidationError(s"[${values.mkString(", ")}] contains duplicates")
             )
           )
         }

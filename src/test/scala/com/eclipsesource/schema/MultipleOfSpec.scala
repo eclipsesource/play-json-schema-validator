@@ -1,10 +1,8 @@
 package com.eclipsesource.schema
 
-import com.eclipsesource.schema.test.{JSONSource, JsonSpec}
+import com.eclipsesource.schema.test.JsonSpec
 import org.specs2.mutable.Specification
 import java.net.URL
-
-import play.api.libs.json.{Json, JsNumber}
 
 class MultipleOfSpec extends Specification {
 

@@ -141,7 +141,8 @@ object ObjectValidator extends SchemaTypeValidator[SchemaObject] {
             if (enabled) {
               ((), (), Results.merge(status, Success(JsObject(unmatchedFields))))
             } else {
-              ((), (), Results.merge(status, Results.failure(context.path, s"additionalProperties: $unmatchedFields")))
+              ((), (), Results.merge(status, Results.failure(context.path, s"Additional properties are not allowed, " +
+                s"but found ${unmatchedFields.map(f => s"'${f._1}'").mkString(", ")}.")))
             }
           case additionalProp =>
             val validationStatus = validateUnmatched(additionalProp, context)
@@ -207,7 +208,7 @@ object ObjectValidator extends SchemaTypeValidator[SchemaObject] {
         case Some(max) => if (size <= max) {
           Success(obj)
         } else {
-          Results.failure(s"maxProperties violated. Max: $max, was $size")
+          Results.failure(s"Found $size properties, but only a maximum of $max properties is allowed.")
         }
       }
       ((), (), Results.merge(status, result))
@@ -222,7 +223,7 @@ object ObjectValidator extends SchemaTypeValidator[SchemaObject] {
         case Some(min) => if (size >= min) {
           Success(obj)
         } else {
-          Results.failure(s"minProperties violated. Min: $min, was $size")
+          Results.failure(s"Found $size properties, but at least $min ${if (min == 1) "property needs" else "properties need"} to be present.")
         }
       }
       ((), (), Results.merge(status, result))

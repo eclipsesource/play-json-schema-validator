@@ -1,6 +1,5 @@
 package com.eclipsesource.schema
 
-import com.eclipsesource.schema.test.JSONSource
 import org.specs2.mutable.Specification
 import play.api.data.mapping.VA
 import play.api.libs.json.Json
@@ -11,7 +10,7 @@ class ValidatorTest extends Specification {
 
   "Validator" should {
 
-    def schema = JSONSource.schemaFromString(
+    def schema = JsonSource.schemaFromString(
       """{
         |"properties": {
         |  "id":    { "type": "integer" },

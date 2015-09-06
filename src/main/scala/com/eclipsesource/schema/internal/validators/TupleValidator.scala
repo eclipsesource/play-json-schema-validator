@@ -16,15 +16,18 @@ object TupleValidator extends SchemaTypeValidator[SchemaTuple] with ArrayConstra
         val additionalInstanceValues: Seq[JsValue] = values.takeRight(instanceSize - schemaSize)
         val additionalItemsSchema: SchemaType = schema.constraints.additionalItems.getOrElse(SchemaObject())
         additionalItemsSchema match {
-          case SchemaBooleanConstant(false) => Seq(Results.failure("Too many items."))
-          case SchemaBooleanConstant(true) => values.map(Success(_))
+          case SchemaBooleanConstant(false) =>
+            Seq(Results.failure(s"Too many items. Expected $schemaSize items, found $instanceSize."))
+          case SchemaBooleanConstant(true) =>
+            values.map(Success(_))
           case items =>
             val instanceValuesValidated: Seq[VA[JsValue]] = schema.items().zipWithIndex.map { case (item, idx) =>
               SchemaValidator.process(item, values(idx), context.copy(path = context.path \ idx))
             }
             val additionalInstanceValuesValidated: Seq[VA[JsValue]] = additionalInstanceValues.zipWithIndex.map {
               case (jsValue, idx) =>
-                SchemaValidator.process(items, jsValue, context.copy(path = context.path \ idx))
+                val index = idx + schemaSize
+                SchemaValidator.process(items, jsValue, context.copy(path = context.path \ index))
             }
             instanceValuesValidated ++ additionalInstanceValuesValidated
         }

@@ -3,7 +3,7 @@ package com.eclipsesource.schema.test
 import java.io.InputStream
 import java.net.URL
 
-import com.eclipsesource.schema.{SchemaValidator, SchemaValidator$, SchemaArrayConstant, SchemaType}
+import com.eclipsesource.schema._
 import org.specs2.execute.Result
 import org.specs2.matcher.ThrownExpectations
 import org.specs2.specification.Example
@@ -36,14 +36,14 @@ object JsonSpec extends ThrownExpectations {
   }
 
   def fromUrl(url: URL): Either[String, Seq[(String, Seq[SpecResult])]] = {
-    JSONSource.fromURL(url).getOrElse(failure(s"Could not read JSON from $url.")) match {
+    JsonSource.fromURL(url).getOrElse(failure(s"Could not read JSON from $url.")) match {
       case JsArray(specs) => Right(executeSpecs(specs))
       case json => Left(s"URL $url does not contain any specs or has wrong format. See https://github.com/json-schema/JSON-Schema-Test-Suite for correct format")
     }
   }
 
   def fromFile(filePath: String): Either[String, Seq[(String, Seq[SpecResult])]] = {
-    JSONSource.fromFile(filePath).getOrElse(failure(s"Could not read JSON from $filePath.")) match {
+    JsonSource.fromFile(filePath).getOrElse(failure(s"Could not read JSON from $filePath.")) match {
       case JsArray(specs) => Right(executeSpecs(specs))
       case json => Left(s"File $filePath does not contain any specs or has wrong format. See https://github.com/json-schema/JSON-Schema-Test-Suite for correct format.")
     }
