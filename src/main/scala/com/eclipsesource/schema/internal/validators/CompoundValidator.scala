@@ -7,6 +7,17 @@ import play.api.libs.json.JsValue
 
 object CompoundValidator extends SchemaTypeValidator[CompoundSchemaType] {
   override def validate(schema: CompoundSchemaType, json: => JsValue, context: Context): VA[JsValue] = {
-    schema.alternatives.map(s => SchemaValidator.validate(s, json)).find(_.isSuccess).getOrElse(Results.failure("No schema applied"))
+    schema.alternatives
+      .map(s => SchemaValidator.validate(s, json))
+      .find(_.isSuccess)
+      .getOrElse(
+        Results.error(
+          "No schema applied",
+          context.schemaPath.toString(),
+          context.instancePath.toString(),
+          context.root,
+          json
+        )
+      )
   }
 }

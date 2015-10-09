@@ -11,7 +11,7 @@ object ObjectValidator extends SchemaTypeValidator[SchemaObject] {
 
   override def validate(schema: SchemaObject, json: => JsValue, context: Context): VA[JsValue] = {
 
-    def validateJson(schema: SchemaObject, c: Context): VA[JsValue] = {
+    def validateJson(schema: SchemaObject, context: Context): VA[JsValue] = {
       json match {
         case jsObject@JsObject(props) =>
           val validation = for {
@@ -23,10 +23,10 @@ object ObjectValidator extends SchemaTypeValidator[SchemaObject] {
             _ <- validateMaxProperties(updatedSchema, jsObject)
           } yield updatedSchema
 
-          val (_, _, result) = validation.run(c, Success(json))
+          val (_, _, result) = validation.run(context, Success(json))
           result
         case _ =>
-          val (_, _, result) = validationAny(schema, json).run(c, Success(json))
+          val (_, _, result) = validationAny(schema, json).run(context, Success(json))
           result
       }
     }
@@ -64,15 +64,22 @@ object ObjectValidator extends SchemaTypeValidator[SchemaObject] {
     validatedOpt.getOrElse(validateJson(schema, context))
   }
 
-  private def validateProps(schema: SchemaObject, obj: => JsObject): ValidationStep[Props] =
+  private def validateProps(schema: SchemaObject, json: => JsObject): ValidationStep[Props] =
     ReaderWriterState { (context, status) =>
 
       val required = schema.constraints.required.getOrElse(List.empty[String])
 
       val validated = schema.properties.foldLeft(List.empty[(String, VA[JsValue])])((props, attr) =>
-        obj \ attr.name match {
+        json \ attr.name match {
           case _: JsUndefined => if (required.contains(attr.name)) {
-            (attr.name -> Results.failure(s"Property ${attr.name} missing")) :: props
+            attr.name ->
+              Results.error(
+                s"Property ${attr.name} missing",
+                context.schemaPath.toString(),
+                context.instancePath.toString(),
+                context.root,
+                json
+              ) :: props
           } else {
             props
           }
@@ -80,14 +87,15 @@ object ObjectValidator extends SchemaTypeValidator[SchemaObject] {
             attr.schemaType,
             value,
             context.copy(
-              path = context.path \ "properties" \ attr.name
+              schemaPath = context.schemaPath \ "properties" \ attr.name,
+              instancePath = context.instancePath \ attr.name
             )
           )) :: props
         }
       )
 
       val validatedProperties = validated.map(_._1)
-      val unvalidatedProps: Props = obj.fields.filterNot(field =>
+      val unvalidatedProps: Props = json.fields.filterNot(field =>
         validatedProperties.contains(field._1)
       )
 
@@ -125,7 +133,10 @@ object ObjectValidator extends SchemaTypeValidator[SchemaObject] {
     def validateUnmatched(schemaType: SchemaType, context: Context): VA[JsValue] = {
       val validated = unmatchedFields.map { attr =>
         attr._1 -> SchemaValidator.process(
-          schemaType, attr._2, context.copy(path = context.path \ attr._1)
+          schemaType, attr._2, context.copy(
+            schemaPath = context.schemaPath \ attr._1,
+            instancePath = context.instancePath \ attr._1
+          )
         )
       }
       Results.aggregateAsObject(validated, context)
@@ -141,8 +152,15 @@ object ObjectValidator extends SchemaTypeValidator[SchemaObject] {
             if (enabled) {
               ((), (), Results.merge(status, Success(JsObject(unmatchedFields))))
             } else {
-              ((), (), Results.merge(status, Results.failure(context.path, s"Additional properties are not allowed, " +
-                s"but found ${unmatchedFields.map(f => s"'${f._1}'").mkString(", ")}.")))
+              ((), (), Results.merge(status,
+                Results.error(
+                  s"Additional properties are not allowed but found ${unmatchedFields.map(f => s"'${f._1}'").mkString(", ")}.",
+                  context.schemaPath.toString(),
+                  context.instancePath.toString(),
+                  context.root,
+                  Json.obj() // TODO
+                )
+              ))
             }
           case additionalProp =>
             val validationStatus = validateUnmatched(additionalProp, context)
@@ -170,7 +188,14 @@ object ObjectValidator extends SchemaTypeValidator[SchemaObject] {
 
       // if present, make sure all dependencies are fulfilled
       val result = mandatoryProps.map(prop => obj.fields.find(_._1 == prop).fold(
-        prop -> Results.failure(context.path \ prop, s"Missing property dependency $prop.")
+        // msg: String, schemaPath: String, instancePath: String, schema: SchemaType, instance: JsValue)
+        prop -> Results.error(
+          s"Missing property dependency $prop.",
+          (context.schemaPath \ prop).toString(),
+          (context.instancePath \ prop).toString(),
+          context.root,
+          obj
+        )
       )((field: (String, JsValue)) => Results.success(field))
       )
 
@@ -200,30 +225,42 @@ object ObjectValidator extends SchemaTypeValidator[SchemaObject] {
     }
   }
 
-  def validateMaxProperties(schema: SchemaObject, obj: JsObject): ReaderWriterState[Context, Unit, VA[JsValue], Unit] = {
+  def validateMaxProperties(schema: SchemaObject, json: JsObject): ReaderWriterState[Context, Unit, VA[JsValue], Unit] = {
     ReaderWriterState { (context, status) =>
-      val size = obj.fields.size
+      val size = json.fields.size
       val result: VA[JsValue] = schema.constraints.maxProperties match {
-        case None => Success(obj)
+        case None => Success(json)
         case Some(max) => if (size <= max) {
-          Success(obj)
+          Success(json)
         } else {
-          Results.failure(s"Found $size properties, but only a maximum of $max properties is allowed.")
+          Results.error(
+            s"Found $size properties, but only a maximum of $max properties is allowed",
+            context.schemaPath.toString(),
+            context.instancePath.toString(),
+            context.root,
+            json
+          )
         }
       }
       ((), (), Results.merge(status, result))
     }
   }
 
-  def validateMinProperties(schema: SchemaObject, obj: JsObject): ReaderWriterState[Context, Unit, VA[JsValue], Unit] = {
+  def validateMinProperties(schema: SchemaObject, json: JsObject): ReaderWriterState[Context, Unit, VA[JsValue], Unit] = {
     ReaderWriterState { (context, status) =>
-      val size = obj.fields.size
+      val size = json.fields.size
       val result: VA[JsValue] = schema.constraints.minProperties match {
-        case None => Success(obj)
+        case None => Success(json)
         case Some(min) => if (size >= min) {
-          Success(obj)
+          Success(json)
         } else {
-          Results.failure(s"Found $size properties, but at least $min ${if (min == 1) "property needs" else "properties need"} to be present.")
+          Results.error(
+            s"Found $size properties, but at least $min ${if (min == 1) "property needs" else "properties need"} to be present.",
+            context.schemaPath.toString(),
+            context.instancePath.toString(),
+            context.root,
+            json
+          )
         }
       }
       ((), (), Results.merge(status, result))

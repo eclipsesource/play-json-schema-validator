@@ -14,20 +14,22 @@ object AnyConstraintValidator {
       validateAnyOf(any, context) |+|
       validateOneOf(any, context) |+|
       validateEnum(any) |+|
-      validateNot(any)
+      validateNot(any, context)
       ).validate(json)
   }
 
-  def validateNot(any: AnyConstraint): Rule[JsValue, JsValue] = {
+  def validateNot(any: AnyConstraint, context: Context): Rule[JsValue, JsValue] = {
     Rule.fromMapping { json =>
       any.not.map(schema =>
         if (SchemaValidator.validate(schema, json).isFailure) {
-         Success(json)
+          Success(json)
         } else {
-          Failure(
-            Seq(
-              ValidationError(s"$json matches schema '$schema' although it should not.")
-            )
+          Results.failure(
+            s"$json matches schema '$schema' although it should not.",
+            context.schemaPath.toString(),
+            context.instancePath.toString(),
+            schema,
+            json
           )
         }
       ).getOrElse(Success(json))
@@ -43,10 +45,12 @@ object AnyConstraintValidator {
           if (allMatch) {
             Success(json)
           } else {
-            Failure(
-              Seq(
-                ValidationError(s"allOf constraint violated. $json does not match at least one schema at ${context.path}.")
-              )
+            Results.failure(
+              s"$json does not match all schemas",
+              context.schemaPath.toString(),
+              context.instancePath.toString(),
+              context.root,
+              json
             )
           }
         }
@@ -61,10 +65,12 @@ object AnyConstraintValidator {
           val allValidationResults = schemas.map(SchemaValidator.validate(_)(json))
           val maybeSuccess = allValidationResults.find(_.isSuccess)
           maybeSuccess.map(success => Success(json)).getOrElse(
-            Failure(
-              Seq(
-                ValidationError(s"anyOf constraint violated. $json does not match any of the schemas at ${context.path}.")
-              )
+            Results.failure(
+              s"$json does not match any of the schemas",
+              context.schemaPath.toString(),
+              context.instancePath.toString(),
+              context.root,
+              json
             )
           )
         }
@@ -78,13 +84,22 @@ object AnyConstraintValidator {
         schemas => {
           val allValidationResults = schemas.map(schema => SchemaValidator.validate(schema)(json))
           allValidationResults.count(_.isSuccess) match {
-            case 0 => Failure(
-              Seq(ValidationError(s"oneOf constraint violated. $json does not match any schema at ${context.path}."))
-            )
+            case 0 =>
+              Results.failure(
+                s"$json does not match any schema",
+                context.schemaPath.toString(),
+                context.instancePath.toString(),
+                context.root,
+                json
+              )
             case 1 => Success(json)
             case _ =>
-              Failure(
-                Seq(ValidationError(s"oneOf constraint violated. $json does match more than one schema at ${context.path}."))
+              Results.failure(
+                s"$json does match more than one schema",
+                context.schemaPath.toString(),
+                context.instancePath.toString(),
+                context.root,
+                json
               )
           }
         }
@@ -95,13 +110,13 @@ object AnyConstraintValidator {
   def validateEnum(constraints: AnyConstraint): Rule[JsValue, JsValue] = {
     val enums = constraints.enum
     Rule.fromMapping { json =>
-        enums match {
-          case Some(values) if values.contains(json) => Success(json)
-          case Some(values) => Failure(
-            Seq(ValidationError(s"enum violated. $json is not part of [${values.mkString(", ")}]"))
-          )
-          case None => Success(json)
-        }
+      enums match {
+        case Some(values) if values.contains(json) => Success(json)
+        case Some(values) => Failure(
+          Seq(ValidationError(s"enum violated. $json is not part of [${values.mkString(", ")}]"))
+        )
+        case None => Success(json)
+      }
     }
   }
 

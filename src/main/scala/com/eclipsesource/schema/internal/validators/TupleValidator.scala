@@ -17,23 +17,46 @@ object TupleValidator extends SchemaTypeValidator[SchemaTuple] with ArrayConstra
         val additionalItemsSchema: SchemaType = schema.constraints.additionalItems.getOrElse(SchemaObject())
         additionalItemsSchema match {
           case SchemaBooleanConstant(false) =>
-            Seq(Results.failure(s"Too many items. Expected $schemaSize items, found $instanceSize."))
+            Seq(
+              Results.error(
+                s"Too many items. Expected $schemaSize items, found $instanceSize.",
+                context.schemaPath.toString(),
+                context.instancePath.toString(),
+                context.root,
+                json
+              )
+            )
           case SchemaBooleanConstant(true) =>
             values.map(Success(_))
           case items =>
             val instanceValuesValidated: Seq[VA[JsValue]] = schema.items().zipWithIndex.map { case (item, idx) =>
-              SchemaValidator.process(item, values(idx), context.copy(path = context.path \ idx))
+              SchemaValidator.process(item, values(idx),
+                context.copy(
+                  schemaPath = context.schemaPath \ idx,
+                  instancePath = context.instancePath \ idx
+                )
+              )
             }
             val additionalInstanceValuesValidated: Seq[VA[JsValue]] = additionalInstanceValues.zipWithIndex.map {
               case (jsValue, idx) =>
                 val index = idx + schemaSize
-                SchemaValidator.process(items, jsValue, context.copy(path = context.path \ index))
+                SchemaValidator.process(items, jsValue,
+                  context.copy(
+                    schemaPath = context.schemaPath \ index,
+                    instancePath = context.instancePath \ index
+                  )
+                )
             }
             instanceValuesValidated ++ additionalInstanceValuesValidated
         }
       } else {
         values.zipWithIndex.map { case (jsValue, idx) =>
-          SchemaValidator.process(schema.items()(idx), jsValue, context.copy(path = context.path \ idx))
+          SchemaValidator.process(schema.items()(idx), jsValue,
+            context.copy(
+              schemaPath = context.schemaPath \ idx,
+              instancePath = context.instancePath \ idx
+            )
+          )
         }
       }
 
@@ -43,7 +66,13 @@ object TupleValidator extends SchemaTypeValidator[SchemaTuple] with ArrayConstra
         val updatedArr = JsArray(results.collect { case Success(js) => js })
         validate(updatedArr, schema.constraints)
       }
-    case other => Results.failure(s"Expected array, was $other")
+    case other => Results.error(
+      s"Expected array, was $other",
+      context.schemaPath.toString(),
+      context.instancePath.toString(),
+      context.root,
+      json
+    )
   }
 
 }

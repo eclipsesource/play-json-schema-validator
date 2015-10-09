@@ -14,4 +14,15 @@ object SchemaUtil {
     case arr: SchemaArray => "[" + prettyPrint(arr.items, indent) + "]"
     case other => other.toString
   }
+
+  def typeOfAsString(json: JsValue): String = {
+    json match {
+      case JsString(_)  => "string"
+      case JsNumber(_)  => "number"
+      case JsBoolean(_) => "boolean"
+      case JsObject(_)  => "object"
+      case JsArray(_)   => "array"
+      case JsNull   => "null"
+    }
+  }
 }
