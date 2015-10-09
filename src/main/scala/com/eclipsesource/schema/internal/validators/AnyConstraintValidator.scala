@@ -24,7 +24,7 @@ object AnyConstraintValidator {
         if (SchemaValidator.validate(schema, json).isFailure) {
           Success(json)
         } else {
-          Results.failure2(
+          Results.failure(
             s"$json matches schema '$schema' although it should not.",
             context.schemaPath.toString(),
             context.instancePath.toString(),
@@ -45,7 +45,7 @@ object AnyConstraintValidator {
           if (allMatch) {
             Success(json)
           } else {
-            Results.failure2(
+            Results.failure(
               s"$json does not match all schemas",
               context.schemaPath.toString(),
               context.instancePath.toString(),
@@ -65,7 +65,7 @@ object AnyConstraintValidator {
           val allValidationResults = schemas.map(SchemaValidator.validate(_)(json))
           val maybeSuccess = allValidationResults.find(_.isSuccess)
           maybeSuccess.map(success => Success(json)).getOrElse(
-            Results.failure2(
+            Results.failure(
               s"$json does not match any of the schemas",
               context.schemaPath.toString(),
               context.instancePath.toString(),
@@ -85,7 +85,7 @@ object AnyConstraintValidator {
           val allValidationResults = schemas.map(schema => SchemaValidator.validate(schema)(json))
           allValidationResults.count(_.isSuccess) match {
             case 0 =>
-              Results.failure2(
+              Results.failure(
                 s"$json does not match any schema",
                 context.schemaPath.toString(),
                 context.instancePath.toString(),
@@ -94,7 +94,7 @@ object AnyConstraintValidator {
               )
             case 1 => Success(json)
             case _ =>
-              Results.failure2(
+              Results.failure(
                 s"$json does match more than one schema",
                 context.schemaPath.toString(),
                 context.instancePath.toString(),

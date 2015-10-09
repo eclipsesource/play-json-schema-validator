@@ -63,7 +63,7 @@ object Results {
     ))
   }
 
-  def failure2(msg: String, schemaPath: String, instancePath: String, schema: SchemaType, instance: JsValue): Validation[ValidationError, JsValue] = {
+  def failure(msg: String, schemaPath: String, instancePath: String, schema: SchemaType, instance: JsValue): Validation[ValidationError, JsValue] = {
     Failure(
       Seq(ValidationError(msg,
         Json.obj(
