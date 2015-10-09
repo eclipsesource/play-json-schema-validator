@@ -109,7 +109,11 @@ object RefResolver {
         // resolve single fragment
         container.resolvePath(fragment).flatMap(resolvedType => {
           resolveRef(resolvedType, fragments.tail,
-            context.copy(path = context.path.compose(Path(fragment))))
+            context.copy(
+              schemaPath = context.schemaPath.compose(Path(fragment)),
+              instancePath = context.instancePath.compose(Path(fragment))
+            )
+          )
         })
 
       case (ref: SchemaRef, None) => resolveRef(ref.pointer.path, context.copy(visited =  context.visited + ref))

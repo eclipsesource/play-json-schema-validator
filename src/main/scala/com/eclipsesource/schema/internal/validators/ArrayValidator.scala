@@ -11,7 +11,12 @@ object ArrayValidator extends SchemaTypeValidator[SchemaArray] with ArrayConstra
   override def validate(schema: SchemaArray, json: => JsValue, context: Context): VA[JsValue] = json match {
     case JsArray(values) =>
       val elements: Seq[VA[JsValue]] = values.zipWithIndex.map { case (jsValue, idx) =>
-        SchemaValidator.process(schema.items, jsValue, context.copy(path = context.path \ idx))
+        SchemaValidator.process(schema.items, jsValue,
+          context.copy(
+            schemaPath = context.schemaPath \ idx,
+            instancePath = context.instancePath \ idx
+          )
+        )
       }
       if (elements.exists(_.isFailure)) {
         Failure(elements.collect { case Failure(err) => err }.reduceLeft(_ ++ _))
@@ -19,7 +24,13 @@ object ArrayValidator extends SchemaTypeValidator[SchemaArray] with ArrayConstra
         val updatedArr = JsArray(elements.collect { case Success(js) => js })
         validate(updatedArr, schema.constraints)
       }
-    case other => Results.failure(s"Expected array, was $other")
+    case other => Results.error(
+      s"Expected array, was $other",
+      context.schemaPath.toString(),
+      context.instancePath.toString(),
+      context.root,
+      json
+    )
   }
 
 }

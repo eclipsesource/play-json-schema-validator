@@ -1,6 +1,6 @@
 package com.eclipsesource.schema
 
-import com.eclipsesource.schema.internal.{Results, Context, RefResolver}
+import com.eclipsesource.schema.internal.{SchemaUtil, Results, Context, RefResolver}
 import play.api.data.mapping.{Failure, Path, Success, VA}
 import play.api.data.validation.ValidationError
 import play.api.libs.json._
@@ -12,7 +12,7 @@ trait SchemaValidator {
       case container: SchemaContainer => container.id
       case _ => None
     }
-    val context = Context(Path, schema, Set.empty, id)
+    val context = Context(Path, Path, schema, Set.empty, id)
     val updatedRoot = RefResolver.replaceRefs(context)(schema)
     process(
       updatedRoot,
@@ -26,7 +26,7 @@ trait SchemaValidator {
       case container: SchemaContainer => container.id
       case _ => None
     }
-    val context = Context(Path, schema, Set.empty, id)
+    val context = Context(Path, Path, schema, Set.empty, id)
     val updatedRoot = RefResolver.replaceRefs(context)(schema)
     val result: VA[JsValue] = process(
       updatedRoot,
@@ -46,7 +46,7 @@ trait SchemaValidator {
 
   def validate[A](schema: SchemaType, input: A, writes: Writes[A]): VA[JsValue] = {
     val inputJs = writes.writes(input)
-    val context = Context(Path, schema, Set.empty)
+    val context = Context(Path, Path, schema, Set.empty)
     val updatedRoot = RefResolver.replaceRefs(context)(schema)
     process(updatedRoot, inputJs, context.copy(root = updatedRoot))
   }
@@ -55,7 +55,7 @@ trait SchemaValidator {
     val writes = implicitly[Writes[A]]
     val reads = implicitly[Reads[A]]
     val inputJs = writes.writes(input)
-    val context = Context(Path, schema, Set.empty)
+    val context = Context(Path, Path, schema, Set.empty)
     val updatedRoot = RefResolver.replaceRefs(context)(schema)
     val result: VA[JsValue] = process(
       updatedRoot,
@@ -73,7 +73,7 @@ trait SchemaValidator {
     )
   }
 
-  private[schema] def process(schema: SchemaType, json: JsValue, context: Context): VA[JsValue] = {
+    private[schema] def process(schema: SchemaType, json: JsValue, context: Context): VA[JsValue] = {
 
     (json, schema) match {
       case (_, schemaObject: SchemaObject) if schema.constraints.any.schemaTypeAsString.isEmpty =>
@@ -99,13 +99,15 @@ trait SchemaValidator {
       case (_, _) if schema.constraints.any.schemaTypeAsString.isEmpty =>
         Success(json)
       case _ =>
-        Failure(List(
-          context.path -> List(
-            ValidationError(s"Incompatible types. Expected $schema, instance is $json.")
-          )
-        ))
+        Results.error(s"Wrong type. Expected $schema, was ${SchemaUtil.typeOfAsString(json)}.",
+          context.schemaPath.toString(),
+          context.instancePath.toString(),
+          context.root,
+          json)
     }
   }
+
+
 }
 
 object SchemaValidator extends SchemaValidator

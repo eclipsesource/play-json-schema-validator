@@ -1,21 +1,22 @@
 package com.eclipsesource.schema.internal
 
-import play.api.data.mapping.{VA, Path, Success, Failure}
+import com.eclipsesource.schema.SchemaType
+import play.api.data.mapping._
 import play.api.data.validation.ValidationError
 import play.api.libs.json._
 
 object Results {
 
-//  def aggregateResults(validatedProps: Seq[PropertyValidationResult], context: Context): ValidationStatus = {
-//    validatedProps.foldLeft(ValidationStatus.empty)((status, prop) => prop._2 match {
-//      case Failure(err) => status.addToInvalidProps(err)
-//      case Success(JsAbsent) => status
-//      case Success(undefined: JsUndefined) => status.addToInvalidProps(
-//        (context.path \ prop._1, Seq(ValidationError(undefined.error)))
-//      )
-//      case Success(value) => status.addToValidProps(prop._1 -> value)
-//    })
-//  }
+  //  def aggregateResults(validatedProps: Seq[PropertyValidationResult], context: Context): ValidationStatus = {
+  //    validatedProps.foldLeft(ValidationStatus.empty)((status, prop) => prop._2 match {
+  //      case Failure(err) => status.addToInvalidProps(err)
+  //      case Success(JsAbsent) => status
+  //      case Success(undefined: JsUndefined) => status.addToInvalidProps(
+  //        (context.path \ prop._1, Seq(ValidationError(undefined.error)))
+  //      )
+  //      case Success(value) => status.addToValidProps(prop._1 -> value)
+  //    })
+  //  }
 
   def merge(va1: VA[JsValue], va2: VA[JsValue]): VA[JsValue] = {
     (va1, va2) match {
@@ -45,23 +46,33 @@ object Results {
     }
   }
 
-  def failure(errorMsg: String): VA[JsValue] = {
-    Failure(Seq(Path -> Seq(ValidationError(errorMsg))))
-  }
-
-  def failure(error: ValidationError): VA[JsValue] = {
-    Failure(Seq(Path -> Seq(error)))
-  }
-
-  def failure(path: Path, errorMsg: String): VA[JsValue] = {
-    Failure(Seq(path -> Seq(ValidationError(errorMsg))))
-  }
-
-  def failure(path: Path, error: ValidationError): VA[JsValue] = {
-    Failure(Seq(path -> Seq(error)))
-  }
-
   def success(prop: (String, JsValue)): PropertyValidationResult = {
     prop._1 -> Success(prop._2)
+  }
+
+  def error(msg: String, schemaPath: String, instancePath: String, schema: SchemaType, instance: JsValue): VA[JsValue] = {
+    Failure(Seq(Path \ schemaPath ->
+      Seq(ValidationError(msg,
+        Json.obj(
+          "schemaPath" -> schemaPath,
+          "instancePath" -> instancePath,
+          "value" -> instance,
+          "schema" -> Json.toJson(schema)
+        )
+      ))
+    ))
+  }
+
+  def failure2(msg: String, schemaPath: String, instancePath: String, schema: SchemaType, instance: JsValue): Validation[ValidationError, JsValue] = {
+    Failure(
+      Seq(ValidationError(msg,
+        Json.obj(
+          "schemaPath" -> schemaPath,
+          "instancePath" -> instancePath,
+          "value" -> instance,
+          "schema" -> Json.toJson(schema)
+        )
+      ))
+    )
   }
 }

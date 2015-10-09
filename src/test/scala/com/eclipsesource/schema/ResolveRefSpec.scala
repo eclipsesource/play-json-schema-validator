@@ -16,14 +16,14 @@ class ResolveRefSpec extends Specification {
 
     "be resolvable via " in {
 
-      val context = Context(Path, schema, Set.empty)
+      val context = Context(Path, Path, schema, Set.empty)
       val updatedRoot = RefResolver.replaceRefs(context)(schema)
       val resolved: Option[SchemaType] = RefResolver.resolveRef("#/definitions/schemaArray", context.copy(root = updatedRoot))
       resolved must beSome.which(t => t.isInstanceOf[SchemaArray])
     }
 
     "resolve ref" in {
-      val context = Context(Path, schema, Set.empty)
+      val context = Context(Path, Path, schema, Set.empty)
       val updatedRoot = RefResolver.replaceRefs(context)(schema)
       val resolved = RefResolver.resolveRef("#/properties/anyOf", context.copy(root = updatedRoot))
       resolved must beSome.which(t => t.isInstanceOf[SchemaArray])

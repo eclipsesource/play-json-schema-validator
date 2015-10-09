@@ -5,7 +5,7 @@ import com.eclipsesource.schema.internal.{Results, Context, SchemaUtil}
 import com.eclipsesource.schema.internal.serialization.{JSONSchemaReads, JSONSchemaWrites}
 import play.api.data.mapping.{Path, Success, VA}
 import play.api.data.validation.ValidationError
-import play.api.libs.json.{JsError, JsPath, JsValue}
+import play.api.libs.json._
 
 import scalaz.{Failure => _, Success => _}
 
@@ -15,8 +15,8 @@ package object schema
   with JSONSchemaReads {
 
   implicit def noValidator[S <: SchemaType] = new SchemaTypeValidator[S] {
-        override def validate(schema: S, json: => JsValue, context: Context): VA[JsValue] = Success(json)
-      }
+    override def validate(schema: S, json: => JsValue, context: Context): VA[JsValue] = Success(json)
+  }
   implicit val compoundValidator = CompoundValidator
   implicit val objectValidator = ObjectValidator
   implicit val arrayValidator = ArrayValidator
@@ -41,8 +41,28 @@ package object schema
 
   implicit class FailureExtensions(errors: Seq[(Path, Seq[ValidationError])]) {
     def toJsError: JsError = {
-      val groupedErrors = errors.groupBy(_._1).map(x => x._1 -> x._2.flatMap(_._2)).toSeq
+      // groups errors by path
+      val groupedErrors: Seq[(Path, Seq[ValidationError])] = errors.groupBy(_._1).map(x => x._1 -> x._2.flatMap(_._2)).toSeq
+      // merge args into top-level
       JsError(groupedErrors.map(e => (JsPath \ e._1.toString(), e._2)))
     }
+
+    def toJson: JsObject = {
+      errors.foldLeft(Json.obj()) { (obj, error) =>
+        obj ++ error._2.foldLeft(Json.obj()) { (arr, err) =>
+          arr.deepMerge(err.args.head match {
+            case obj@JsObject(_) =>
+              Json.obj(
+                "msg" -> err.message
+              ).deepMerge(obj)
+            case other =>
+              Json.obj(
+                "msg" -> err.message
+              )
+          })
+        }
+      }
+    }
   }
+
 }
