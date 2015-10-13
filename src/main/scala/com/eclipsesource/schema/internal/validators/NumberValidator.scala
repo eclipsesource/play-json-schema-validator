@@ -7,10 +7,11 @@ import play.api.libs.json.JsValue
 
 object NumberValidator extends SchemaTypeValidator[SchemaNumber] with NumberConstraintsValidator {
   override def validate(schema: SchemaNumber, json: => JsValue, context: Context): VA[JsValue] = {
-    val constraint = schema.constraints
-    (validateMax(constraint) |+|
-      validateMin(constraint) |+|
-      validateMultipleOf(constraint)
-      ).validate(json)
+    val reader = for {
+      maxRule <- validateMax
+      minRule <- validateMin
+      multipleOfRule <- validateMultipleOf
+    } yield maxRule |+| minRule |+| multipleOfRule
+    reader.run((schema.constraints, context)).validate(json)
   }
 }

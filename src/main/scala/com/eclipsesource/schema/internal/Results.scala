@@ -50,7 +50,7 @@ object Results {
     prop._1 -> Success(prop._2)
   }
 
-  def error(msg: String, schemaPath: String, instancePath: String, schema: SchemaType, instance: JsValue): VA[JsValue] = {
+  def failureWithPath(msg: String, schemaPath: String, instancePath: String, schema: SchemaType, instance: JsValue): VA[JsValue] = {
     Failure(Seq(Path \ schemaPath ->
       Seq(ValidationError(msg,
         Json.obj(

@@ -18,7 +18,7 @@ object TupleValidator extends SchemaTypeValidator[SchemaTuple] with ArrayConstra
         additionalItemsSchema match {
           case SchemaBooleanConstant(false) =>
             Seq(
-              Results.error(
+              Results.failureWithPath(
                 s"Too many items. Expected $schemaSize items, found $instanceSize.",
                 context.schemaPath.toString(),
                 context.instancePath.toString(),
@@ -64,9 +64,9 @@ object TupleValidator extends SchemaTypeValidator[SchemaTuple] with ArrayConstra
         Failure(results.collect { case Failure(err) => err }.reduceLeft(_ ++ _))
       } else {
         val updatedArr = JsArray(results.collect { case Success(js) => js })
-        validate(updatedArr, schema.constraints)
+        validate(updatedArr, schema.constraints, context)
       }
-    case other => Results.error(
+    case other => Results.failureWithPath(
       s"Expected array, was $other",
       context.schemaPath.toString(),
       context.instancePath.toString(),

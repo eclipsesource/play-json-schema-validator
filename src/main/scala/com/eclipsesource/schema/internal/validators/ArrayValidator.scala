@@ -1,7 +1,7 @@
 package com.eclipsesource.schema.internal.validators
 
 import com.eclipsesource.schema.{SchemaValidator, SchemaValidator$, SchemaArray}
-import com.eclipsesource.schema.internal.{Results, Context}
+import com.eclipsesource.schema.internal.{SchemaUtil, Results, Context}
 import play.api.data.mapping.{Success, Failure, VA}
 import play.api.libs.json.{JsArray, JsValue}
 
@@ -22,15 +22,16 @@ object ArrayValidator extends SchemaTypeValidator[SchemaArray] with ArrayConstra
         Failure(elements.collect { case Failure(err) => err }.reduceLeft(_ ++ _))
       } else {
         val updatedArr = JsArray(elements.collect { case Success(js) => js })
-        validate(updatedArr, schema.constraints)
+        validate(updatedArr, schema.constraints, context)
       }
-    case other => Results.error(
-      s"Expected array, was $other",
-      context.schemaPath.toString(),
-      context.instancePath.toString(),
-      context.root,
-      json
-    )
+    case other =>
+      Results.failureWithPath(
+        s"Wrong type. Expected array, was ${SchemaUtil.typeOfAsString(json)}",
+        context.schemaPath.toString(),
+        context.instancePath.toString(),
+        context.root,
+        json
+      )
   }
 
 }
