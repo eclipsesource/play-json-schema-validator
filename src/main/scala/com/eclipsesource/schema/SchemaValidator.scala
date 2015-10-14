@@ -99,7 +99,7 @@ trait SchemaValidator {
       case (_, _) if schema.constraints.any.schemaTypeAsString.isEmpty =>
         Success(json)
       case _ =>
-        Results.error(s"Wrong type. Expected $schema, was ${SchemaUtil.typeOfAsString(json)}.",
+        Results.failureWithPath(s"Wrong type. Expected $schema, was ${SchemaUtil.typeOfAsString(json)}.",
           context.schemaPath.toString(),
           context.instancePath.toString(),
           context.root,

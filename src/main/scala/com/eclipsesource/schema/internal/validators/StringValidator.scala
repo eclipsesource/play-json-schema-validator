@@ -13,18 +13,17 @@ object StringValidator extends SchemaTypeValidator[SchemaString] {
 
   def validate(schema: SchemaString, json: => JsValue, context: Context): VA[JsValue] = {
     val constraints = schema.constraints
-    val res = Results.merge(
+    Results.merge(
       (
-        validateMinLength(constraints) |+|
-          validateMaxLength(constraints) |+|
-          validatePattern(constraints)
+        validateMinLength(constraints, context) |+|
+          validateMaxLength(constraints, context) |+|
+          validatePattern(constraints, context)
         ).validate(json),
       AnyConstraintValidator.validate(json, constraints.any, context)
     )
-    res
   }
 
-  def validatePattern(constraints: StringConstraints): Rule[JsValue, JsValue] = {
+  def validatePattern(constraints: StringConstraints, context: Context): Rule[JsValue, JsValue] = {
     val format: Option[String] = constraints.pattern
     Rule.fromMapping {
       case json@JsString(string) => format match {
@@ -34,36 +33,40 @@ object StringValidator extends SchemaTypeValidator[SchemaString] {
           if(matcher.find()) {
             Success(json)
           } else {
-            Failure(
-              Seq(
-                ValidationError(s"$string does not match pattern $pattern.")
-              )
+            Results.failure(
+              s"$string does not match pattern $pattern.",
+              context.schemaPath.toString(),
+              context.instancePath.toString(),
+              context.root,
+              json
             )
           }
         case None => Success(json)
       }
-      case _ => expectedString
+      case json => expectedString(json, context)
     }
   }
 
-  def validateMinLength(constraints: StringConstraints): Rule[JsValue, JsValue] = {
+  def validateMinLength(constraints: StringConstraints, context: Context): Rule[JsValue, JsValue] = {
     val minLength = constraints.minLength.getOrElse(0)
     Rule.fromMapping {
       case json@JsString(string) =>
         if (lengthOf(string) >= minLength) {
           Success(json)
         } else {
-          Failure(
-            Seq(
-              ValidationError(s"$string violates minLength of $minLength.")
-            )
+          Results.failure(
+            s"$string violates min length of $minLength",
+            context.schemaPath.toString(),
+            context.instancePath.toString(),
+            context.root,
+            json
           )
         }
-      case _ => expectedString
+      case json => expectedString(json, context)
     }
   }
 
-  def validateMaxLength(constraints: StringConstraints): Rule[JsValue, JsValue] = {
+  def validateMaxLength(constraints: StringConstraints, context: Context): Rule[JsValue, JsValue] = {
     val maxLength = constraints.maxLength
     Rule.fromMapping {
       case json@JsString(string) => maxLength match {
@@ -72,18 +75,27 @@ object StringValidator extends SchemaTypeValidator[SchemaString] {
           if (lengthOf(string) <= max) {
             Success(json)
           } else {
-            Failure(
-              Seq(
-                ValidationError(s"$string violates maxLength of $maxLength.")
-              )
+            Results.failure(
+              s"$string violates max length of $max",
+              context.schemaPath.toString(),
+              context.instancePath.toString(),
+              context.root,
+              json
             )
           }
       }
-      case _ => expectedString
+      case json => expectedString(json, context)
     }
   }
 
-  private def expectedString = Failure(Seq(ValidationError("Expected string")))
+  private def expectedString(json: JsValue, context: Context) =
+    Results.failure(
+      "Expected string",
+      context.schemaPath.toString(),
+      context.instancePath.toString(),
+      context.root,
+      json
+    )
 
   private def lengthOf(str: String): Int = {
     val pattern = Pattern.compile("\u0B95\u0BCD\u0BB7\\p{M}?|\\p{L}|\\p{Nd}\\p{M}?")

@@ -11,7 +11,7 @@ object CompoundValidator extends SchemaTypeValidator[CompoundSchemaType] {
       .map(s => SchemaValidator.validate(s, json))
       .find(_.isSuccess)
       .getOrElse(
-        Results.error(
+        Results.failureWithPath(
           "No schema applied",
           context.schemaPath.toString(),
           context.instancePath.toString(),

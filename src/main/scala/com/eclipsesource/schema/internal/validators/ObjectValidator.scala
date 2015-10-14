@@ -73,7 +73,7 @@ object ObjectValidator extends SchemaTypeValidator[SchemaObject] {
         json \ attr.name match {
           case _: JsUndefined => if (required.contains(attr.name)) {
             attr.name ->
-              Results.error(
+              Results.failureWithPath(
                 s"Property ${attr.name} missing",
                 context.schemaPath.toString(),
                 context.instancePath.toString(),
@@ -153,7 +153,7 @@ object ObjectValidator extends SchemaTypeValidator[SchemaObject] {
               ((), (), Results.merge(status, Success(JsObject(unmatchedFields))))
             } else {
               ((), (), Results.merge(status,
-                Results.error(
+                Results.failureWithPath(
                   s"Additional properties are not allowed but found ${unmatchedFields.map(f => s"'${f._1}'").mkString(", ")}.",
                   context.schemaPath.toString(),
                   context.instancePath.toString(),
@@ -189,7 +189,7 @@ object ObjectValidator extends SchemaTypeValidator[SchemaObject] {
       // if present, make sure all dependencies are fulfilled
       val result = mandatoryProps.map(prop => obj.fields.find(_._1 == prop).fold(
         // msg: String, schemaPath: String, instancePath: String, schema: SchemaType, instance: JsValue)
-        prop -> Results.error(
+        prop -> Results.failureWithPath(
           s"Missing property dependency $prop.",
           (context.schemaPath \ prop).toString(),
           (context.instancePath \ prop).toString(),
@@ -233,7 +233,7 @@ object ObjectValidator extends SchemaTypeValidator[SchemaObject] {
         case Some(max) => if (size <= max) {
           Success(json)
         } else {
-          Results.error(
+          Results.failureWithPath(
             s"Found $size properties, but only a maximum of $max properties is allowed",
             context.schemaPath.toString(),
             context.instancePath.toString(),
@@ -254,7 +254,7 @@ object ObjectValidator extends SchemaTypeValidator[SchemaObject] {
         case Some(min) => if (size >= min) {
           Success(json)
         } else {
-          Results.error(
+          Results.failureWithPath(
             s"Found $size properties, but at least $min ${if (min == 1) "property needs" else "properties need"} to be present.",
             context.schemaPath.toString(),
             context.instancePath.toString(),
