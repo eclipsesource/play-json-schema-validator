@@ -22,7 +22,6 @@ object TupleValidator extends SchemaTypeValidator[SchemaTuple] with ArrayConstra
                 s"Too many items. Expected $schemaSize items, found $instanceSize.",
                 context.schemaPath.toString(),
                 context.instancePath.toString(),
-                context.root,
                 json
               )
             )
@@ -70,7 +69,6 @@ object TupleValidator extends SchemaTypeValidator[SchemaTuple] with ArrayConstra
       s"Expected array, was $other",
       context.schemaPath.toString(),
       context.instancePath.toString(),
-      context.root,
       json
     )
   }

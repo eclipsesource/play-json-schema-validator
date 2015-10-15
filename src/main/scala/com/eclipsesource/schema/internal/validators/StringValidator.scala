@@ -5,9 +5,8 @@ import java.util.regex.Pattern
 import com.eclipsesource.schema.SchemaString
 import com.eclipsesource.schema.internal.constraints.Constraints.StringConstraints
 import com.eclipsesource.schema.internal.{Context, Results}
-import play.api.data.mapping.{Failure, Rule, Success, VA}
-import play.api.data.validation.ValidationError
-import play.api.libs.json.{JsString, JsValue, Json}
+import play.api.data.mapping.{Rule, Success, VA}
+import play.api.libs.json.{JsString, JsValue}
 
 object StringValidator extends SchemaTypeValidator[SchemaString] {
 
@@ -18,7 +17,7 @@ object StringValidator extends SchemaTypeValidator[SchemaString] {
         validateMinLength(constraints, context) |+|
           validateMaxLength(constraints, context) |+|
           validatePattern(constraints, context)
-        ).validate(json),
+        ).repath(_.compose(context.instancePath)).validate(json),
       AnyConstraintValidator.validate(json, constraints.any, context)
     )
   }
@@ -30,14 +29,13 @@ object StringValidator extends SchemaTypeValidator[SchemaString] {
         case Some(pattern) =>
           val compiled = Pattern.compile(pattern)
           val matcher = compiled.matcher(string)
-          if(matcher.find()) {
+          if (matcher.find()) {
             Success(json)
           } else {
-            Results.failure(
-              s"$string does not match pattern $pattern.",
+            failure(
+              s"$string does not match pattern $pattern",
               context.schemaPath.toString(),
               context.instancePath.toString(),
-              context.root,
               json
             )
           }
@@ -54,11 +52,10 @@ object StringValidator extends SchemaTypeValidator[SchemaString] {
         if (lengthOf(string) >= minLength) {
           Success(json)
         } else {
-          Results.failure(
+          failure(
             s"$string violates min length of $minLength",
             context.schemaPath.toString(),
             context.instancePath.toString(),
-            context.root,
             json
           )
         }
@@ -75,11 +72,10 @@ object StringValidator extends SchemaTypeValidator[SchemaString] {
           if (lengthOf(string) <= max) {
             Success(json)
           } else {
-            Results.failure(
+            failure(
               s"$string violates max length of $max",
               context.schemaPath.toString(),
               context.instancePath.toString(),
-              context.root,
               json
             )
           }
@@ -89,11 +85,10 @@ object StringValidator extends SchemaTypeValidator[SchemaString] {
   }
 
   private def expectedString(json: JsValue, context: Context) =
-    Results.failure(
+    failure(
       "Expected string",
       context.schemaPath.toString(),
       context.instancePath.toString(),
-      context.root,
       json
     )
 

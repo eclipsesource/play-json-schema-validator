@@ -4,7 +4,7 @@ import java.net.URL
 
 import com.eclipsesource.schema.test.JsonSpec
 import org.specs2.mutable.Specification
-import play.api.libs.json.{JsDefined, JsString}
+import play.api.libs.json.{JsArray, JsDefined, JsString}
 
 class MaxLengthSpec extends Specification {
 
@@ -22,7 +22,7 @@ class MaxLengthSpec extends Specification {
       val json = JsString("foo")
       val result = SchemaValidator.validate(schema)(json)
       result.isFailure must beTrue
-      result.asEither must beLeft.like { case error => error.toJson \ "msg" == JsDefined(JsString("foo violates max length of 2")) }
+      result.asEither must beLeft.like { case error => (error.toJson \ "msgs") == JsDefined(JsArray(Seq(JsString("foo violates max length of 2")))) }
     }
   }
 

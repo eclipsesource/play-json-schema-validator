@@ -77,7 +77,6 @@ object ObjectValidator extends SchemaTypeValidator[SchemaObject] {
                 s"Property ${attr.name} missing",
                 context.schemaPath.toString(),
                 context.instancePath.toString(),
-                context.root,
                 json
               ) :: props
           } else {
@@ -157,7 +156,6 @@ object ObjectValidator extends SchemaTypeValidator[SchemaObject] {
                   s"Additional properties are not allowed but found ${unmatchedFields.map(f => s"'${f._1}'").mkString(", ")}.",
                   context.schemaPath.toString(),
                   context.instancePath.toString(),
-                  context.root,
                   Json.obj() // TODO
                 )
               ))
@@ -193,7 +191,6 @@ object ObjectValidator extends SchemaTypeValidator[SchemaObject] {
           s"Missing property dependency $prop.",
           (context.schemaPath \ prop).toString(),
           (context.instancePath \ prop).toString(),
-          context.root,
           obj
         )
       )((field: (String, JsValue)) => Results.success(field))
@@ -237,7 +234,6 @@ object ObjectValidator extends SchemaTypeValidator[SchemaObject] {
             s"Found $size properties, but only a maximum of $max properties is allowed",
             context.schemaPath.toString(),
             context.instancePath.toString(),
-            context.root,
             json
           )
         }
@@ -258,7 +254,6 @@ object ObjectValidator extends SchemaTypeValidator[SchemaObject] {
             s"Found $size properties, but at least $min ${if (min == 1) "property needs" else "properties need"} to be present.",
             context.schemaPath.toString(),
             context.instancePath.toString(),
-            context.root,
             json
           )
         }

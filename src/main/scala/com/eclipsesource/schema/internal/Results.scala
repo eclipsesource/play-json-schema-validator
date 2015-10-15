@@ -1,22 +1,10 @@
 package com.eclipsesource.schema.internal
 
-import com.eclipsesource.schema.SchemaType
 import play.api.data.mapping._
 import play.api.data.validation.ValidationError
 import play.api.libs.json._
 
 object Results {
-
-  //  def aggregateResults(validatedProps: Seq[PropertyValidationResult], context: Context): ValidationStatus = {
-  //    validatedProps.foldLeft(ValidationStatus.empty)((status, prop) => prop._2 match {
-  //      case Failure(err) => status.addToInvalidProps(err)
-  //      case Success(JsAbsent) => status
-  //      case Success(undefined: JsUndefined) => status.addToInvalidProps(
-  //        (context.path \ prop._1, Seq(ValidationError(undefined.error)))
-  //      )
-  //      case Success(value) => status.addToValidProps(prop._1 -> value)
-  //    })
-  //  }
 
   def merge(va1: VA[JsValue], va2: VA[JsValue]): VA[JsValue] = {
     (va1, va2) match {
@@ -50,29 +38,17 @@ object Results {
     prop._1 -> Success(prop._2)
   }
 
-  def failureWithPath(msg: String, schemaPath: String, instancePath: String, schema: SchemaType, instance: JsValue): VA[JsValue] = {
-    Failure(Seq(Path \ schemaPath ->
+  // TODO: replace keyword type
+  def failureWithPath(msg: String, schemaPath: String, instancePath: String, instance: JsValue): VA[JsValue] = {
+    Failure(Seq(Path \ instancePath ->
       Seq(ValidationError(msg,
         Json.obj(
           "schemaPath" -> schemaPath,
           "instancePath" -> instancePath,
-          "value" -> instance,
-          "schema" -> Json.toJson(schema)
+          "value" -> instance
         )
       ))
     ))
   }
 
-  def failure(msg: String, schemaPath: String, instancePath: String, schema: SchemaType, instance: JsValue): Validation[ValidationError, JsValue] = {
-    Failure(
-      Seq(ValidationError(msg,
-        Json.obj(
-          "schemaPath" -> schemaPath,
-          "instancePath" -> instancePath,
-          "value" -> instance,
-          "schema" -> Json.toJson(schema)
-        )
-      ))
-    )
-  }
 }
