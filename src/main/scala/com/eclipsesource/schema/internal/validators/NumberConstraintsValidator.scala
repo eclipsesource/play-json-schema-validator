@@ -29,11 +29,10 @@ trait NumberConstraintsValidator {
               val isExclusive = min.isExclusive.getOrElse(false)
               val minType = if (isExclusive) "exclusive minimum" else "minimum"
               val comparison = if (isExclusive) "less than or equal to" else "less than"
-              Results.failure(
+              failure(
                 s"$minType violated: $number is $comparison ${min.min}",
                 context.schemaPath.toString(),
                 context.instancePath.toString(),
-                context.root,
                 number
               )
             }
@@ -64,11 +63,10 @@ trait NumberConstraintsValidator {
               val isExclusive = max.isExclusive.getOrElse(false)
               val maxType = if (isExclusive) "exclusive maximum" else "maximum"
               val comparison = if (isExclusive) "bigger than or equal to" else "bigger than"
-              Results.failure(
+              failure(
                 s"$maxType violated: $number is $comparison ${max.max}",
                 context.schemaPath.toString(),
                 context.instancePath.toString(),
-                context.root,
                 number
               )
             }
@@ -86,11 +84,10 @@ trait NumberConstraintsValidator {
             if (n.remainder(factor) == BigDecimal(0)) {
               Success(number)
             } else {
-              Results.failure(
+              failure(
                 s"$number is not a multiple of $factor.",
                 context.schemaPath.toString(),
                 context.instancePath.toString(),
-                context.root,
                 number
               )
             }
@@ -101,11 +98,10 @@ trait NumberConstraintsValidator {
     }
 
   private def expectedNumber(json: JsValue, context: Context) =
-    Results.failure(
+    failure(
       s"Wrong type. Expected number, was ${SchemaUtil.typeOfAsString(json)}",
       context.schemaPath.toString(),
       context.instancePath.toString(),
-      context.root,
       json
     )
 }

@@ -16,7 +16,7 @@ object AnyConstraintValidator {
       enumRule <- validateEnum
       notRule <- validateNot
     } yield allOfRule |+| anyOfRule |+| oneOfRule |+| enumRule |+| notRule
-    reader.run((any, context)).validate(json)
+    reader.run((any, context)).repath(_.compose(context.instancePath)).validate(json)
   }
 
   def validateNot: scalaz.Reader[(AnyConstraint, Context), Rule[JsValue, JsValue]] =
@@ -26,11 +26,10 @@ object AnyConstraintValidator {
           if (SchemaValidator.validate(schema, json).isFailure) {
             Success(json)
           } else {
-            Results.failure(
+            failure(
               s"$json matches schema '$schema' although it should not.",
               context.schemaPath.toString(),
               context.instancePath.toString(),
-              schema,
               json
             )
           }
@@ -48,12 +47,12 @@ object AnyConstraintValidator {
             if (allMatch) {
               Success(json)
             } else {
-              Results.failure(
+              failure(
                 s"$json does not match all schemas",
                 context.schemaPath.toString(),
                 context.instancePath.toString(),
-                context.root,
-                json
+                json,
+                Some(allValidationResults)
               )
             }
           }
@@ -66,15 +65,15 @@ object AnyConstraintValidator {
       Rule.fromMapping { json =>
         any.anyOf.map(
           schemas => {
-            val allValidationResults = schemas.map(SchemaValidator.validate(_)(json))
+            val allValidationResults: Seq[VA[JsValue]] = schemas.map(SchemaValidator.validate(_)(json))
             val maybeSuccess = allValidationResults.find(_.isSuccess)
             maybeSuccess.map(success => Success(json)).getOrElse(
-              Results.failure(
+              failure(
                 s"$json does not match any of the schemas",
                 context.schemaPath.toString(),
                 context.instancePath.toString(),
-                context.root,
-                json
+                json,
+                Some(allValidationResults)
               )
             )
           }
@@ -90,20 +89,19 @@ object AnyConstraintValidator {
             val allValidationResults = schemas.map(schema => SchemaValidator.validate(schema)(json))
             allValidationResults.count(_.isSuccess) match {
               case 0 =>
-                Results.failure(
+                failure(
                   s"$json does not match any schema",
                   context.schemaPath.toString(),
                   context.instancePath.toString(),
-                  context.root,
-                  json
+                  json,
+                  Some(allValidationResults)
                 )
               case 1 => Success(json)
               case _ =>
-                Results.failure(
+                failure(
                   s"$json does match more than one schema",
                   context.schemaPath.toString(),
                   context.instancePath.toString(),
-                  context.root,
                   json
                 )
             }
@@ -119,11 +117,10 @@ object AnyConstraintValidator {
         enums match {
           case Some(values) if values.contains(json) => Success(json)
           case Some(values) =>
-            Results.failure(
+            failure(
               s"$json is not part of enum [${values.mkString(", ")}]",
               context.schemaPath.toString(),
               context.instancePath.toString(),
-              context.root,
               json
             )
           case None => Success(json)
@@ -131,5 +128,4 @@ object AnyConstraintValidator {
       }
     }
   }
-
 }

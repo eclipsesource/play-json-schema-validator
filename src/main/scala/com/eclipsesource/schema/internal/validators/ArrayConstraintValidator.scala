@@ -13,7 +13,7 @@ trait ArrayConstraintValidator {
       maxItemsRule <- validateMaxItems
       uniqueRule <- validateUniqueness
     } yield { minItemsRule |+| maxItemsRule |+| uniqueRule }
-    reader.run((arrayConstraints, context)).validate(json)
+    reader.run((arrayConstraints, context)).repath(_.compose(context.instancePath)).validate(json)
   }
 
   def validateMaxItems: scalaz.Reader[(ArrayConstraints, Context), Rule[JsValue, JsValue]] =
@@ -24,11 +24,10 @@ trait ArrayConstraintValidator {
           case Some(max) => if (values.size <= max) {
             Success(json)
           } else {
-            Results.failure(
+            failure(
               s"Too many items. ${values.size} items found, but only $max item(s) are allowed.",
               context.schemaPath.toString(),
               context.instancePath.toString(),
-              context.root,
               json
             )
           }
@@ -46,11 +45,10 @@ trait ArrayConstraintValidator {
           if (values.size >= minItems) {
             Success(json)
           } else {
-            Results.failure(
+            failure(
               s"Not enough items. ${values.size} items found, but at least $minItems item(s) need to be present.",
               context.schemaPath.toString(),
               context.instancePath.toString(),
-              context.root,
               json
             )
           }
@@ -66,11 +64,10 @@ trait ArrayConstraintValidator {
           if (values.distinct.size == values.size) {
             Success(json)
           } else {
-            Results.failure(
+            failure(
               s"[${values.mkString(", ")}] contains duplicates",
               context.schemaPath.toString(),
               context.instancePath.toString(),
-              context.root,
               json
             )
           }
@@ -79,12 +76,11 @@ trait ArrayConstraintValidator {
       }
     }
 
-  private[validators] def expectedArray(json: JsValue, context: Context) =
-    Results.failure(
+  private def expectedArray(json: JsValue, context: Context) =
+    failure(
       s"Wrong type. Expected array, was ${SchemaUtil.typeOfAsString(json)}",
       context.schemaPath.toString(),
       context.instancePath.toString(),
-      context.root,
       json
     )
 }
