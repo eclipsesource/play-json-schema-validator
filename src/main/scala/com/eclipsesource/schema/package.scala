@@ -17,6 +17,7 @@ package object schema
   implicit def noValidator[S <: SchemaType] = new SchemaTypeValidator[S] {
     override def validate(schema: S, json: => JsValue, context: Context): VA[JsValue] = Success(json)
   }
+
   implicit val compoundValidator = CompoundValidator
   implicit val objectValidator = ObjectValidator
   implicit val arrayValidator = ArrayValidator
@@ -47,22 +48,6 @@ package object schema
       JsError(groupedErrors.map(e => (JsPath \ e._1.toString(), e._2)))
     }
 
-    def toJson: JsObject = {
-      errors.foldLeft(Json.obj()) { (obj, error) =>
-        obj ++ error._2.foldLeft(Json.obj()) { (arr, err) =>
-          arr.deepMerge(err.args.head match {
-            case obj@JsObject(_) =>
-              Json.obj(
-                "msg" -> err.message
-              ).deepMerge(obj)
-            case other =>
-              Json.obj(
-                "msg" -> err.message
-              )
-          })
-        }
-      }
-    }
+    def toJson: JsObject = SchemaUtil.toJson(errors)
   }
-
 }

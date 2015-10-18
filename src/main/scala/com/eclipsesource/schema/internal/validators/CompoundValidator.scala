@@ -15,7 +15,6 @@ object CompoundValidator extends SchemaTypeValidator[CompoundSchemaType] {
           "No schema applied",
           context.schemaPath.toString(),
           context.instancePath.toString(),
-          context.root,
           json
         )
       )

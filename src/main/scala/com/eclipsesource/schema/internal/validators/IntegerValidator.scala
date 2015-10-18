@@ -14,11 +14,10 @@ object IntegerValidator extends SchemaTypeValidator[SchemaInteger] with NumberCo
       Rule.fromMapping {
         case json@JsNumber(number) if number.isValidInt => Success(json)
         case other =>
-          Results.failure(
+          failure(
             s"Wrong type. Expected integer, was ${SchemaUtil.typeOfAsString(other)}",
             context.schemaPath.toString(),
             context.instancePath.toString(),
-            context.root,
             other
           )
       }
@@ -31,6 +30,6 @@ object IntegerValidator extends SchemaTypeValidator[SchemaInteger] with NumberCo
       multipleOfRule <- validateMultipleOf
       intRule <- isInt
     } yield maxRule |+| minRule |+| multipleOfRule |+| intRule
-    reader.run((schema.constraints, context)).validate(json)
+    reader.run((schema.constraints, context)).repath(_.compose(context.instancePath)).validate(json)
   }
 }

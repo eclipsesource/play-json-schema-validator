@@ -12,6 +12,6 @@ object NumberValidator extends SchemaTypeValidator[SchemaNumber] with NumberCons
       minRule <- validateMin
       multipleOfRule <- validateMultipleOf
     } yield maxRule |+| minRule |+| multipleOfRule
-    reader.run((schema.constraints, context)).validate(json)
+    reader.run((schema.constraints, context)).repath(_.compose(context.instancePath)).validate(json)
   }
 }
