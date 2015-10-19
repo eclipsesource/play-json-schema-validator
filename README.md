@@ -51,6 +51,29 @@ validate[A](schema: SchemaType, input: A, writes: Writes[A]): VA[JsValue]
 validate[A: Format](schema: SchemaType, input: A): VA[A] 
 ```
 
+## Error Reporting
+
+In case the `validate` method returns an error, errors can be converted to JSON by calling the `toJson` on the errors. Below is given an example taken from the example app:
+
+```Scala
+val result: VA[Post] = SchemaValidator.validate(schema, json, Post.reads)
+result.fold(
+  invalid = { errors =>  BadRequest(errors.toJson) },
+  valid = { post => ... } 
+)
+```
+
+Erros feature a `schemaPath`, an `instancePath`, a `value` and a `msgs` property. While `schemaPath` and `instancePath` should be self explanatory `value` holds the validated value and `msgs` holds all errors related to the validated value. The value of the `msgs` property is always an array. Below is an example, again taken from the example app.
+
+```Javascript
+{
+  "schemaPath" : "/properties/title",
+  "instancePath" : "/title",
+  "value" : "a",
+  "msgs" : [ "a violates min length of 3", "a does not match pattern ^[A-Z].*" ]
+}
+```
+
 ## Example
 
 For a complete Play application that makes use of this library, please see [this example](https://github.com/edgarmueller/play-json-schema-example).
