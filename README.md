@@ -79,13 +79,13 @@ In case of `allOf`, `anyOf` and `oneOf`, the failure(s) also contain an `errors`
 
 ```Javascript
 {
-  "oneOf": [
+  "anyOf": [
     { "type": "integer" },
     { "minimum": 2 }
   ]
 }
 ```
-and we validate `3` the returned failure looks like this: 
+and we validate the value `1.5`, the `toJson` method returns this error: 
 
 ```Javascript
 {
