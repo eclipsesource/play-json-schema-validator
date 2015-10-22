@@ -53,7 +53,7 @@ validate[A: Format](schema: SchemaType, input: A): VA[A]
 
 ## Error Reporting
 
-In case the `validate` method returns an error, errors can be converted to JSON by calling the `toJson` on the errors. Below is given an example taken from the example app:
+In case the `validate` method returns an failure, errors can be converted to JSON by calling the `toJson` on the errors. Below is given an example taken from the example app:
 
 ```Scala
 val result: VA[Post] = SchemaValidator.validate(schema, json, Post.reads)
@@ -63,7 +63,7 @@ result.fold(
 )
 ```
 
-Erros feature a `schemaPath`, an `instancePath`, a `value` and a `msgs` property. While `schemaPath` and `instancePath` should be self explanatory `value` holds the validated value and `msgs` holds all errors related to the validated value. The value of the `msgs` property is always an array. Below is an example, again taken from the example app.
+Erros feature a `schemaPath`, an `instancePath`, a `value` and a `msgs` property. While `schemaPath` and `instancePath` should be self explanatory, `value` holds the validated value and `msgs` holds all errors related to the validated value. The value of the `msgs` property is always an array. Below is an example, again taken from the example app.
 
 ```Javascript
 {
@@ -71,6 +71,39 @@ Erros feature a `schemaPath`, an `instancePath`, a `value` and a `msgs` property
   "instancePath" : "/title",
   "value" : "a",
   "msgs" : [ "a violates min length of 3", "a does not match pattern ^[A-Z].*" ]
+}
+```
+
+### anyOf, oneOf, allOf 
+In case of `allOf`, `anyOf` and `oneOf`, the failure(s) also contain an `errors` array property which holds the actual sub errors. For instance, if we have a schema like the following:
+
+```Javascript
+{
+  "oneOf": [
+    { "type": "integer" },
+    { "minimum": 2 }
+  ]
+}
+```
+and we validate `3` the returned failure looks like this: 
+
+```Javascript
+{
+  "schemaPath" : "/",
+  "errors" : [ {
+    "schemaPath" : "/",
+    "instancePath" : "/",
+    "value" : 1.5,
+    "msgs" : [ "Wrong type. Expected integer, was number" ]
+  }, {
+    "schemaPath" : "/",
+    "instancePath" : "/",
+    "value" : 1.5,
+    "msgs" : [ "minimum violated: 1.5 is less than 2" ]
+  } ],
+  "msgs" : [ "1.5 does not match any of the schemas" ],
+  "value" : 1.5,
+  "instancePath" : "/"
 }
 ```
 
