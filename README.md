@@ -4,6 +4,8 @@
 
 This is a JSON schema (draft v4) validation library for Scala based on Play's JSON library and the [unified validation library](https://github.com/jto/validation).
 
+If you have any issues, feature requests etc, please don't hesistate to [file an issue](https://github.com/eclipsesource/play-json-schema-validator/issues/new). Thanks!
+
 ## Installation
 
 In your `build.sbt` file, first add an additional resovler:
