@@ -40,17 +40,12 @@ object ObjectValidator extends SchemaTypeValidator[SchemaObject] {
     } yield resolved match {
         case _ if context.visited.contains(ref) => Success(json)
         case obj: SchemaObject =>
-          // TODO: isInstanceOf
-          if (schema.isSubSetOf(obj) && !json.isInstanceOf[JsObject]) {
-            Success(json)
+          val updatedContext = if (context.root == schema) {
+            context.copy(root = obj, visited = context.visited + ref)
           } else {
-            val updatedContext = if (context.root == schema) {
-              context.copy(root = obj, visited = context.visited + ref)
-            } else {
-              context.copy(visited = context.visited + ref)
-            }
-            validateJson(obj, updatedContext)
+            context.copy(visited = context.visited + ref)
           }
+          validateJson(obj, updatedContext)
         case other =>
           val updatedContext = if (context.root == schema) {
             context.copy(root = other)
