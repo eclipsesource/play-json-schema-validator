@@ -22,7 +22,7 @@ class MaxLengthSpec extends Specification {
       val json = JsString("foo")
       val result = SchemaValidator.validate(schema)(json)
       result.isFailure must beTrue
-      result.asEither must beLeft.like { case error => (error.toJson \ "msgs") == JsDefined(JsArray(Seq(JsString("foo violates max length of 2")))) }
+      result.asEither must beLeft.like { case error => (error.toJson(0) \ "msgs") == JsDefined(JsArray(Seq(JsString("foo violates max length of 2")))) }
     }
   }
 
