@@ -45,6 +45,8 @@ final case class JSONPointer(path: String)
 // TODO: pointer is a JSONSPointer, see http://tools.ietf.org/html/draft-pbryan-zyp-json-pointer-02
 final case class SchemaRef(pointer: JSONPointer, isAttribute: Boolean = false, isRemote: Boolean = false) extends SchemaType {
   override def constraints = NoConstraints
+
+  override def toString: String = pointer.path
 }
 
 final case class CompoundSchemaType(alternatives: Seq[SchemaType]) extends SchemaType {
