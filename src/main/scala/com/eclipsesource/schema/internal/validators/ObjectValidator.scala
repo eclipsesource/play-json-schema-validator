@@ -31,32 +31,7 @@ object ObjectValidator extends SchemaTypeValidator[SchemaObject] {
       }
     }
 
-    // check if any property is a ref
-    val reference = schema.properties.collectFirst { case SchemaAttribute("$ref", ref@SchemaRef(_, _, _)) => ref }
-
-    val validatedOpt: Option[VA[JsValue]] = for {
-      ref <- reference
-      resolved <- RefResolver.resolveRef(ref, context)
-    } yield resolved match {
-        case _ if context.visited.contains(ref) => Success(json)
-        case obj: SchemaObject =>
-          val updatedContext = if (context.root == schema) {
-            context.copy(root = obj, visited = context.visited + ref)
-          } else {
-            context.copy(visited = context.visited + ref)
-          }
-          validateJson(obj, updatedContext)
-        case other =>
-          val updatedContext = if (context.root == schema) {
-            context.copy(root = other)
-          } else {
-            context
-          }
-          SchemaValidator.process(other, json, updatedContext)
-
-      }
-
-    validatedOpt.getOrElse(validateJson(schema, context))
+    validateJson(schema, context)
   }
 
   private def validateProps(schema: SchemaObject, json: => JsObject): ValidationStep[Props] =

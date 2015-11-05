@@ -1,7 +1,7 @@
 package com.eclipsesource
 
 import com.eclipsesource.schema.internal.validators._
-import com.eclipsesource.schema.internal.{Results, Context, SchemaUtil}
+import com.eclipsesource.schema.internal.{RefResolver, Results, Context, SchemaUtil}
 import com.eclipsesource.schema.internal.serialization.{JSONSchemaReads, JSONSchemaWrites}
 import play.api.data.mapping.{Path, Success, VA}
 import play.api.data.validation.ValidationError
@@ -32,11 +32,28 @@ package object schema
 
     def prettyPrint: String = SchemaUtil.prettyPrint(schemaType)
 
+    private def hasRef(schema: SchemaObject) = schema.properties.exists { _.name == "$ref" }
+
     def validate(json: => JsValue, context: Context)(implicit validator: SchemaTypeValidator[S]): VA[JsValue] = {
+      val results = schemaType match {
+        case schema: SchemaObject if hasRef(schema) =>
+          val resolved = resolveRef(json, schema, context)
+          resolved.map(r => r.validate(json, context)).getOrElse(throw new RuntimeException("unresolved $ref"))
+        case _ =>
+          validator.validate(schemaType, json, context)
+      }
       Results.merge(
-        validator.validate(schemaType, json, context),
+        results,
         AnyConstraintValidator.validate(json, schemaType.constraints.any, context)
       )
+    }
+
+    def resolveRef(json: => JsValue, schema: SchemaObject, context: Context) = {
+      val reference = schema.properties.collectFirst { case SchemaAttribute("$ref", ref@SchemaRef(_, _, _)) => ref }
+      for {
+        ref <- reference
+        resolved <- RefResolver.resolveRef(ref, context)
+      } yield resolved
     }
   }
 
@@ -48,6 +65,6 @@ package object schema
       JsError(groupedErrors.map(e => (JsPath \ e._1.toString(), e._2)))
     }
 
-    def toJson: JsObject = SchemaUtil.toJson(errors)
+    def toJson: JsArray = SchemaUtil.toJson(errors)
   }
 }

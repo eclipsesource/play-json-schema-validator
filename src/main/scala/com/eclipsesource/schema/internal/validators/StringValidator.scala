@@ -12,14 +12,11 @@ object StringValidator extends SchemaTypeValidator[SchemaString] {
 
   def validate(schema: SchemaString, json: => JsValue, context: Context): VA[JsValue] = {
     val constraints = schema.constraints
-    Results.merge(
-      (
-        validateMinLength(constraints, context) |+|
-          validateMaxLength(constraints, context) |+|
-          validatePattern(constraints, context)
-        ).repath(_.compose(context.instancePath)).validate(json),
-      AnyConstraintValidator.validate(json, constraints.any, context)
-    )
+    (
+      validateMinLength(constraints, context) |+|
+        validateMaxLength(constraints, context) |+|
+        validatePattern(constraints, context)
+      ).repath(_.compose(context.instancePath)).validate(json)
   }
 
   def validatePattern(constraints: StringConstraints, context: Context): Rule[JsValue, JsValue] = {
