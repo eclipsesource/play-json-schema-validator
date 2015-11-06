@@ -29,13 +29,14 @@ object SchemaUtil {
 
   def toJson(errors:  Seq[(Path, Seq[ValidationError])]): JsArray = {
     val emptyErrors = Json.arr()
-    errors.foldLeft(emptyErrors) { (accumulatedErrors, error) =>
-      val maybeError = error._2.foldLeft(None: Option[JsObject])((aggregatedError, err) => err.args.headOption match {
+    errors.foldLeft(emptyErrors) { case (accumulatedErrors, (path, validationErrors)) =>
+      val maybeError = validationErrors.foldLeft(None: Option[JsObject])((aggregatedError, err) => err.args.headOption match {
         case Some(o@JsObject(fields)) =>
           Some(
             aggregatedError.fold(
-              o.deepMerge(Json.obj("msgs" -> Json.arr(err.message)))
-            )(errObj => deepMerge(errObj, Json.obj("msgs" -> (errObj \ "msgs").get))))
+              deepMerge(o, Json.obj("msgs" -> Json.arr(err.message)))
+            )(errObj => deepMerge(errObj, Json.obj("msgs" -> Json.arr(err.message))))
+          )
         case _ => aggregatedError
       })
       maybeError.fold(accumulatedErrors)(o => accumulatedErrors.+:(o))

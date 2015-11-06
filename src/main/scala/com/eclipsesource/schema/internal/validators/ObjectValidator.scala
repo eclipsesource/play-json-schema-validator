@@ -9,24 +9,20 @@ import scalaz.ReaderWriterState
 
 object ObjectValidator extends SchemaTypeValidator[SchemaObject] {
 
-  override def validate(schema: SchemaObject, json: => JsValue, context: Context): VA[JsValue] = {
-    json match {
-      case jsObject@JsObject(props) =>
-        val validation = for {
-          updatedSchema <- validateDependencies(schema, jsObject)
-          remaining <- validateProps(updatedSchema, jsObject)
-          unmatched <- validatePatternProps(updatedSchema, jsObject.fields)
-          _ <- validateAdditionalProps(updatedSchema, unmatched.intersect(remaining))
-          _ <- validateMinProperties(updatedSchema, jsObject)
-          _ <- validateMaxProperties(updatedSchema, jsObject)
-        } yield updatedSchema
+  override def validate(schema: SchemaObject, json: => JsValue, context: Context): VA[JsValue] = json match {
+    case jsObject@JsObject(props) =>
+      val validation = for {
+        updatedSchema <- validateDependencies(schema, jsObject)
+        remaining <- validateProps(updatedSchema, jsObject)
+        unmatched <- validatePatternProps(updatedSchema, jsObject.fields)
+        _ <- validateAdditionalProps(updatedSchema, unmatched.intersect(remaining))
+        _ <- validateMinProperties(updatedSchema, jsObject)
+        _ <- validateMaxProperties(updatedSchema, jsObject)
+      } yield updatedSchema
 
-        val (_, _, result) = validation.run(context, Success(json))
-        result
-      case _ =>
-        val (_, _, result) = validationAny(schema, json).run(context, Success(json))
-        result
-    }
+      val (_, _, result) = validation.run(context, Success(json))
+      result
+    case _ => Success(json)
   }
 
   private def validateProps(schema: SchemaObject, json: => JsObject): ValidationStep[Props] =
@@ -177,13 +173,6 @@ object ObjectValidator extends SchemaTypeValidator[SchemaObject] {
       })
 
       ((), updatedSchema, updatedStatus)
-    }
-  }
-
-  def validationAny(schema: SchemaObject, obj: JsValue): ReaderWriterState[Context, Unit, VA[JsValue], VA[JsValue]] = {
-    ReaderWriterState { (context, status) =>
-      val result = AnyConstraintValidator.validate(obj, schema.constraints.any, context)
-      ((), result, result)
     }
   }
 
