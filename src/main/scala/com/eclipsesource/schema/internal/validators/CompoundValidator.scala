@@ -13,8 +13,8 @@ object CompoundValidator extends SchemaTypeValidator[CompoundSchemaType] {
       .getOrElse(
         Results.failureWithPath(
           "No schema applied",
-          context.schemaPath.toString(),
-          context.instancePath.toString(),
+          context.schemaPath,
+          context.instancePath,
           json
         )
       )

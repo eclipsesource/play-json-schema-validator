@@ -20,8 +20,8 @@ object TupleValidator extends SchemaTypeValidator[SchemaTuple] with ArrayConstra
             Seq(
               Results.failureWithPath(
                 s"Too many items. Expected $schemaSize items, found $instanceSize.",
-                context.schemaPath.toString(),
-                context.instancePath.toString(),
+                context.schemaPath,
+                context.instancePath,
                 json
               )
             )
@@ -67,8 +67,8 @@ object TupleValidator extends SchemaTypeValidator[SchemaTuple] with ArrayConstra
       }
     case other => Results.failureWithPath(
       s"Expected array, was $other",
-      context.schemaPath.toString(),
-      context.instancePath.toString(),
+      context.schemaPath,
+      context.instancePath,
       json
     )
   }

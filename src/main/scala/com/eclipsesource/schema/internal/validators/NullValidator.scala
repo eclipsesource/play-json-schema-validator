@@ -10,8 +10,8 @@ object NullValidator extends SchemaTypeValidator[SchemaNull] {
     case JsNull => Success(json)
     case _ => Results.failureWithPath(
       s"Wrong type. Expected null, got ${SchemaUtil.typeOfAsString(json)}",
-      context.schemaPath.toString(),
-      context.instancePath.toString(),
+      context.schemaPath,
+      context.instancePath,
       json
     )
   }

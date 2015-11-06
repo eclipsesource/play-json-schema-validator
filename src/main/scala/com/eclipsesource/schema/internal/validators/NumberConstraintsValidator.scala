@@ -8,7 +8,7 @@ import play.api.libs.json.{JsNumber, JsValue}
 
 trait NumberConstraintsValidator {
 
-  def validateMin: scalaz.Reader[(NumberConstraints, Context), Rule[JsValue, JsValue]] = {
+  val validateMin: scalaz.Reader[(NumberConstraints, Context), Rule[JsValue, JsValue]] = {
 
     def isValid(n: JsNumber, minConstraint: Minimum) = {
       if (minConstraint.isExclusive.getOrElse(false)) {
@@ -42,7 +42,7 @@ trait NumberConstraintsValidator {
     }
   }
 
-  def validateMax: scalaz.Reader[(NumberConstraints, Context), Rule[JsValue, JsValue]] = {
+  val validateMax: scalaz.Reader[(NumberConstraints, Context), Rule[JsValue, JsValue]] = {
 
     def isValid(n: JsNumber, maxConstraint: Maximum) = {
       if (maxConstraint.isExclusive.getOrElse(false)) {
@@ -76,10 +76,10 @@ trait NumberConstraintsValidator {
     }
   }
 
-  def validateMultipleOf: scalaz.Reader[(NumberConstraints, Context), Rule[JsValue, JsValue]] =
-    scalaz.Reader { case (constraint, context) =>
+  val validateMultipleOf: scalaz.Reader[(NumberConstraints, Context), Rule[JsValue, JsValue]] =
+    scalaz.Reader { case (constraints, context) =>
       Rule.fromMapping[JsValue, JsValue] {
-        case number@JsNumber(n) => constraint.multipleOf match {
+        case number@JsNumber(n) => constraints.multipleOf match {
           case Some(factor) =>
             if (n.remainder(factor) == BigDecimal(0)) {
               Success(number)

@@ -40,8 +40,8 @@ package object schema
           resolveRef(json, schema, context) match {
             case None => Results.failureWithPath(
               s"Could not resolve ref $schema",
-              context.schemaPath.toString(),
-              context.instancePath.toString(),
+              context.schemaPath,
+              context.instancePath,
               json
             )
             case Some(resolved) =>
