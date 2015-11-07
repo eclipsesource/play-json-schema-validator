@@ -18,7 +18,7 @@ Then add the library itself via:
 
 ```
 libraryDependencies ++= Seq(
- "com.eclipsesource" %% "play-json-schema-validator" % "0.5.4"
+ "com.eclipsesource" %% "play-json-schema-validator" % "0.5.5"
 )
 ``` 
  
