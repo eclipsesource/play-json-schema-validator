@@ -73,7 +73,6 @@ Erros feature a `schemaPath`, an `instancePath`, a `value` and a `msgs` property
   "instancePath" : "/title",
   "value" : "a",
   "msgs" : [ "a violates min length of 3", "a does not match pattern ^[A-Z].*" ]
-  "
 }
 ```
 
