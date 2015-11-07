@@ -73,6 +73,7 @@ Erros feature a `schemaPath`, an `instancePath`, a `value` and a `msgs` property
   "instancePath" : "/title",
   "value" : "a",
   "msgs" : [ "a violates min length of 3", "a does not match pattern ^[A-Z].*" ]
+  "
 }
 ```
 
@@ -110,5 +111,7 @@ and we validate the value `1.5`, the `toJson` method returns this error:
 ```
 
 ## Example
+
+An online demo of the library can be seen [here](https://ancient-atoll-3956.herokuapp.com/).
 
 For a complete Play application that makes use of this library, please see [this example](https://github.com/edgarmueller/play-json-schema-example).
