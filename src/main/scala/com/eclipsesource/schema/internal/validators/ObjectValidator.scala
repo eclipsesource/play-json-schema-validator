@@ -9,59 +9,20 @@ import scalaz.ReaderWriterState
 
 object ObjectValidator extends SchemaTypeValidator[SchemaObject] {
 
-  override def validate(schema: SchemaObject, json: => JsValue, context: Context): VA[JsValue] = {
+  override def validate(schema: SchemaObject, json: => JsValue, context: Context): VA[JsValue] = json match {
+    case jsObject@JsObject(props) =>
+      val validation = for {
+        updatedSchema <- validateDependencies(schema, jsObject)
+        remaining <- validateProps(updatedSchema, jsObject)
+        unmatched <- validatePatternProps(updatedSchema, jsObject.fields)
+        _ <- validateAdditionalProps(updatedSchema, unmatched.intersect(remaining))
+        _ <- validateMinProperties(updatedSchema, jsObject)
+        _ <- validateMaxProperties(updatedSchema, jsObject)
+      } yield updatedSchema
 
-    def validateJson(schema: SchemaObject, context: Context): VA[JsValue] = {
-      json match {
-        case jsObject@JsObject(props) =>
-          val validation = for {
-            updatedSchema <- validateDependencies(schema, jsObject)
-            remaining <- validateProps(updatedSchema, jsObject)
-            unmatched <- validatePatternProps(updatedSchema, jsObject.fields)
-            _ <- validateAdditionalProps(updatedSchema, unmatched.intersect(remaining))
-            _ <- validateMinProperties(updatedSchema, jsObject)
-            _ <- validateMaxProperties(updatedSchema, jsObject)
-          } yield updatedSchema
-
-          val (_, _, result) = validation.run(context, Success(json))
-          result
-        case _ =>
-          val (_, _, result) = validationAny(schema, json).run(context, Success(json))
-          result
-      }
-    }
-
-    // check if any property is a ref
-    val reference = schema.properties.collectFirst { case SchemaAttribute("$ref", ref@SchemaRef(_, _, _)) => ref }
-
-    val validatedOpt: Option[VA[JsValue]] = for {
-      ref <- reference
-      resolved <- RefResolver.resolveRef(ref, context)
-    } yield resolved match {
-        case _ if context.visited.contains(ref) => Success(json)
-        case obj: SchemaObject =>
-          // TODO: isInstanceOf
-          if (schema.isSubSetOf(obj) && !json.isInstanceOf[JsObject]) {
-            Success(json)
-          } else {
-            val updatedContext = if (context.root == schema) {
-              context.copy(root = obj, visited = context.visited + ref)
-            } else {
-              context.copy(visited = context.visited + ref)
-            }
-            validateJson(obj, updatedContext)
-          }
-        case other =>
-          val updatedContext = if (context.root == schema) {
-            context.copy(root = other)
-          } else {
-            context
-          }
-          SchemaValidator.process(other, json, updatedContext)
-
-      }
-
-    validatedOpt.getOrElse(validateJson(schema, context))
+      val (_, _, result) = validation.run(context, Success(json))
+      result
+    case _ => Success(json)
   }
 
   private def validateProps(schema: SchemaObject, json: => JsObject): ValidationStep[Props] =
@@ -75,8 +36,8 @@ object ObjectValidator extends SchemaTypeValidator[SchemaObject] {
             attr.name ->
               Results.failureWithPath(
                 s"Property ${attr.name} missing",
-                context.schemaPath.toString(),
-                context.instancePath.toString(),
+                context.schemaPath,
+                context.instancePath,
                 json
               ) :: props
           } else {
@@ -154,8 +115,8 @@ object ObjectValidator extends SchemaTypeValidator[SchemaObject] {
               ((), (), Results.merge(status,
                 Results.failureWithPath(
                   s"Additional properties are not allowed but found ${unmatchedFields.map(f => s"'${f._1}'").mkString(", ")}.",
-                  context.schemaPath.toString(),
-                  context.instancePath.toString(),
+                  context.schemaPath,
+                  context.instancePath,
                   Json.obj() // TODO
                 )
               ))
@@ -189,8 +150,8 @@ object ObjectValidator extends SchemaTypeValidator[SchemaObject] {
         // msg: String, schemaPath: String, instancePath: String, schema: SchemaType, instance: JsValue)
         prop -> Results.failureWithPath(
           s"Missing property dependency $prop.",
-          (context.schemaPath \ prop).toString(),
-          (context.instancePath \ prop).toString(),
+          context.schemaPath \ prop,
+          context.instancePath \ prop,
           obj
         )
       )((field: (String, JsValue)) => Results.success(field))
@@ -215,13 +176,6 @@ object ObjectValidator extends SchemaTypeValidator[SchemaObject] {
     }
   }
 
-  def validationAny(schema: SchemaObject, obj: JsValue): ReaderWriterState[Context, Unit, VA[JsValue], VA[JsValue]] = {
-    ReaderWriterState { (context, status) =>
-      val result = AnyConstraintValidator.validate(obj, schema.constraints.any, context)
-      ((), result, result)
-    }
-  }
-
   def validateMaxProperties(schema: SchemaObject, json: JsObject): ReaderWriterState[Context, Unit, VA[JsValue], Unit] = {
     ReaderWriterState { (context, status) =>
       val size = json.fields.size
@@ -232,8 +186,8 @@ object ObjectValidator extends SchemaTypeValidator[SchemaObject] {
         } else {
           Results.failureWithPath(
             s"Found $size properties, but only a maximum of $max properties is allowed",
-            context.schemaPath.toString(),
-            context.instancePath.toString(),
+            context.schemaPath,
+            context.instancePath,
             json
           )
         }
@@ -252,8 +206,8 @@ object ObjectValidator extends SchemaTypeValidator[SchemaObject] {
         } else {
           Results.failureWithPath(
             s"Found $size properties, but at least $min ${if (min == 1) "property needs" else "properties need"} to be present.",
-            context.schemaPath.toString(),
-            context.instancePath.toString(),
+            context.schemaPath,
+            context.instancePath,
             json
           )
         }

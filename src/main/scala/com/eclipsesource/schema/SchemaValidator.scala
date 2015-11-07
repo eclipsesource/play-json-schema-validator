@@ -100,13 +100,11 @@ trait SchemaValidator {
         Success(json)
       case _ =>
         Results.failureWithPath(s"Wrong type. Expected $schema, was ${SchemaUtil.typeOfAsString(json)}.",
-          context.schemaPath.toString(),
-          context.instancePath.toString(),
+          context.schemaPath,
+          context.instancePath,
           json)
     }
   }
-
-
 }
 
 object SchemaValidator extends SchemaValidator

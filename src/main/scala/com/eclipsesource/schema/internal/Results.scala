@@ -38,13 +38,12 @@ object Results {
     prop._1 -> Success(prop._2)
   }
 
-  // TODO: replace keyword type
-  def failureWithPath(msg: String, schemaPath: String, instancePath: String, instance: JsValue): VA[JsValue] = {
-    Failure(Seq(Path \ instancePath ->
+  def failureWithPath(msg: String, schemaPath: Path, instancePath: Path, instance: JsValue): VA[JsValue] = {
+    Failure(Seq(instancePath ->
       Seq(ValidationError(msg,
         Json.obj(
-          "schemaPath" -> schemaPath,
-          "instancePath" -> instancePath,
+          "schemaPath" -> schemaPath.toString(),
+          "instancePath" -> instancePath.toString(),
           "value" -> instance
         )
       ))

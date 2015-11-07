@@ -1,7 +1,7 @@
 package com.eclipsesource
 
 import com.eclipsesource.schema.internal.validators._
-import com.eclipsesource.schema.internal.{Results, Context, SchemaUtil}
+import com.eclipsesource.schema.internal.{RefResolver, Results, Context, SchemaUtil}
 import com.eclipsesource.schema.internal.serialization.{JSONSchemaReads, JSONSchemaWrites}
 import play.api.data.mapping.{Path, Success, VA}
 import play.api.data.validation.ValidationError
@@ -32,11 +32,38 @@ package object schema
 
     def prettyPrint: String = SchemaUtil.prettyPrint(schemaType)
 
+    private def hasRef(schema: SchemaObject) = schema.properties.exists { _.name == "$ref" }
+
     def validate(json: => JsValue, context: Context)(implicit validator: SchemaTypeValidator[S]): VA[JsValue] = {
-      Results.merge(
-        validator.validate(schemaType, json, context),
-        AnyConstraintValidator.validate(json, schemaType.constraints.any, context)
-      )
+      schemaType match {
+        case schema: SchemaObject if hasRef(schema) =>
+          resolveRef(json, schema, context) match {
+            case None => Results.failureWithPath(
+              s"Could not resolve ref $schema",
+              context.schemaPath,
+              context.instancePath,
+              json
+            )
+            case Some(resolved) =>
+              Results.merge(
+                SchemaValidator.process(resolved, json, context),
+                AnyConstraintValidator.validate(json, resolved.constraints.any, context)
+              )
+          }
+        case _ =>
+          Results.merge(
+            validator.validate(schemaType, json, context),
+            AnyConstraintValidator.validate(json, schemaType.constraints.any, context)
+          )
+      }
+    }
+
+    def resolveRef(json: => JsValue, schema: SchemaObject, context: Context): Option[SchemaType] = {
+      val reference = schema.properties.collectFirst { case SchemaAttribute("$ref", ref@SchemaRef(_, _, _)) => ref }
+      for {
+        ref <- reference
+        resolved <- RefResolver.resolveRef(ref, context)
+      } yield resolved
     }
   }
 
@@ -48,6 +75,6 @@ package object schema
       JsError(groupedErrors.map(e => (JsPath \ e._1.toString(), e._2)))
     }
 
-    def toJson: JsObject = SchemaUtil.toJson(errors)
+    def toJson: JsArray = SchemaUtil.toJson(errors)
   }
 }

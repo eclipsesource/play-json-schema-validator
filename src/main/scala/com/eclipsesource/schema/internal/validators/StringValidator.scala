@@ -4,85 +4,87 @@ import java.util.regex.Pattern
 
 import com.eclipsesource.schema.SchemaString
 import com.eclipsesource.schema.internal.constraints.Constraints.StringConstraints
-import com.eclipsesource.schema.internal.{Context, Results}
+import com.eclipsesource.schema.internal.{Context}
 import play.api.data.mapping.{Rule, Success, VA}
 import play.api.libs.json.{JsString, JsValue}
 
 object StringValidator extends SchemaTypeValidator[SchemaString] {
 
   def validate(schema: SchemaString, json: => JsValue, context: Context): VA[JsValue] = {
-    val constraints = schema.constraints
-    Results.merge(
-      (
-        validateMinLength(constraints, context) |+|
-          validateMaxLength(constraints, context) |+|
-          validatePattern(constraints, context)
-        ).repath(_.compose(context.instancePath)).validate(json),
-      AnyConstraintValidator.validate(json, constraints.any, context)
-    )
+    val reader = for {
+      minLength <- validateMinLength
+      maxLength <- validateMaxLength
+      pattern <- validatePattern
+    } yield minLength |+| maxLength |+| pattern
+    reader.run((schema.constraints, context))
+      .repath(_.compose(context.instancePath))
+      .validate(json)
   }
 
-  def validatePattern(constraints: StringConstraints, context: Context): Rule[JsValue, JsValue] = {
-    val format: Option[String] = constraints.pattern
-    Rule.fromMapping {
-      case json@JsString(string) => format match {
-        case Some(pattern) =>
-          val compiled = Pattern.compile(pattern)
-          val matcher = compiled.matcher(string)
-          if (matcher.find()) {
-            Success(json)
-          } else {
-            failure(
-              s"$string does not match pattern $pattern",
-              context.schemaPath.toString(),
-              context.instancePath.toString(),
-              json
-            )
-          }
-        case None => Success(json)
-      }
-      case json => expectedString(json, context)
-    }
-  }
-
-  def validateMinLength(constraints: StringConstraints, context: Context): Rule[JsValue, JsValue] = {
-    val minLength = constraints.minLength.getOrElse(0)
-    Rule.fromMapping {
-      case json@JsString(string) =>
-        if (lengthOf(string) >= minLength) {
-          Success(json)
-        } else {
-          failure(
-            s"$string violates min length of $minLength",
-            context.schemaPath.toString(),
-            context.instancePath.toString(),
-            json
-          )
+  val validatePattern: scalaz.Reader[(StringConstraints, Context), Rule[JsValue, JsValue]] =
+    scalaz.Reader { case (constraints, context) =>
+      val format: Option[String] = constraints.pattern
+      Rule.fromMapping {
+        case json@JsString(string) => format match {
+          case Some(pattern) =>
+            val compiled = Pattern.compile(pattern)
+            val matcher = compiled.matcher(string)
+            if (matcher.find()) {
+              Success(json)
+            } else {
+              failure(
+                s"$string does not match pattern $pattern",
+                context.schemaPath.toString(),
+                context.instancePath.toString(),
+                json
+              )
+            }
+          case None => Success(json)
         }
-      case json => expectedString(json, context)
+        case json => expectedString(json, context)
+      }
     }
-  }
 
-  def validateMaxLength(constraints: StringConstraints, context: Context): Rule[JsValue, JsValue] = {
-    val maxLength = constraints.maxLength
-    Rule.fromMapping {
-      case json@JsString(string) => maxLength match {
-        case None => Success(json)
-        case Some(max) =>
-          if (lengthOf(string) <= max) {
+  val validateMinLength: scalaz.Reader[(StringConstraints, Context), Rule[JsValue, JsValue]] =
+    scalaz.Reader { case (constraints, context) =>
+      val minLength = constraints.minLength.getOrElse(0)
+      Rule.fromMapping {
+        case json@JsString(string) =>
+          if (lengthOf(string) >= minLength) {
             Success(json)
           } else {
             failure(
-              s"$string violates max length of $max",
+              s"$string violates min length of $minLength",
               context.schemaPath.toString(),
               context.instancePath.toString(),
               json
             )
           }
+        case json => expectedString(json, context)
       }
-      case json => expectedString(json, context)
     }
-  }
+
+  val validateMaxLength: scalaz.Reader[(StringConstraints, Context), Rule[JsValue, JsValue]] =
+    scalaz.Reader { case (constraints, context) =>
+      val maxLength = constraints.maxLength
+      Rule.fromMapping {
+        case json@JsString(string) => maxLength match {
+          case None => Success(json)
+          case Some(max) =>
+            if (lengthOf(string) <= max) {
+              Success(json)
+            } else {
+              failure(
+                s"$string violates max length of $max",
+                context.schemaPath.toString(),
+                context.instancePath.toString(),
+                json
+              )
+            }
+        }
+        case json => expectedString(json, context)
+      }
+    }
 
   private def expectedString(json: JsValue, context: Context) =
     failure(

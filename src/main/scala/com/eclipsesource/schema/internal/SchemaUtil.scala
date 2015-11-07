@@ -27,24 +27,19 @@ object SchemaUtil {
     }
   }
 
-  def toJson(errors:  Seq[(Path, Seq[ValidationError])]): JsObject = {
-    errors.foldLeft(Json.obj()) { (obj, error) =>
-      val maybeError = error._2.foldLeft(None: Option[JsObject])((acc, err) => err.args.headOption match {
+  def toJson(errors:  Seq[(Path, Seq[ValidationError])]): JsArray = {
+    val emptyErrors = Json.arr()
+    errors.foldLeft(emptyErrors) { case (accumulatedErrors, (path, validationErrors)) =>
+      val maybeError = validationErrors.foldLeft(None: Option[JsObject])((aggregatedError, err) => err.args.headOption match {
         case Some(o@JsObject(fields)) =>
           Some(
-            acc.fold(
-              o.deepMerge(Json.obj("msgs" -> Json.arr(err.message)))
-            )(errObj =>
-              errObj.deepMerge(
-                Json.obj("msgs" ->
-                  ((errObj \ "msgs").getOrElse(Json.arr()).as[JsArray] :+ JsString(err.message))
-                )
-              )
-              )
+            aggregatedError.fold(
+              deepMerge(o, Json.obj("msgs" -> Json.arr(err.message)))
+            )(errObj => deepMerge(errObj, Json.obj("msgs" -> Json.arr(err.message))))
           )
-        case _ => acc
+        case _ => aggregatedError
       })
-      maybeError.fold(obj)(o => obj.deepMerge(o))
+      maybeError.fold(accumulatedErrors)(o => accumulatedErrors.+:(o))
     }
   }
 

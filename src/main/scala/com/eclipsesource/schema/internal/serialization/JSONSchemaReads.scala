@@ -36,6 +36,8 @@ trait JSONSchemaReads {
     delegatingObjectReader.map(s => s : SchemaType)
   }.or {
     compoundReader.map(s => s : SchemaType)
+  }.orElse {
+    Reads.apply(_ => JsError("Invalid JSON schema"))
   }
 
   lazy val numberReader: Reads[SchemaNumber] = {
