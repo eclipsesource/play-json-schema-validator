@@ -1,0 +1,17 @@
+{
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string",
+      "minLength": 10,
+      "maxLength": 20
+    },
+    "speaker": {
+      "type": "string",
+      "pattern": "(Mr.|Mrs.)?[A-Za-z ]+"
+    },
+    "type": { "$ref": "talk_type.json" },
+    "date": { "$ref": "date.json" },
+    "location": { "$ref": "location.json" }
+  }
+}

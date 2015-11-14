@@ -15,6 +15,10 @@ sealed trait SchemaType {
   def constraints: HasAnyConstraint
 }
 
+sealed trait HasId extends SchemaType {
+  def id: Option[String]
+}
+
 sealed trait PrimitiveSchemaType extends SchemaType
 
 final case class SchemaNull(constraints: NullConstraints) extends SchemaType {
@@ -30,13 +34,12 @@ final case class SchemaArrayConstant(seq: Seq[JsValue]) extends SchemaType {
   override def constraints: HasAnyConstraint = NoConstraints
 }
 
-sealed trait SchemaContainer extends SchemaType with Resolvable {
-  def id: Option[String]
+sealed trait SchemaContainer extends HasId with Resolvable {
   def schemaTypes: Seq[SchemaType]
   def updated(id: Option[String], containedTypes: SchemaType*): SchemaContainer
 }
 
-sealed trait HasProperties extends SchemaType with Resolvable {
+sealed trait HasProperties extends Resolvable {
   def properties: Seq[SchemaAttribute]
 }
 
@@ -58,7 +61,7 @@ final case class CompoundSchemaType(alternatives: Seq[SchemaType]) extends Schem
 final case class SchemaObject(properties: Seq[SchemaAttribute] = Seq.empty,
                     constraints: ObjectConstraints = ObjectConstraints(),
                     id: Option[String] = None)
-  extends HasProperties {
+  extends HasId with HasProperties {
 
   override def toString: String = "object"
 
