@@ -18,7 +18,7 @@ Then add the library itself via:
 
 ```
 libraryDependencies ++= Seq(
- "com.eclipsesource" %% "play-json-schema-validator" % "0.5.4"
+ "com.eclipsesource" %% "play-json-schema-validator" % "0.5.5"
 )
 ``` 
  
@@ -110,5 +110,7 @@ and we validate the value `1.5`, the `toJson` method returns this error:
 ```
 
 ## Example
+
+An online demo of the library can be seen [here](https://ancient-atoll-3956.herokuapp.com/).
 
 For a complete Play application that makes use of this library, please see [this example](https://github.com/edgarmueller/play-json-schema-example).
