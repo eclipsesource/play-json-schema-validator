@@ -18,11 +18,15 @@ trait SchemaValidator {
       case None => Failure(Seq())
       case Some(s) =>
         val id = s match {
-          case container: SchemaContainer => container.id
+          case container: HasId => container.id
           case _ => None
         }
         val path = schemaUrl.getFile.substring(0, schemaUrl.getFile.lastIndexOf('/'))
-        val basePath = new URL(schemaUrl.getProtocol + "://" + schemaUrl.getHost + path)
+        val basePath = if (schemaUrl.getPort != -1) {
+          new URL(schemaUrl.getProtocol + "://" + schemaUrl.getHost + ":" + schemaUrl.getPort + path)
+        } else {
+          new URL(schemaUrl.getProtocol + "://" + schemaUrl.getHost + path)
+        }
         val context = Context(Path, Path, s, Set.empty, id, Some(basePath))
         val updatedRoot = RefResolver.replaceRefs(context)(s)
         process(
@@ -70,7 +74,7 @@ trait SchemaValidator {
 
   def validate(schema: SchemaType)(input: => JsValue): VA[JsValue] = {
     val id = schema match {
-      case container: SchemaContainer => container.id
+      case container: HasId => container.id
       case _ => None
     }
     val context = Context(Path, Path, schema, Set.empty, id)
@@ -84,7 +88,7 @@ trait SchemaValidator {
 
   def validate[A](schema: SchemaType, input: => JsValue, reads: Reads[A]) : VA[A] = {
     val id = schema match {
-      case container: SchemaContainer => container.id
+      case container: HasId => container.id
       case _ => None
     }
     val context = Context(Path, Path, schema, Set.empty, id)

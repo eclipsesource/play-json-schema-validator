@@ -52,15 +52,5 @@ trait SchemaOps extends BaseSchemaOps { self =>
      */
     def ++(attributes: SchemaAttribute*): SchemaObject = add(schema)("", attributes.toList)
 
-    /**
-     * Checks whether this schema is a subset of the given schema.
-     *
-     * @param otherSchema
-     *           the schema that is supposed to contain this schema as a subset
-     * @return true, if this schema is a subset of the given schema
-     */
-    def isSubSetOf(otherSchema: SchemaObject): Boolean =
-      isSubSet(schema, otherSchema)
-
   }
 }

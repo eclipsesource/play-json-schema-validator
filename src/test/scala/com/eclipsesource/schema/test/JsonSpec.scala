@@ -32,13 +32,16 @@ object JsonSpec extends ThrownExpectations {
         }
       }
     })
+    println(s"ERROR: $results")
     results.right.getOrElse(Seq(Example("Spec init", failure(s"Could not read specs from $url."))))
   }
 
   def fromUrl(url: URL): Either[String, Seq[(String, Seq[SpecResult])]] = {
     JsonSource.fromURL(url).getOrElse(failure(s"Could not read JSON from $url.")) match {
       case JsArray(specs) => Right(executeSpecs(specs))
-      case json => Left(s"URL $url does not contain any specs or has wrong format. See https://github.com/json-schema/JSON-Schema-Test-Suite for correct format")
+      case json =>
+        println(json)
+        Left(s"URL $url does not contain any specs or has wrong format. See https://github.com/json-schema/JSON-Schema-Test-Suite for correct format")
     }
   }
 

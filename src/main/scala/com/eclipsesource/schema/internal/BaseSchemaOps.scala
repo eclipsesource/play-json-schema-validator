@@ -1,14 +1,8 @@
 package com.eclipsesource.schema.internal
 
-import com.eclipsesource.schema._
-import play.api.libs.json._
-
 import scala.annotation.tailrec
-import scala.reflect.ClassTag
-import scalaz.Monoid
-import scalaz.syntax.monoid._
-import scalaz.std.string._
-import scalaz.std.option._
+
+import com.eclipsesource.schema._
 
 /**
  * Primitive schema functions.
@@ -146,37 +140,6 @@ trait BaseSchemaOps {
   }
 
   /**
-   * Folds over the given schema definition, executes the modifier
-   * for each encountered attribute, if the given type is encountered
-   * and joins the result by means of the monoid append operation in scope.
-   *
-   * @param schema
-   *               the schema to be fold over
-   * @param modifier
-   *               the modifier to be executed for each attribute
-   * @tparam A a schema subtype that must be matched in order to execute the modifier
-   * @tparam B the result type of the modifier. Must be a monoid instance
-   * @return the folded result
-   */
-  def collapse[A <: SchemaType : ClassTag, B : Monoid](schema: SchemaObject)(modifier: SchemaAttribute => B): B = {
-
-    def _collapse(obj: SchemaObject, result: B)(modifier: SchemaAttribute => B): B = {
-      val clazz = implicitly[ClassTag[A]].runtimeClass
-      obj.properties.foldLeft(result)((res, attr) => attr.schemaType match {
-        case cls: SchemaObject if clazz.isInstance(cls) =>
-          _collapse(cls, res |+| modifier(attr))(modifier)
-        case cls: SchemaObject =>
-          _collapse(cls, res)(modifier)
-        case a if clazz.isInstance(a) => res |+| modifier(attr)
-        case a => res
-      })
-    }
-
-    val m = implicitly[Monoid[B]]
-    _collapse(schema, m.zero)(modifier)
-  }
-
-  /**
    * Adds the given fields to the object located at the path of the given object.
    *
    * @param schema
@@ -204,20 +167,4 @@ trait BaseSchemaOps {
    */
   // TODO: duplicate check
   def merge(schema: SchemaObject, otherSchema: SchemaObject) = add(schema)(emptyPath, otherSchema.properties)
-
-  /**
-   * Checks whether the first schema is a subset of the second.
-   *
-   * @param subSchema
-   *               the schema that is supposed to be a subset
-   * @param schema
-   *               the schema to check the sub schema against
-   * @return true, if the sub schema is a subset of the schema
-   */
-  def isSubSet(subSchema: SchemaObject, schema: SchemaObject): Boolean = {
-    import scalaz.std.anyVal.booleanInstance.disjunction
-    implicit val M = disjunction
-    subSchema.equals(schema) ||
-      collapse[SchemaObject, Boolean](schema)(_.schemaType == subSchema)
-  }
 }
