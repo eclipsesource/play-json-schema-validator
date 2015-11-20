@@ -18,9 +18,9 @@ object RefResolver {
     }
 
     schema match {
-      case container: SchemaContainer =>
+      case container: SchemaArrayLike =>
         val id = updateContextId(context, container)
-        container.updated(container.id, container.schemaTypes.map(t => replaceRefs(context.copy(id = id))(t)):_*)
+        container.updated(replaceRefs(context.copy(id = id)))
 
       case cls: SchemaObject =>
 
@@ -31,11 +31,7 @@ object RefResolver {
           resolved <- resolveRef(unvisited, c)
         } yield (resolved, c)).getOrElse((cls, context))
 
-        substitutedType match {
-          // if resolved type is a class, resolve all refs it contains
-          case c: SchemaObject => c.copy(constraints = c.constraints.updated(replaceRefs(updContext)))
-          case other => other
-        }
+        substitutedType.updated(replaceRefs(updContext))
 
       case other => other
     }
@@ -113,6 +109,14 @@ object RefResolver {
           ref <- cls.properties.collectFirst { case SchemaAttribute("$ref", schemaRef: SchemaRef) => schemaRef }
           resolved <- resolveRef(ref, context)
         } yield resolved
+
+      // resolve constraints
+      case (s, Some(c)) =>
+        for {
+          resolved <- s.constraints.any.resolvePath(c)
+          r <- resolveRef(resolved, fragments.tail, context)
+        } yield r
+
 
       case (_, None) => Some(current)
     }

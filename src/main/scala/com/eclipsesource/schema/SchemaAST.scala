@@ -13,55 +13,82 @@ trait Resolvable {
 
 sealed trait SchemaType {
   def constraints: HasAnyConstraint
+  def updated(fn: SchemaType => SchemaType): SchemaType
+
 }
 
-sealed trait HasId extends SchemaType {
+sealed trait HasId {
   def id: Option[String]
 }
 
-sealed trait PrimitiveSchemaType extends SchemaType
+//sealed trait PrimitiveSchemaType extends SchemaType
 
-final case class SchemaNull(constraints: NullConstraints) extends SchemaType {
-  override def toString: String = "null"
-}
+//final case class SchemaValue(value: JsValue) extends SchemaType {
+//  override constraints: HasAnyConstraint = ???
+//}
 
 final case class SchemaBooleanConstant(bool: Boolean) extends SchemaType {
   override def toString: String = "boolean value"
-  override def constraints: HasAnyConstraint = NoConstraints
+  override def constraints: HasAnyConstraint = NoConstraints()
+
+  override def updated(fn: (SchemaType) => SchemaType): SchemaType = this
 }
-final case class SchemaArrayConstant(seq: Seq[JsValue]) extends SchemaType {
-  override def toString: String = "array"
-  override def constraints: HasAnyConstraint = NoConstraints
+final case class SchemaArrayConstant(seq: Seq[JsValue]) extends SchemaType with Resolvable {
+  override def toString: String = "array value"
+  override def constraints: HasAnyConstraint = NoConstraints()
+
+  override def resolvePath(path: String): Option[SchemaType] = path match {
+    case index if Try { index.toInt }.isSuccess =>
+      val idx = index.toInt
+      if (idx > 0 && idx < seq.size){
+        Some(SchemaStringConstant(seq(idx).as[JsString].value))
+      } else {
+        None
+      }
+    case other => None
+  }
+
+  override def updated(fn: (SchemaType) => SchemaType): SchemaType = this
+}
+final case class SchemaStringConstant(str: String) extends SchemaType {
+  override def toString: String = "string value"
+  override def constraints: HasAnyConstraint = NoConstraints()
+
+  override def updated(fn: (SchemaType) => SchemaType): SchemaType = this
+}
+/////////////////
+
+sealed trait SchemaArrayLike extends SchemaType with HasId with Resolvable {
+  //  def schemaTypes: Seq[SchemaType]
+  def items: Seq[SchemaType]
 }
 
-sealed trait SchemaContainer extends HasId with Resolvable {
-  def schemaTypes: Seq[SchemaType]
-  def updated(id: Option[String], containedTypes: SchemaType*): SchemaContainer
-}
-
-sealed trait HasProperties extends Resolvable {
+sealed trait SchemaObjectLike extends SchemaType with Resolvable {
   def properties: Seq[SchemaAttribute]
 }
+
+/////////////////
 
 final case class JSONPointer(path: String)
 
 // TODO: pointer is a JSONSPointer, see http://tools.ietf.org/html/draft-pbryan-zyp-json-pointer-02
 final case class SchemaRef(pointer: JSONPointer, isAttribute: Boolean = false, isRemote: Boolean = false) extends SchemaType {
-  override def constraints = NoConstraints
-
+  override def constraints = NoConstraints()
   override def toString: String = pointer.path
+  override def updated(fn: (SchemaType) => SchemaType): SchemaType = this
 }
 
 final case class CompoundSchemaType(alternatives: Seq[SchemaType]) extends SchemaType {
   override def toString: String = alternatives.map(_.toString).mkString(" ")
-//  TODO: BooleanConstraints is just a placeholder, how to actually handle this case?
-  override def constraints: HasAnyConstraint = BooleanConstraints()// CompoundConstraints(oneOf.map(s => s.constraints), AnyConstraint())
+  //  TODO: BooleanConstraints is just a placeholder, how to actually handle this case?
+  override def constraints: HasAnyConstraint = NoConstraints()// CompoundConstraints(oneOf.map(s => s.constraints), AnyConstraint())
+  override def updated(fn: (SchemaType) => SchemaType): SchemaType = this
 }
 
 final case class SchemaObject(properties: Seq[SchemaAttribute] = Seq.empty,
-                    constraints: ObjectConstraints = ObjectConstraints(),
-                    id: Option[String] = None)
-  extends HasId with HasProperties {
+                              constraints: ObjectConstraints = ObjectConstraints(),
+                              id: Option[String] = None)
+  extends HasId with SchemaObjectLike {
 
   override def toString: String = "object"
 
@@ -71,13 +98,18 @@ final case class SchemaObject(properties: Seq[SchemaAttribute] = Seq.empty,
       constraints.resolvePath(attributeName)
     )(Some(_))
   }
+
+  override def updated(fn: (SchemaType) => SchemaType): SchemaObjectLike =
+    copy(
+      properties = properties.map(prop => prop.copy(schemaType = fn(prop.schemaType))),
+      constraints = constraints.updated(fn)
+    )
 }
 
-final case class SchemaTuple(items: () => Seq[SchemaType],
-                       size: Int,
-                       constraints: ArrayConstraints = ArrayConstraints(),
-                       id: Option[String] = None)
-  extends SchemaContainer {
+final case class SchemaTuple(items: Seq[SchemaType],
+                             constraints: ArrayConstraints = ArrayConstraints(),
+                             id: Option[String] = None)
+  extends SchemaArrayLike {
 
   override def toString: String = "tuple"
 
@@ -86,53 +118,59 @@ final case class SchemaTuple(items: () => Seq[SchemaType],
       case Keywords.Array.Items => Some(this)
       case n =>
         val idx = Try { index.toInt }
-        idx.toOption.map(i => items()(i))
+        idx.toOption.map(i => items(i))
     }
   }
 
-  override def schemaTypes: Seq[SchemaType] = items()
-
-  override def updated(id: Option[String], containedTypes: SchemaType*): SchemaContainer =
-    copy(items = () => containedTypes, id = id)
-
+  override def updated(fn: (SchemaType) => SchemaType): SchemaArrayLike =
+    copy(items = items.map(fn))
 }
 
-final case class SchemaArray(schemaType: () => SchemaType,
-                       constraints: ArrayConstraints = ArrayConstraints(),
-                       id: Option[String] = None)
-  extends SchemaContainer {
+final case class SchemaArray(item:  SchemaType,
+                             constraints: ArrayConstraints = ArrayConstraints(),
+                             id: Option[String] = None)
+  extends SchemaArrayLike {
 
   override def toString: String = "array"
 
-  lazy val items = schemaType()
+  def items = Seq(item)
 
   def resolvePath(path: String): Option[SchemaType] = {
     if (path == Keywords.Array.Items) {
-      Some(items)
+      Some(item)
     } else {
       None
     }
   }
 
-  override def schemaTypes: Seq[SchemaType] = Seq(items)
-  override def updated(id: Option[String], containedTypes: SchemaType*): SchemaContainer =
-    copy(schemaType = () => containedTypes.head, id = id)
+  override def updated(fn: (SchemaType) => SchemaType): SchemaArrayLike = {
+    copy(item = fn(item))
+  }
 }
 
-final case class SchemaString(constraints: StringConstraints = StringConstraints()) extends PrimitiveSchemaType {
+final case class SchemaString(constraints: StringConstraints = StringConstraints()) extends SchemaType {
   override def toString: String = "string"
+  override def updated(fn: (SchemaType) => SchemaType): SchemaString = copy(constraints.updated(fn))
 }
 
-final case class SchemaNumber(constraints: NumberConstraints = NumberConstraints()) extends PrimitiveSchemaType {
+final case class SchemaNumber(constraints: NumberConstraints = NumberConstraints()) extends SchemaType  {
   override def toString: String = "number"
+  override def updated(fn: (SchemaType) => SchemaType): SchemaNumber = copy(constraints.updated(fn))
 }
 
-final case class SchemaInteger(constraints: NumberConstraints = NumberConstraints()) extends PrimitiveSchemaType {
+final case class SchemaInteger(constraints: NumberConstraints = NumberConstraints()) extends SchemaType  {
   override def toString: String = "integer"
+  override def updated(fn: (SchemaType) => SchemaType): SchemaInteger = copy(constraints.updated(fn))
 }
 
-final case class SchemaBoolean(constraints: BooleanConstraints = BooleanConstraints()) extends PrimitiveSchemaType {
+final case class SchemaBoolean(constraints: HasAnyConstraint = NoConstraints()) extends SchemaType{
   override def toString: String = "boolean"
+  override def updated(fn: (SchemaType) => SchemaType): SchemaBoolean = copy(constraints = NoConstraints(constraints.any.updated(fn)))
+}
+
+final case class SchemaNull(constraints: HasAnyConstraint = NoConstraints()) extends SchemaType  {
+  override def toString: String = "null"
+  override def updated(fn: (SchemaType) => SchemaType): SchemaNull = copy(constraints = NoConstraints(constraints.any.updated(fn)))
 }
 
 case class SchemaAttribute(name: String, schemaType: SchemaType)

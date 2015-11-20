@@ -12,7 +12,7 @@ object SchemaUtil {
         " " * (indent + 2)  + field.name + ": " +
           prettyPrint(field.schemaType, indent + 2) + "\n"}.mkString +
         " " * indent + "}"
-    case arr: SchemaArray => "[" + prettyPrint(arr.items, indent) + "]"
+    case arr: SchemaArray => "[" + prettyPrint(arr.item, indent) + "]"
     case other => other.toString
   }
 

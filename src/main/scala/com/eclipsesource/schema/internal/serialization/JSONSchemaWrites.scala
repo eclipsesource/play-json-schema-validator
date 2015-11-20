@@ -17,6 +17,7 @@ trait JSONSchemaWrites {
     case a: SchemaArray => arrayWriter.writes(a)
     case o: SchemaObject => objectWriter.writes(o)
     case r: SchemaRef => refWriter.writes(r)
+    case c: SchemaStringConstant => JsString(c.str)
     case c: SchemaBooleanConstant => constantWriter.writes(c)
     case a: SchemaArrayConstant => Json.toJson(a.seq)
     case n: SchemaNull => nullWriter.writes(n)
@@ -33,7 +34,7 @@ trait JSONSchemaWrites {
   }
 
   implicit val booleanWriter: Writes[SchemaBoolean] = OWrites[SchemaBoolean] { bool =>
-    Json.obj("type" -> "boolean") ++ booleanConstraintWriter.writes(bool.constraints)
+    Json.obj("type" -> "boolean")
   }
 
   implicit val stringWriter: Writes[SchemaString] = OWrites[SchemaString] { str =>
@@ -57,7 +58,7 @@ trait JSONSchemaWrites {
 
   implicit val tupleWriter: Writes[SchemaTuple] = Writes[SchemaTuple] { arr =>
     Json.obj(
-      "items" -> Json.toJson(arr.schemaTypes)
+      "items" -> Json.toJson(arr.items)
     ) ++ arrayConstraintWriter.writes(arr.constraints)
   }
 
@@ -118,15 +119,11 @@ trait JSONSchemaWrites {
       ) ++ anyConstraintWriter.writes(constraints.any)
   }
 
-  lazy val booleanConstraintWriter: OWrites[BooleanConstraints] = OWrites[BooleanConstraints] {
-    constraints => Json.obj()
-  }
-
   lazy val stringConstraintWriter: OWrites[StringConstraints] = OWrites[StringConstraints] {
     stringConstraints =>
       asJsObject(Keywords.String.MinLength, stringConstraints.minLength) ++
       asJsObject(Keywords.String.MaxLength, stringConstraints.maxLength) ++
-      asJsObject(Keywords.String.Pattern, stringConstraints.pattern)
+      asJsObject(Keywords.String.Pattern, stringConstraints.pattern) ++
       anyConstraintWriter.writes(stringConstraints.any)
   }
 

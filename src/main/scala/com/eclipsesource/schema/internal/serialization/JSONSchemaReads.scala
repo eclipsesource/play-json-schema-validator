@@ -29,6 +29,8 @@ trait JSONSchemaReads {
   }.or {
     numberReader.map(s => s : SchemaType)
   }.or {
+    stringConstantReader.map(s => s: SchemaType)
+  }.or {
     booleanConstantReader.map(s => s : SchemaType)
   }.or {
     arrayConstantReader.map(s => s : SchemaType)
@@ -111,17 +113,24 @@ trait JSONSchemaReads {
     }
   }
 
+  lazy val stringConstantReader: Reads[SchemaStringConstant] = new Reads[SchemaStringConstant] {
+    override def reads(json: JsValue): JsResult[SchemaStringConstant] = json match {
+      case s@JsString(_) => JsSuccess(SchemaStringConstant(s.value))
+      case _ => JsError("Expected boolean.")
+    }
+  }
+
   lazy val nullReader: Reads[SchemaNull] = {
     anyConstraintReader.flatMap(any => {
       // TODO: null constraint type could be removed
-      Reads.pure(SchemaNull(NullConstraints(any)))
+      Reads.pure(SchemaNull(NoConstraints(any)))
     })
   }
 
   lazy val booleanReader: Reads[SchemaBoolean] = {
     anyConstraintReader.flatMap(any => {
       // TODO: boolean constraint type could be removed
-      Reads.pure(SchemaBoolean(BooleanConstraints(any)))
+      Reads.pure(SchemaBoolean(NoConstraints(any)))
     })
   }
 
@@ -159,7 +168,7 @@ trait JSONSchemaReads {
           } else {
             Reads.pure(
               SchemaArray(
-                () => items.getOrElse(emptyObject),
+                items.getOrElse(emptyObject),
                 ArrayConstraints(maxItems, minItems, additionalItems, uniqueItems, any), id)
             )
           }
@@ -182,8 +191,8 @@ trait JSONSchemaReads {
         Reads.apply(_ => JsError("Expected tuple."))
       } else {
         Reads.pure(
-          SchemaTuple(() => items.get,
-            items.size,
+          SchemaTuple(items.get,
+//            items.size,
             // initialize with empty schema
             ArrayConstraints(maxItems, minItems, additionalItems, uniqueItems, any),
             id

@@ -22,7 +22,7 @@ object SchemaMacro {
         case "Boolean"   => SchemaBoolean()
         case arr if universeType.baseClasses.contains(seqSym) =>
           val itemType = schemaType(universeType, universeType.resultType.typeArgs.head.toString)
-          SchemaArray(() => itemType)
+          SchemaArray(itemType)
         case cls =>
 
           val fields = universeType.decls.collectFirst {
@@ -72,7 +72,7 @@ object SchemaMacro {
       q"${symbolOf[SchemaTuple].companion}()"
     }
     lazy implicit val arrayLiftable: Liftable[SchemaArray] = Liftable[SchemaArray] { (arr: SchemaArray) =>
-      val lifted = schemaLiftable(arr.items)
+      val lifted = schemaLiftable(arr.item)
       q"${symbolOf[SchemaArray].companion}($lifted)"
     }
     lazy implicit val classLiftable: Liftable[SchemaObject] = Liftable[SchemaObject] { cls =>

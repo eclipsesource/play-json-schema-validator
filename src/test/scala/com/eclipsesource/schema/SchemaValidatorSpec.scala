@@ -186,6 +186,7 @@ class SchemaValidatorSpec extends PlaySpecification {
           |  }
           |}""".stripMargin)
 
+      println(">>> "+ s)
       val schema = s.get
       val context = Context(Path, Path, schema, Set.empty)
       val resolved = RefResolver.resolveRef("#/dependencies/c/1", context)
@@ -223,6 +224,24 @@ class SchemaValidatorSpec extends PlaySpecification {
       val resolved = RefResolver.resolveRef("#/additionalProperties", context)
       println(resolved)
       Json.toJson(resolved.get) must beEqualTo(JsBoolean(false))
+    }
+
+    "should resolve additionalProperties constraint" in new WithServer(app = new FakeApplication(withRoutes = routes), port = 1234) {
+      val s = JsonSource.schemaFromString(
+        """{
+          |"type": "boolean",
+          |"definitions": {
+          |  "foo": { "$ref": "http://localhost:1234/talk.json#/properties/title" }
+          |}
+          |}""".stripMargin)
+
+      val schema = s.get
+      val context = Context(Path, Path, schema, Set.empty)
+      println(Json.prettyPrint(Json.toJson(schema)))
+
+      val resolved = RefResolver.resolveRef("#/definitions/foo", context)
+      println(resolved)
+      Json.toJson(resolved.get) must beEqualTo(Json.obj("type" -> "string", "minLength" -> 10, "maxLength" -> 20))
     }
   }
 

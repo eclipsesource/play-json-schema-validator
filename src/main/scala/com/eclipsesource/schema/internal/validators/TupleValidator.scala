@@ -10,7 +10,7 @@ object TupleValidator extends SchemaTypeValidator[SchemaTuple] with ArrayConstra
   override def validate(schema: SchemaTuple, json: => JsValue, context: Context): VA[JsValue] = json match {
     case JsArray(values) =>
       val instanceSize = values.size
-      val schemaSize = schema.schemaTypes.size
+      val schemaSize = schema.items.size
 
       val results: Seq[VA[JsValue]] = if (instanceSize > schemaSize) {
         val additionalInstanceValues: Seq[JsValue] = values.takeRight(instanceSize - schemaSize)
@@ -28,7 +28,7 @@ object TupleValidator extends SchemaTypeValidator[SchemaTuple] with ArrayConstra
           case SchemaBooleanConstant(true) =>
             values.map(Success(_))
           case items =>
-            val instanceValuesValidated: Seq[VA[JsValue]] = schema.items().zipWithIndex.map { case (item, idx) =>
+            val instanceValuesValidated: Seq[VA[JsValue]] = schema.items.zipWithIndex.map { case (item, idx) =>
               SchemaValidator.process(item, values(idx),
                 context.copy(
                   schemaPath = context.schemaPath \ idx,
@@ -50,7 +50,7 @@ object TupleValidator extends SchemaTypeValidator[SchemaTuple] with ArrayConstra
         }
       } else {
         values.zipWithIndex.map { case (jsValue, idx) =>
-          SchemaValidator.process(schema.items()(idx), jsValue,
+          SchemaValidator.process(schema.items(idx), jsValue,
             context.copy(
               schemaPath = context.schemaPath \ idx,
               instancePath = context.instancePath \ idx
