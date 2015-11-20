@@ -29,28 +29,5 @@ trait SchemaOps extends BaseSchemaOps { self =>
      * @return the updated schema containing the additional attributes from the other schema
      */
     def ++(otherSchema: SchemaObject): SchemaObject = merge(schema, otherSchema)
-
-    /**
-     * Adds the given attributes at the path of the this schema.
-     *
-     * @param path
-     *           the path at which to insert the attributes
-     * @param attributes
-     *           the attributes to be added
-     *
-     * @return the updated schema containing the additional attributes at the specified path
-     */
-    def ++(path: String, attributes: SchemaAttribute*): SchemaObject = add(schema)(path, attributes.toList)
-
-    /**
-     * Adds the given attributes to the root of this schema.
-     *
-     * @param attributes
-     *            the attributes to be added
-     *
-     * @return the updated schema containing the additional attributes at the root level
-     */
-    def ++(attributes: SchemaAttribute*): SchemaObject = add(schema)("", attributes.toList)
-
   }
 }

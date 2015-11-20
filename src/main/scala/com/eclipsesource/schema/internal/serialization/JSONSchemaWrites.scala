@@ -17,9 +17,7 @@ trait JSONSchemaWrites {
     case a: SchemaArray => arrayWriter.writes(a)
     case o: SchemaObject => objectWriter.writes(o)
     case r: SchemaRef => refWriter.writes(r)
-    case c: SchemaStringConstant => JsString(c.str)
-    case c: SchemaBooleanConstant => constantWriter.writes(c)
-    case a: SchemaArrayConstant => Json.toJson(a.seq)
+    case c: SchemaValue => c.value
     case n: SchemaNull => nullWriter.writes(n)
     case n: CompoundSchemaType => compoundWriter.writes(n)
   }
@@ -68,10 +66,6 @@ trait JSONSchemaWrites {
     } else {
       Json.obj("$ref" -> JsString(ref.pointer.path))
     }
-  }
-
-  val constantWriter: Writes[SchemaBooleanConstant] = Writes[SchemaBooleanConstant] { const =>
-    JsBoolean(const.bool)
   }
 
   implicit val objectWriter: Writes[SchemaObject] = OWrites[SchemaObject] {

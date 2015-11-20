@@ -29,11 +29,7 @@ trait JSONSchemaReads {
   }.or {
     numberReader.map(s => s : SchemaType)
   }.or {
-    stringConstantReader.map(s => s: SchemaType)
-  }.or {
-    booleanConstantReader.map(s => s : SchemaType)
-  }.or {
-    arrayConstantReader.map(s => s : SchemaType)
+    jsValueReader.map(s => s: SchemaType)
   }.or {
     delegatingObjectReader.map(s => s : SchemaType)
   }.or {
@@ -106,17 +102,12 @@ trait JSONSchemaReads {
     })
   }
 
-  lazy val booleanConstantReader: Reads[SchemaBooleanConstant] = new Reads[SchemaBooleanConstant] {
-    override def reads(json: JsValue): JsResult[SchemaBooleanConstant] = json match {
-      case bool@JsBoolean(_) => JsSuccess(SchemaBooleanConstant(bool.value))
-      case _ => JsError("Expected boolean.")
-    }
-  }
-
-  lazy val stringConstantReader: Reads[SchemaStringConstant] = new Reads[SchemaStringConstant] {
-    override def reads(json: JsValue): JsResult[SchemaStringConstant] = json match {
-      case s@JsString(_) => JsSuccess(SchemaStringConstant(s.value))
-      case _ => JsError("Expected boolean.")
+  lazy val jsValueReader: Reads[SchemaValue] = new Reads[SchemaValue] {
+    override def reads(json: JsValue): JsResult[SchemaValue] = json match {
+      case bool@JsBoolean(_) => JsSuccess(SchemaValue(bool))
+      case s@JsString(_) => JsSuccess(SchemaValue(s))
+      case a@JsArray(els) => JsSuccess(SchemaValue(a))
+      case _ => JsError("Expected json.")
     }
   }
 
@@ -198,17 +189,6 @@ trait JSONSchemaReads {
             id
           )
         )
-      }
-    }
-  }
-
-  lazy val arrayConstantReader: Reads[SchemaArrayConstant] = {
-    new Reads[SchemaArrayConstant] {
-      override def reads(json: JsValue): JsResult[SchemaArrayConstant] = {
-        json match {
-          case JsArray(els) => JsSuccess(SchemaArrayConstant(els.collect { case str@JsString(_) => str}.toSeq))
-          case _ => JsError("Expected a array of strings")
-        }
       }
     }
   }

@@ -59,12 +59,10 @@ object SchemaMacro {
     implicit val compoundLiftable = Liftable[CompoundSchemaType] { c =>
       q"${symbolOf[CompoundSchemaType].companion}()"
     }
-    implicit val booleanConstantLiftable = Liftable[SchemaBooleanConstant] { c =>
-      q"${symbolOf[SchemaBooleanConstant].companion}()"
+    implicit val valueLiftable = Liftable[SchemaValue] { c =>
+      q"${symbolOf[SchemaValue].companion}()"
     }
-    implicit val arrayConstantLiftable = Liftable[SchemaArrayConstant] { c =>
-      q"${symbolOf[SchemaArrayConstant].companion}()"
-    }
+
     implicit val refLiftable = Liftable[SchemaRef] { c =>
       q"${symbolOf[SchemaRef].companion}()"
     }
@@ -89,8 +87,7 @@ object SchemaMacro {
       case c: SchemaObject => classLiftable(c)
       case n: SchemaNull => nullLiftable(n)
       case c: CompoundSchemaType => compoundLiftable(c)
-      case c: SchemaArrayConstant => arrayConstantLiftable(c)
-      case c: SchemaBooleanConstant => booleanConstantLiftable(c)
+      case c: SchemaValue => valueLiftable(c)
       case r: SchemaRef => refLiftable(r)
       case t: SchemaTuple => tupleLiftable(t)
     }

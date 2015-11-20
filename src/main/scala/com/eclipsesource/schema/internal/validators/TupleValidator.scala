@@ -3,7 +3,7 @@ package com.eclipsesource.schema.internal.validators
 import com.eclipsesource.schema._
 import com.eclipsesource.schema.internal.{Context, Results}
 import play.api.data.mapping.{Failure, Success, VA}
-import play.api.libs.json.{JsArray, JsValue}
+import play.api.libs.json.{JsBoolean, JsArray, JsValue}
 
 object TupleValidator extends SchemaTypeValidator[SchemaTuple] with ArrayConstraintValidator {
 
@@ -16,7 +16,7 @@ object TupleValidator extends SchemaTypeValidator[SchemaTuple] with ArrayConstra
         val additionalInstanceValues: Seq[JsValue] = values.takeRight(instanceSize - schemaSize)
         val additionalItemsSchema: SchemaType = schema.constraints.additionalItems.getOrElse(SchemaObject())
         additionalItemsSchema match {
-          case SchemaBooleanConstant(false) =>
+          case SchemaValue(JsBoolean(false)) =>
             Seq(
               Results.failureWithPath(
                 s"Too many items. Expected $schemaSize items, found $instanceSize.",
@@ -25,7 +25,7 @@ object TupleValidator extends SchemaTypeValidator[SchemaTuple] with ArrayConstra
                 json
               )
             )
-          case SchemaBooleanConstant(true) =>
+          case SchemaValue(JsBoolean(true)) =>
             values.map(Success(_))
           case items =>
             val instanceValuesValidated: Seq[VA[JsValue]] = schema.items.zipWithIndex.map { case (item, idx) =>

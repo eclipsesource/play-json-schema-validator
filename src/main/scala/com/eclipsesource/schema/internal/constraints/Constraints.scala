@@ -1,6 +1,6 @@
 package com.eclipsesource.schema.internal.constraints
 
-import play.api.libs.json.JsValue
+import play.api.libs.json.{JsArray, JsValue}
 
 
 object Constraints {
@@ -44,7 +44,7 @@ object Constraints {
       case Keywords.Any.AnyOf => anyOf.map(types => SchemaTuple(types))
       case Keywords.Any.OneOf => oneOf.map(types => SchemaTuple(types))
       case Keywords.Any.Definitions => definitions.map(entries => SchemaObject(entries.toSeq.map(e => SchemaAttribute(e._1, e._2))))
-      case Keywords.Any.Enum => enum.map(e => SchemaArrayConstant(e))
+      case Keywords.Any.Enum => enum.map(e => SchemaValue(JsArray(e)))
       case _ => None
     }
   }

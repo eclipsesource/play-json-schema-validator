@@ -23,39 +23,22 @@ sealed trait HasId {
 
 //sealed trait PrimitiveSchemaType extends SchemaType
 
-//final case class SchemaValue(value: JsValue) extends SchemaType {
-//  override constraints: HasAnyConstraint = ???
-//}
-
-final case class SchemaBooleanConstant(bool: Boolean) extends SchemaType {
-  override def toString: String = "boolean value"
+final case class SchemaValue(value: JsValue) extends SchemaType with Resolvable {
   override def constraints: HasAnyConstraint = NoConstraints()
-
   override def updated(fn: (SchemaType) => SchemaType): SchemaType = this
-}
-final case class SchemaArrayConstant(seq: Seq[JsValue]) extends SchemaType with Resolvable {
-  override def toString: String = "array value"
-  override def constraints: HasAnyConstraint = NoConstraints()
 
-  override def resolvePath(path: String): Option[SchemaType] = path match {
-    case index if Try { index.toInt }.isSuccess =>
+  override def resolvePath(path: String): Option[SchemaType] = (value, path) match {
+    case (arr: JsArray, index) if Try { index.toInt }.isSuccess =>
       val idx = index.toInt
-      if (idx > 0 && idx < seq.size){
-        Some(SchemaStringConstant(seq(idx).as[JsString].value))
+      if (idx > 0 && idx < arr.value.size){
+        Some(SchemaValue(arr.value(idx)))
       } else {
         None
       }
     case other => None
   }
-
-  override def updated(fn: (SchemaType) => SchemaType): SchemaType = this
 }
-final case class SchemaStringConstant(str: String) extends SchemaType {
-  override def toString: String = "string value"
-  override def constraints: HasAnyConstraint = NoConstraints()
 
-  override def updated(fn: (SchemaType) => SchemaType): SchemaType = this
-}
 /////////////////
 
 sealed trait SchemaArrayLike extends SchemaType with HasId with Resolvable {
