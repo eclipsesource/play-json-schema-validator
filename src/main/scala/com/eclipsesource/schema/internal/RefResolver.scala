@@ -1,6 +1,7 @@
 package com.eclipsesource.schema.internal
 
 import java.net.{URL, URLDecoder}
+import java.util.Date
 
 import com.eclipsesource.schema._
 import play.api.data.mapping.Path
@@ -28,7 +29,7 @@ object RefResolver {
         val (substitutedType, updContext) = (for {
           unvisited <- findFirstUnvisitedRef(cls)
           c = context.copy(visited = context.visited + unvisited, id = id)
-          resolved <- resolveRef(unvisited, c)
+          resolved <- resolveRelativeRef(unvisited, c)
         } yield (resolved, c)).getOrElse((cls, context))
 
         substitutedType.updated(replaceRefs(updContext))
@@ -48,16 +49,6 @@ object RefResolver {
     }).fold(context.id)(i => Some(i))
   }
 
-  // TODO: switch to Either in order to provide more fine-grained error message
-  private[schema] def fetchSchema(url: String, context: Context): Option[SchemaType] = {
-    val contents: BufferedSource = Source.fromURL(url)
-
-    for {
-      json <- Try { Json.parse(contents.getLines().mkString) }.toOption
-      resolvedSchema <- Json.fromJson[SchemaType](json).asOpt
-    } yield resolvedSchema
-  }
-
   private def isRef: SchemaType => Boolean = {
     case ref@SchemaRef(_, _, false) => true
     case _ => false
@@ -69,23 +60,34 @@ object RefResolver {
     case _ => false
   }
 
+  /**
+    * Entry point
+    * @param path
+    * @param context
+    * @return
+    */
   def resolveRef(path: String, context: Context): Option[SchemaType] = {
     if (path.isEmpty) {
       Some(context.root)
     } else {
-      val resolved = resolveRef(context.root, toFragments(path), context)
-      resolved.map(res => replaceRefs(context)(res))
+      println(">> RESOLVINg " + path)
+      GlobalContextCache.get(path).fold {
+        val resolved = resolveRef(context.root, toFragments(path), context)
+        resolved
+          .map(res => replaceRefs(context)(res))
+          .map(res => GlobalContextCache.add(path, res))
+      } { result => Some(result) }
     }
   }
 
-  def resolveRef(ref: SchemaRef, context: Context): Option[SchemaType] = {
+  def resolveRelativeRef(ref: SchemaRef, context: Context): Option[SchemaType] = {
     val r = context.id.getOrElse("") + ref.pointer.path
     resolveRef(r, context)
   }
 
 
   private[schema] def resolveRef(current: SchemaType, fragments: List[String], context: Context): Option[SchemaType] = {
-
+    println("Resolve " + new Date() + " to " + fragments)
     (current, fragments.headOption) match {
 
       case (_, Some(ref)) if ref.startsWith("http") =>
@@ -95,20 +97,21 @@ object RefResolver {
       case (_, Some("#")) =>
         resolveRef(context.root, fragments.tail, context)
 
+      case (cls: SchemaObject, None) if isSchemaRefClass(cls)   =>
+        for {
+          ref <- cls.properties.collectFirst { case SchemaAttribute("$ref", schemaRef: SchemaRef) => schemaRef }
+          resolved <- resolveRelativeRef(ref, context)
+        } yield resolved
+
       case (container: Resolvable, Some(fragment)) =>
         // container is not supposed to contain a ref at this point
         // resolve single property or URL fragment
         resolveFragment(fragments, context, container, fragment) orElse
           resolveUrl(context.baseUrl, fragment)
 
+
       case (ref: SchemaRef, None) =>
         resolveRef(ref.pointer.path, context.copy(visited =  context.visited + ref))
-
-      case (cls: SchemaObject, None) if isSchemaRefClass(cls)   =>
-        for {
-          ref <- cls.properties.collectFirst { case SchemaAttribute("$ref", schemaRef: SchemaRef) => schemaRef }
-          resolved <- resolveRef(ref, context)
-        } yield resolved
 
       // resolve constraints
       case (s, Some(c)) =>
@@ -122,12 +125,6 @@ object RefResolver {
     }
   }
 
-  private def resolveUrl(baseUrl: Option[URL], fragment: String): Option[SchemaType] = for {
-    bp <- baseUrl
-    json <- JsonSource.fromURL(new URL(s"${bp.toString}/$fragment")).toOption
-    schema <- Json.fromJson[SchemaType](json).asOpt
-  } yield schema
-
   private def resolveFragment(fragments: List[String], context: Context, container: SchemaType with Resolvable, fragment: String): Option[SchemaType] = {
     for {
       resolved <- container.resolvePath(fragment)
@@ -140,9 +137,33 @@ object RefResolver {
     } yield result
   }
 
+
+  // TODO: switch to Either in order to provide more fine-grained error message
+  private[schema] def fetchSchema(url: String): Option[SchemaType] = {
+
+    GlobalContextCache.get(url) match {
+      case cached@Some(_) => cached
+      case otherwise =>
+        val contents: BufferedSource = Source.fromURL(url)
+        val resolved = for {
+          json <- Try { Json.parse(contents.getLines().mkString) }.toOption
+          resolvedSchema <- Json.fromJson[SchemaType](json).asOpt
+        } yield resolvedSchema
+        resolved.foreach { r => GlobalContextCache.add(url, r) }
+        resolved
+    }
+  }
+
+  private def resolveUrl(baseUrl: Option[URL], fragment: String): Option[SchemaType] = {
+    val url: Option[String] = for {
+      bp <- baseUrl
+    } yield new URL(s"${bp.toString}/$fragment").toString
+    url.flatMap(u => fetchSchema(u))
+  }
+
   private def resolveRemoteRef(current: SchemaType, fragments: List[String], context: Context, ref: String): Option[SchemaType] = {
     for {
-      schema <- fetchSchema(ref, context)
+      schema <- fetchSchema(ref)
       result <- resolveRef(schema, fragments.tail, if (context.root == current) context.copy(root = schema) else context)
     } yield result
   }

@@ -2,8 +2,7 @@ package com.eclipsesource.schema
 
 import java.net.{HttpURLConnection, URL}
 
-import com.eclipsesource.schema.internal.Context
-import com.eclipsesource.schema.internal.RefResolver
+import com.eclipsesource.schema.internal.{GlobalContextCache, Context, RefResolver}
 import com.eclipsesource.schema.internal.constraints.Constraints.ObjectConstraints
 import com.eclipsesource.schema.test.JsonSpec
 import controllers.Assets
@@ -227,6 +226,7 @@ class SchemaValidatorSpec extends PlaySpecification {
     }
 
     "should resolve additionalProperties constraint" in new WithServer(app = new FakeApplication(withRoutes = routes), port = 1234) {
+      GlobalContextCache.clear()
       val s = JsonSource.schemaFromString(
         """{
           |"type": "boolean",

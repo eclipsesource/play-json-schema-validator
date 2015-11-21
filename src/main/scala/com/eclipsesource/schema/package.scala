@@ -62,7 +62,7 @@ package object schema
       val reference = schema.properties.collectFirst { case SchemaAttribute("$ref", ref@SchemaRef(_, _, _)) => ref }
       for {
         ref <- reference
-        resolved <- RefResolver.resolveRef(ref, context)
+        resolved <- RefResolver.resolveRelativeRef(ref, context)
       } yield resolved
     }
   }

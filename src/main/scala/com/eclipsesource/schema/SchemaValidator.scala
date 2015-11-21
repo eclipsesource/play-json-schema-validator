@@ -2,7 +2,7 @@ package com.eclipsesource.schema
 
 import java.net.URL
 
-import com.eclipsesource.schema.internal.{Context, RefResolver, Results, SchemaUtil}
+import com.eclipsesource.schema.internal._
 import play.api.data.mapping.{Failure, Path, Success, VA}
 import play.api.libs.json._
 
@@ -57,6 +57,7 @@ trait SchemaValidator {
   def validate[A: Format](schemaUrl: URL, input: A): VA[A] = {
     val writes = implicitly[Writes[A]]
     val reads = implicitly[Reads[A]]
+    GlobalContextCache.clear()
     validate(schemaUrl, input, writes).fold(
       valid = {
         json => reads.reads(json) match {
@@ -79,6 +80,7 @@ trait SchemaValidator {
     }
     val context = Context(Path, Path, schema, Set.empty, id)
     val updatedRoot = RefResolver.replaceRefs(context)(schema)
+    GlobalContextCache.clear()
     process(
       updatedRoot,
       input,
@@ -93,6 +95,7 @@ trait SchemaValidator {
     }
     val context = Context(Path, Path, schema, Set.empty, id)
     val updatedRoot = RefResolver.replaceRefs(context)(schema)
+    GlobalContextCache.clear()
     val result: VA[JsValue] = process(
       updatedRoot,
       input,
@@ -113,6 +116,7 @@ trait SchemaValidator {
     val inputJs = writes.writes(input)
     val context = Context(Path, Path, schema, Set.empty)
     val updatedRoot = RefResolver.replaceRefs(context)(schema)
+    GlobalContextCache.clear()
     process(updatedRoot, inputJs, context.copy(root = updatedRoot))
   }
 
@@ -122,6 +126,7 @@ trait SchemaValidator {
     val inputJs = writes.writes(input)
     val context = Context(Path, Path, schema, Set.empty)
     val updatedRoot = RefResolver.replaceRefs(context)(schema)
+    GlobalContextCache.clear()
     val result: VA[JsValue] = process(
       updatedRoot,
       inputJs,
