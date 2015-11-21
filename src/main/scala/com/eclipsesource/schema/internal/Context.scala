@@ -2,7 +2,7 @@ package com.eclipsesource.schema.internal
 
 import java.net.URL
 
-import com.eclipsesource.schema.{SchemaRef, SchemaType}
+import com.eclipsesource.schema.{SchemaType}
 import play.api.data.mapping.Path
 
 
@@ -10,7 +10,7 @@ case class Context(
   schemaPath: Path,
   instancePath: Path,
   root: SchemaType,
-  visited: Set[SchemaRef],
+  visited: Set[String],
   id: Option[String] = None,
   baseUrl: Option[URL] = None
 )

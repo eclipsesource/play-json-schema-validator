@@ -47,19 +47,12 @@ sealed trait SchemaArrayLike extends SchemaType with HasId with Resolvable {
 }
 
 sealed trait SchemaObjectLike extends SchemaType with Resolvable {
-  def properties: Seq[SchemaAttribute]
+  def properties: Seq[Property]
 }
 
 /////////////////
 
 final case class JSONPointer(path: String)
-
-// TODO: pointer is a JSONSPointer, see http://tools.ietf.org/html/draft-pbryan-zyp-json-pointer-02
-final case class SchemaRef(pointer: JSONPointer, isAttribute: Boolean = false, isRemote: Boolean = false) extends SchemaType {
-  override def constraints = NoConstraints()
-  override def toString: String = pointer.path
-  override def updated(fn: (SchemaType) => SchemaType): SchemaType = this
-}
 
 final case class CompoundSchemaType(alternatives: Seq[SchemaType]) extends SchemaType {
   override def toString: String = alternatives.map(_.toString).mkString(" ")
@@ -68,7 +61,7 @@ final case class CompoundSchemaType(alternatives: Seq[SchemaType]) extends Schem
   override def updated(fn: (SchemaType) => SchemaType): SchemaType = this
 }
 
-final case class SchemaObject(properties: Seq[SchemaAttribute] = Seq.empty,
+final case class SchemaObject(properties: Seq[Property] = Seq.empty,
                               constraints: ObjectConstraints = ObjectConstraints(),
                               id: Option[String] = None)
   extends HasId with SchemaObjectLike {
@@ -84,7 +77,7 @@ final case class SchemaObject(properties: Seq[SchemaAttribute] = Seq.empty,
 
   override def updated(fn: (SchemaType) => SchemaType): SchemaObjectLike =
     copy(
-      properties = properties.map(prop => prop.copy(schemaType = fn(prop.schemaType))),
+      properties = properties.map(prop => prop.updated(fn)),
       constraints = constraints.updated(fn)
     )
 }
@@ -156,4 +149,21 @@ final case class SchemaNull(constraints: HasAnyConstraint = NoConstraints()) ext
   override def updated(fn: (SchemaType) => SchemaType): SchemaNull = copy(constraints = NoConstraints(constraints.any.updated(fn)))
 }
 
-case class SchemaAttribute(name: String, schemaType: SchemaType)
+sealed trait Property {
+  def name: String
+  def schemaType: SchemaType
+  def updated(fn: SchemaType => SchemaType): Property
+}
+case class SchemaAttribute(name: String, schemaType: SchemaType) extends Property {
+  override def updated(fn: (SchemaType) => SchemaType): Property = copy(schemaType = fn(schemaType))
+}
+
+
+// TODO: pointer is a JSONSPointer, see http://tools.ietf.org/html/draft-pbryan-zyp-json-pointer-02
+final case class RefAttribute(url: String, isRemote: Boolean = false) extends Property {
+  override def updated(fn: (SchemaType) => SchemaType) = this
+  override def name: String = "$ref"
+  override def schemaType: SchemaType = SchemaValue(JsString(url))
+}
+
+

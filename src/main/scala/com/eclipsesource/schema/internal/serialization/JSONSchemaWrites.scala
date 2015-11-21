@@ -16,7 +16,6 @@ trait JSONSchemaWrites {
     case t: SchemaTuple => tupleWriter.writes(t)
     case a: SchemaArray => arrayWriter.writes(a)
     case o: SchemaObject => objectWriter.writes(o)
-    case r: SchemaRef => refWriter.writes(r)
     case c: SchemaValue => c.value
     case n: SchemaNull => nullWriter.writes(n)
     case n: CompoundSchemaType => compoundWriter.writes(n)
@@ -58,14 +57,6 @@ trait JSONSchemaWrites {
     Json.obj(
       "items" -> Json.toJson(arr.items)
     ) ++ arrayConstraintWriter.writes(arr.constraints)
-  }
-
-  implicit val refWriter: Writes[SchemaRef] = Writes[SchemaRef] { ref =>
-    if (ref.isAttribute) {
-      JsString(ref.pointer.path)
-    } else {
-      Json.obj("$ref" -> JsString(ref.pointer.path))
-    }
   }
 
   implicit val objectWriter: Writes[SchemaObject] = OWrites[SchemaObject] {

@@ -154,7 +154,7 @@ trait JSONSchemaReads {
           val (items, additionalItems, minItems, maxItems, uniqueItems, id, any) = read
 
           if (any.schemaTypeAsString.exists(_ != "array") ||
-            (any.schemaTypeAsString.isEmpty && read.take(6).toList.forall(_.isEmpty))) {
+            (any.schemaTypeAsString.isEmpty && read.take(4).toList.forall(_.isEmpty))) {
             Reads.apply(_ => JsError("Expected array."))
           } else {
             Reads.pure(
@@ -178,13 +178,11 @@ trait JSONSchemaReads {
       val (items, additionalItems, minItems, maxItems, uniqueItems, id, any) = read
 
       if (any.schemaTypeAsString.exists(_ != "array") ||
-        (any.schemaTypeAsString.isEmpty &&read.take(6).toList.forall(_.isEmpty) || items.isEmpty)) {
+        (any.schemaTypeAsString.isEmpty && read.take(4).toList.forall(_.isEmpty) || items.isEmpty)) {
         Reads.apply(_ => JsError("Expected tuple."))
       } else {
         Reads.pure(
           SchemaTuple(items.get,
-//            items.size,
-            // initialize with empty schema
             ArrayConstraints(maxItems, minItems, additionalItems, uniqueItems, any),
             id
           )
@@ -235,13 +233,11 @@ trait JSONSchemaReads {
 
       val (properties, patternProperties, additionalProperties, required, dependencies, minProperties, maxProperties, ref, id, anyConstraints) = read
 
-      val props: List[SchemaAttribute] = properties.map(tuples2Attributes).getOrElse(List.empty)
+      val props: List[Property] = properties.map(tuples2Property).getOrElse(List.empty)
 
       Reads.pure(
         SchemaObject(
-          props ++ ref.map(path => Seq(SchemaAttribute(Keywords.Object.Ref,
-            SchemaRef(JSONPointer(path), isAttribute = true, isRemote = path.startsWith("http"))))
-          ).getOrElse(Seq.empty),
+          props ++ ref.map(path => Seq(RefAttribute(path, path.startsWith("http")))).getOrElse(Seq.empty),
           ObjectConstraints(
             additionalProperties,
             dependencies,
@@ -296,7 +292,7 @@ trait JSONSchemaReads {
     }
   }
 
-  private def tuples2Attributes(props: Iterable[(String, SchemaType)]): List[SchemaAttribute] = {
+  private def tuples2Property(props: Iterable[(String, SchemaType)]): List[Property] = {
     props.map(property => SchemaAttribute(property._1, property._2)).toList
   }
 }

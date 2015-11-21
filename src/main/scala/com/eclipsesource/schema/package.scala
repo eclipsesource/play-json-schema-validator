@@ -59,7 +59,7 @@ package object schema
     }
 
     def resolveRef(json: => JsValue, schema: SchemaObject, context: Context): Option[SchemaType] = {
-      val reference = schema.properties.collectFirst { case SchemaAttribute("$ref", ref@SchemaRef(_, _, _)) => ref }
+      val reference = schema.properties.collectFirst { case ref@RefAttribute(_, _) => ref }
       for {
         ref <- reference
         resolved <- RefResolver.resolveRelativeRef(ref, context)

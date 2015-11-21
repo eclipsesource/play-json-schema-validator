@@ -63,9 +63,7 @@ object SchemaMacro {
       q"${symbolOf[SchemaValue].companion}()"
     }
 
-    implicit val refLiftable = Liftable[SchemaRef] { c =>
-      q"${symbolOf[SchemaRef].companion}()"
-    }
+
     implicit val tupleLiftable = Liftable[SchemaTuple] { c =>
       q"${symbolOf[SchemaTuple].companion}()"
     }
@@ -88,7 +86,6 @@ object SchemaMacro {
       case n: SchemaNull => nullLiftable(n)
       case c: CompoundSchemaType => compoundLiftable(c)
       case c: SchemaValue => valueLiftable(c)
-      case r: SchemaRef => refLiftable(r)
       case t: SchemaTuple => tupleLiftable(t)
     }
 
