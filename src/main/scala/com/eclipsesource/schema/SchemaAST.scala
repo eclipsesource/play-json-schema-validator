@@ -160,10 +160,10 @@ case class SchemaAttribute(name: String, schemaType: SchemaType) extends Propert
 
 
 // TODO: pointer is a JSONSPointer, see http://tools.ietf.org/html/draft-pbryan-zyp-json-pointer-02
-final case class RefAttribute(url: String, isRemote: Boolean = false) extends Property {
+final case class RefAttribute(pointer: String, isRemote: Boolean = false) extends Property {
   override def updated(fn: (SchemaType) => SchemaType) = this
   override def name: String = "$ref"
-  override def schemaType: SchemaType = SchemaValue(JsString(url))
+  override def schemaType: SchemaType = SchemaValue(JsString(pointer))
 }
 
 

@@ -14,8 +14,8 @@ object RefResolver {
 
   def replaceRefs(context: Context)(schema: SchemaType): SchemaType = {
 
-    def findFirstUnvisitedRef(schemaObject: SchemaObject): Option[RefAttribute] = schemaObject.properties.collectFirst {
-      case ref@RefAttribute(_, _) if !context.visited.contains(ref.url) => ref
+    def findRef(schemaObject: SchemaObject): Option[RefAttribute] = schemaObject.properties.collectFirst {
+      case ref@RefAttribute(_, _) if !context.visited.contains(ref.pointer) => ref
     }
 
     schema match {
@@ -27,9 +27,9 @@ object RefResolver {
 
         val id = updateContextId(context, cls)
         val (substitutedType, updContext) = (for {
-          unvisited <- findFirstUnvisitedRef(cls)
-          c = context.copy(visited = context.visited + unvisited.url, id = id)
-          resolved <- resolveRelativeRef(unvisited, c)
+          unvisited <- findRef(cls)
+          c = context.copy(visited = context.visited + unvisited.pointer, id = id)
+          resolved <- resolveParent(unvisited, c)
         } yield (resolved, c)).getOrElse((cls, context))
 
         substitutedType.updated(replaceRefs(updContext))
@@ -49,22 +49,14 @@ object RefResolver {
     }).fold(context.id)(i => Some(i))
   }
 
-  private def isSchemaRefClass(obj: SchemaObject): Boolean = {
+  private def isSchemaLocalRef(obj: SchemaObject): Boolean = {
     obj.properties.collectFirst { case RefAttribute(_, isRemote) => !isRemote }.getOrElse(false)
-
   }
 
-  /**
-    * Entry point
-    * @param path
-    * @param context
-    * @return
-    */
   def resolveRef(path: String, context: Context): Option[SchemaType] = {
     if (path.isEmpty) {
       Some(context.root)
     } else {
-      println(">> RESOLVINg " + path)
       GlobalContextCache.get(path).fold {
         val resolved = resolveRef(context.root, toFragments(path), context)
         resolved
@@ -74,13 +66,12 @@ object RefResolver {
     }
   }
 
-  def resolveRelativeRef(ref: RefAttribute, context: Context): Option[SchemaType] = {
-    val r = context.id.getOrElse("") + ref.url
+  def resolveParent(ref: RefAttribute, context: Context): Option[SchemaType] = {
+    val r = context.id.getOrElse("") + ref.pointer
     resolveRef(r, context)
   }
 
   private[schema] def resolveRef(current: SchemaType, fragments: List[String], context: Context): Option[SchemaType] = {
-    println("Resolve " + new Date() + " to " + fragments)
     (current, fragments.headOption) match {
 
       case (_, Some(ref)) if ref.startsWith("http") =>
@@ -89,10 +80,10 @@ object RefResolver {
       case (_, Some("#")) =>
         resolveRef(context.root, fragments.tail, context)
 
-      case (cls: SchemaObject, None) if isSchemaRefClass(cls)   =>
+      case (cls: SchemaObject, None) if isSchemaLocalRef(cls)   =>
         for {
           ref <- cls.properties.collectFirst { case ref: RefAttribute => ref }
-          resolved <-  resolveRef(ref.url, context.copy(visited =  context.visited + ref.url))// resolveRelativeRef(ref, context)
+          resolved <-  resolveRef(ref.pointer, context.copy(visited =  context.visited + ref.pointer))
         } yield resolved
 
       case (container: Resolvable, Some(fragment)) =>
@@ -102,11 +93,11 @@ object RefResolver {
           resolveUrl(context.baseUrl, fragment)
 
       // resolve constraints
-      case (s, Some(c)) =>
+      case (schema, Some(fragment)) =>
         for {
-          resolved <- s.constraints.any.resolvePath(c)
-          r <- resolveRef(resolved, fragments.tail, context)
-        } yield r
+          resolvedConstraint <- schema.constraints.any.resolvePath(fragment)
+          resolved <- resolveRef(resolvedConstraint, fragments.tail, context)
+        } yield resolved
 
       case (_, None) => Some(current)
     }

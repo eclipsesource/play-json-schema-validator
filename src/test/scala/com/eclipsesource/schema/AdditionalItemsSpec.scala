@@ -23,7 +23,6 @@ class AdditionalItemsSpec extends Specification {
         |}""".stripMargin).get
 
     "no additional items present" in {
-      println(Json.prettyPrint(Json.toJson(schema)))
       val data = JsArray(Seq(JsNumber(1), JsNumber(2), JsNumber(3)))
       SchemaValidator.validate(schema, data).isSuccess must beTrue
     }

@@ -64,9 +64,9 @@ trait JSONSchemaWrites {
       val o = Json.obj(
         "type" -> "object",
         "properties" -> JsObject(obj.properties.map(attr => attr.name -> Json.toJson(attr.schemaType)))
-      )
+      ) ++ obj.id.fold(emptyObject)(i => Json.obj("id" -> i))
 
-      o.deepMerge(objectConstraintWriter.writes(obj.constraints))
+      o.deepMerge(objectConstraintWriter.writes(obj.constraints)).deepMerge(obj.id.fold(Json.obj())(i => Json.obj("id" -> i)))
     }
   }
 

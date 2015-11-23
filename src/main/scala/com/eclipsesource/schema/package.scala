@@ -62,19 +62,12 @@ package object schema
       val reference = schema.properties.collectFirst { case ref@RefAttribute(_, _) => ref }
       for {
         ref <- reference
-        resolved <- RefResolver.resolveRelativeRef(ref, context)
+        resolved <- RefResolver.resolveParent(ref, context)
       } yield resolved
     }
   }
 
   implicit class FailureExtensions(errors: Seq[(Path, Seq[ValidationError])]) {
-    def toJsError: JsError = {
-      // groups errors by path
-      val groupedErrors: Seq[(Path, Seq[ValidationError])] = errors.groupBy(_._1).map(x => x._1 -> x._2.flatMap(_._2)).toSeq
-      // merge args into top-level
-      JsError(groupedErrors.map(e => (JsPath \ e._1.toString(), e._2)))
-    }
-
     def toJson: JsArray = SchemaUtil.toJson(errors)
   }
 }

@@ -154,7 +154,7 @@ trait JSONSchemaReads {
           val (items, additionalItems, minItems, maxItems, uniqueItems, id, any) = read
 
           if (any.schemaTypeAsString.exists(_ != "array") ||
-            (any.schemaTypeAsString.isEmpty && read.take(4).toList.forall(_.isEmpty))) {
+            (any.schemaTypeAsString.isEmpty && read.take(5).toList.forall(_.isEmpty))) {
             Reads.apply(_ => JsError("Expected array."))
           } else {
             Reads.pure(
