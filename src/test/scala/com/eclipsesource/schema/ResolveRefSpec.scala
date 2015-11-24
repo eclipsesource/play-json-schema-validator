@@ -11,21 +11,21 @@ class ResolveRefSpec extends Specification {
 
     val schema = JsonSource.schemaFromString(
       """{
-        |"$ref": "http://json-schema.org/draft-04/schema#"
-                }""".stripMargin).get
+        |  "$ref": "http://json-schema.org/draft-04/schema#"
+        |}""".stripMargin).get
 
     "be resolvable via " in {
 
-      val context = Context(Path, Path, schema, Set.empty)
-      val updatedRoot = RefResolver.replaceRefs(context)(schema)
-      val resolved: Option[SchemaType] = RefResolver.resolveRef("#/definitions/schemaArray", context.copy(root = updatedRoot))
+      val context = Context(schema)
+      val updatedRoot = RefResolver.resolveAll(context)(schema)
+      val resolved: Option[SchemaType] = RefResolver.resolve("#/definitions/schemaArray", context.copy(documentRoot = updatedRoot))
       resolved must beSome.which(t => t.isInstanceOf[SchemaArray])
     }
 
     "resolve ref" in {
-      val context = Context(Path, Path, schema, Set.empty)
-      val updatedRoot = RefResolver.replaceRefs(context)(schema)
-      val resolved = RefResolver.resolveRef("#/properties/anyOf", context.copy(root = updatedRoot))
+      val context = Context(schema)
+      val updatedRoot = RefResolver.resolveAll(context)(schema)
+      val resolved = RefResolver.resolve("#/properties/anyOf", context.copy(documentRoot = updatedRoot))
       resolved must beSome.which(t => t.isInstanceOf[SchemaArray])
     }
 

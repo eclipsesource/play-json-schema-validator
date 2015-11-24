@@ -4,6 +4,7 @@ import java.net.URL
 
 import com.eclipsesource.schema.internal._
 import play.api.data.mapping.{Failure, Path, Success, VA}
+import play.api.data.validation.ValidationError
 import play.api.libs.json._
 
 trait SchemaValidator {
@@ -15,24 +16,18 @@ trait SchemaValidator {
     } yield schema
 
     schema match {
-      case None => Failure(Seq())
+      case None => Failure(Seq(Path -> Seq(ValidationError("Schema can not be parsed."))))
       case Some(s) =>
         val id = s match {
           case container: HasId => container.id
           case _ => None
         }
-        val path = schemaUrl.getFile.substring(0, schemaUrl.getFile.lastIndexOf('/'))
-        val basePath = if (schemaUrl.getPort != -1) {
-          new URL(schemaUrl.getProtocol + "://" + schemaUrl.getHost + ":" + schemaUrl.getPort + path)
-        } else {
-          new URL(schemaUrl.getProtocol + "://" + schemaUrl.getHost + path)
-        }
-        val context = Context(Path, Path, s, Set.empty, id, Some(basePath))
-        val updatedRoot = RefResolver.replaceRefs(context)(s)
+        val context = Context(s, id.orElse(Some(schemaUrl.toString)), Some(schemaUrl.toString))
+        val updatedRoot = RefResolver.resolveAll(context)(s)
         process(
           updatedRoot,
           input,
-          context.copy(root = updatedRoot)
+          context.copy(documentRoot = updatedRoot)
         )
     }
   }
@@ -78,13 +73,13 @@ trait SchemaValidator {
       case container: HasId => container.id
       case _ => None
     }
-    val context = Context(Path, Path, schema, Set.empty, id)
-    val updatedRoot = RefResolver.replaceRefs(context)(schema)
+    val context = Context(schema, id)
+    val updatedRoot = RefResolver.resolveAll(context)(schema)
     GlobalContextCache.clear()
     process(
       updatedRoot,
       input,
-      context.copy(root = updatedRoot)
+      context.copy(documentRoot = updatedRoot)
     )
   }
 
@@ -93,13 +88,13 @@ trait SchemaValidator {
       case container: HasId => container.id
       case _ => None
     }
-    val context = Context(Path, Path, schema, Set.empty, id)
-    val updatedRoot = RefResolver.replaceRefs(context)(schema)
+    val context = Context(schema, id, None)
+    val updatedRoot = RefResolver.resolveAll(context)(schema)
     GlobalContextCache.clear()
     val result: VA[JsValue] = process(
       updatedRoot,
       input,
-      context.copy(root = updatedRoot)
+      context.copy(documentRoot = updatedRoot)
     )
     result.fold(
       valid = {
@@ -114,23 +109,26 @@ trait SchemaValidator {
 
   def validate[A](schema: SchemaType, input: A, writes: Writes[A]): VA[JsValue] = {
     val inputJs = writes.writes(input)
-    val context = Context(Path, Path, schema, Set.empty)
-    val updatedRoot = RefResolver.replaceRefs(context)(schema)
+    val context = Context(schema)
+    val updatedRoot = RefResolver.resolveAll(context)(schema)
     GlobalContextCache.clear()
-    process(updatedRoot, inputJs, context.copy(root = updatedRoot))
+    process(updatedRoot, inputJs, context.copy(documentRoot = updatedRoot))
   }
 
   def validate[A: Format](schema: SchemaType, input: A): VA[A] = {
     val writes = implicitly[Writes[A]]
     val reads = implicitly[Reads[A]]
     val inputJs = writes.writes(input)
-    val context = Context(Path, Path, schema, Set.empty)
-    val updatedRoot = RefResolver.replaceRefs(context)(schema)
+    val context = schema match {
+      case withId: HasId => Context(schema, withId.id, withId.id)
+      case other => Context(schema)
+    }
+    //val updatedRoot = RefResolver.resolveAll(context)(schema)
     GlobalContextCache.clear()
     val result: VA[JsValue] = process(
-      updatedRoot,
+      context.documentRoot,
       inputJs,
-      context.copy(root = updatedRoot)
+      context
     )
     result.fold(
       valid = {

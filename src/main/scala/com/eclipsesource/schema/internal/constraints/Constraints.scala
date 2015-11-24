@@ -1,6 +1,6 @@
 package com.eclipsesource.schema.internal.constraints
 
-import play.api.libs.json.{JsArray, JsValue}
+import play.api.libs.json._
 
 
 object Constraints {
@@ -11,13 +11,14 @@ object Constraints {
     def any: AnyConstraint
   }
 
-  trait Constraint {
+  trait Constraint extends Resolvable {
     def updated(fn: SchemaType => SchemaType): Constraint
   }
 
   case class NoConstraints(any: AnyConstraint = AnyConstraint(None, None, None, None))
     extends Constraint with HasAnyConstraint {
     override def updated(fn: (SchemaType) => SchemaType): Constraint = copy(any = any.updated(fn))
+    override def resolvePath(path: String): Option[SchemaType] = any.resolvePath(path)
   }
 
   case class AnyConstraint(schemaTypeAsString: Option[String] = None,
@@ -96,6 +97,14 @@ object Constraints {
       additionalItems = additionalItems.map(fn),
       any = any.updated(fn)
     )
+
+    override def resolvePath(path: String): Option[SchemaType] = path match {
+      case Keywords.Array.MinItems => minItems.map(min => SchemaValue(JsNumber(min)))
+      case Keywords.Array.MaxItems => maxItems.map(max => SchemaValue(JsNumber(max)))
+      case Keywords.Array.AdditionalItems => additionalItems
+      case Keywords.Array.UniqueItems => unique.map(u => SchemaValue(JsBoolean(u)))
+      case other => any.resolvePath(other)
+    }
   }
 
   case class Minimum(min: BigDecimal, isExclusive: Option[Boolean])
@@ -112,14 +121,12 @@ object Constraints {
     override def updated(fn: (SchemaType) => SchemaType): NumberConstraints = {
       copy(any = any.updated(fn))
     }
-  }
 
-  case class CompoundConstraints(constraints: Seq[Constraint], any: AnyConstraint) extends Constraint  {
-
-    override def updated(fn: (SchemaType) => SchemaType): CompoundConstraints = {
-      copy(
-        constraints = constraints.map(_.updated(fn))
-      )
+    override def resolvePath(path: String): Option[SchemaType] = path match {
+      case Keywords.Number.Min => min.map(m => SchemaValue(JsNumber(m.min)))
+      case Keywords.Number.Max => max.map(m => SchemaValue(JsNumber(m.max)))
+      case Keywords.Number.MultipleOf => multipleOf.map(m => SchemaValue(JsNumber(m)))
+      case other => any.resolvePath(other)
     }
   }
 
@@ -131,6 +138,13 @@ object Constraints {
 
     override def updated(fn: (SchemaType) => SchemaType): StringConstraints = {
       copy(any = any.updated(fn))
+    }
+
+    override def resolvePath(path: String): Option[SchemaType] = path match {
+      case Keywords.String.MinLength => minLength.map(min => SchemaValue(JsNumber(min)))
+      case Keywords.String.MaxLength => maxLength.map(max => SchemaValue(JsNumber(max)))
+      case Keywords.String.Pattern => pattern.map(p => SchemaValue(JsString(p)))
+      case other => any.resolvePath(other)
     }
   }
 }

@@ -37,9 +37,14 @@ package object schema
     def validate(json: => JsValue, context: Context)(implicit validator: SchemaTypeValidator[S]): VA[JsValue] = {
       schemaType match {
         case schema: SchemaObject if hasRef(schema) =>
-          resolveRef(json, schema, context) match {
+          val reference = schema.properties.collectFirst { case ref@RefAttribute(_, _) => ref }
+          val r = for {
+            ref <- reference
+            resolved <- RefResolver.resolve(ref.pointer, context)
+          } yield resolved
+          r match {
             case None => Results.failureWithPath(
-              s"Could not resolve ref $schema",
+              s"Could not resolve ref ${reference.get}",
               context.schemaPath,
               context.instancePath,
               json
@@ -56,14 +61,6 @@ package object schema
             AnyConstraintValidator.validate(json, schemaType.constraints.any, context)
           )
       }
-    }
-
-    def resolveRef(json: => JsValue, schema: SchemaObject, context: Context): Option[SchemaType] = {
-      val reference = schema.properties.collectFirst { case ref@RefAttribute(_, _) => ref }
-      for {
-        ref <- reference
-        resolved <- RefResolver.resolveParent(ref, context)
-      } yield resolved
     }
   }
 

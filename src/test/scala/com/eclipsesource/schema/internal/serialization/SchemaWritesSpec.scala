@@ -14,7 +14,6 @@ class SchemaWritesSpec extends Specification {
       }""".stripMargin
 
       val schema: SchemaType = JsonSource.schemaFromString(stringConstraint).get
-      println(schema)
       Json.toJson(schema) must beEqualTo(Json.obj(
         "type" -> "string",
         "maxLength" -> 2

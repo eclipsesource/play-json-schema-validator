@@ -48,7 +48,7 @@ trait JSONSchemaWrites {
 
   implicit val arrayWriter: Writes[SchemaArray] = Writes[SchemaArray] { arr =>
     Json.obj(
-      "items" -> Json.toJson(arr.items)
+      "items" -> Json.toJson(arr.item)
     ) ++ arrayConstraintWriter.writes(arr.constraints)
 
   }
