@@ -15,11 +15,31 @@ class SchemaValidatorSpec extends PlaySpecification {
     case (_, path) => Assets.versioned("/", path)
   }
 
+  val schema = JsonSource.schemaFromString(
+    """{
+      |  "type": "object",
+      |  "properties": {
+      |    "title": {
+      |      "type": "string",
+      |      "minLength": 10,
+      |      "maxLength": 20
+      |    },
+      |    "speaker": {
+      |      "type": "string",
+      |      "pattern": "(Mr.|Mrs.)?[A-Za-z ]+"
+      |    },
+      |    "location": { "$ref": "http://localhost:1234/location.json" }
+      |  }
+      |}""".stripMargin).get
+
   case class Location(name: String)
   case class Talk(location: Location)
 
   implicit val locationReads = Json.reads[Location]
-  implicit val talkReads = Json.reads[Talk]
+  val talkReads = Json.reads[Talk]
+  implicit val locationWrites = Json.writes[Location]
+  val talkWrites = Json.writes[Talk]
+  implicit val talkFormat = Json.format[Talk]
 
   val resourceUrl: URL = getClass.getResource("/talk.json")
   val instance = Json.obj(
@@ -66,12 +86,39 @@ class SchemaValidatorSpec extends PlaySpecification {
       result.isSuccess must beTrue
     }
 
-
-    "validate with implicit Reads" in {
+    "validate via file base URL and Reads" in {
       val result = SchemaValidator.validate(resourceUrl, instance, talkReads)
       result.isSuccess must beTrue
       result.get.location.name must beEqualTo("Munich")
     }
+
+    "validate via file base URL and Writes" in {
+      val talk = Talk(Location("Munich"))
+      val result = SchemaValidator.validate(resourceUrl, talk, talkWrites)
+      result.isSuccess must beTrue
+    }
+
+    "validate via file base URL and Format" in {
+      val talk = Talk(Location("Munich"))
+      val result = SchemaValidator.validate(resourceUrl, talk)
+      result.isSuccess must beTrue
+      result.get.location.name must beEqualTo("Munich")
+    }
+
+    "validate with Reads" in
+      new WithServer(app = new FakeApplication(withRoutes = routes), port = 1234) {
+      val result = SchemaValidator.validate(schema, instance, talkReads)
+      result.isSuccess must beTrue
+      result.get.location.name must beEqualTo("Munich")
+    }
+
+    "validate with Wrties" in
+      new WithServer(app = new FakeApplication(withRoutes = routes), port = 1234) {
+
+        val talk = Talk(Location("Munich"))
+        val result = SchemaValidator.validate(schema, talk, talkWrites)
+        result.isSuccess must beTrue
+      }
   }
 
   "Remote ref" should {

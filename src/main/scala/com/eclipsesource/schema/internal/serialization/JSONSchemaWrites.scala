@@ -43,11 +43,12 @@ trait JSONSchemaWrites {
   }
 
   implicit val numberWriter: Writes[SchemaNumber] = OWrites[SchemaNumber] { num =>
-   numberConstraintWriter.writes(num.constraints)
+    Json.obj("type" -> "number") ++ numberConstraintWriter.writes(num.constraints)
   }
 
   implicit val arrayWriter: Writes[SchemaArray] = Writes[SchemaArray] { arr =>
     Json.obj(
+      "type" -> "array",
       "items" -> Json.toJson(arr.item)
     ) ++ arrayConstraintWriter.writes(arr.constraints)
 
@@ -55,6 +56,7 @@ trait JSONSchemaWrites {
 
   implicit val tupleWriter: Writes[SchemaTuple] = Writes[SchemaTuple] { arr =>
     Json.obj(
+      "type" -> "array",
       "items" -> Json.toJson(arr.items)
     ) ++ arrayConstraintWriter.writes(arr.constraints)
   }

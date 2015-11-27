@@ -20,7 +20,7 @@ class ResolveSpec extends Specification {
 
 
     "normalize path" in {
-      // TODO reenable tests
+      // TODO reenable test
       //      RefResolver.normalize("#foo", "http://x.y.z/rootschema.json#") must beEqualTo("http://x.y.z/rootschema.json#foo")
       //      RefResolver.normalize("otherschema.json", "http://x.y.z/rootschema.json#") must beEqualTo("http://x.y.z/otherschema.json#")
       //      RefResolver.normalize("#bar", "http://x.y.z/otherschema.json#") must beEqualTo("http://x.y.z/otherschema.json#bar")
@@ -34,10 +34,43 @@ class ResolveSpec extends Specification {
           |  "items": {
           |    "type": "integer"
           |  },
-          |  "minItems": 42
+          |  "minItems": 42,
+          |  "maxItems": 99,
+          |  "additionalItems": false,
+          |  "uniqueItems": false
           |}""".stripMargin).get
       RefResolver.resolve("#/minItems", Context(schema)) must beSome(SchemaValue(JsNumber(42)))
+      RefResolver.resolve("#/maxItems", Context(schema)) must beSome(SchemaValue(JsNumber(99)))
+      RefResolver.resolve("#/additionalItems", Context(schema)) must beSome(SchemaValue(JsBoolean(false)))
+      RefResolver.resolve("#/uniqueItems", Context(schema)) must beSome(SchemaValue(JsBoolean(false)))
     }
+
+    "resolve number constraints" in {
+      val schema = JsonSource.schemaFromString(
+        """{
+          |  "type": "integer",
+          |  "minimum": 0,
+          |  "maximum": 10,
+          |  "multipleOf": 2
+          |}""".stripMargin).get
+      RefResolver.resolve("#/minimum", Context(schema)) must beSome(SchemaValue(JsNumber(0)))
+      RefResolver.resolve("#/maximum", Context(schema)) must beSome(SchemaValue(JsNumber(10)))
+      RefResolver.resolve("#/multipleOf", Context(schema)) must beSome(SchemaValue(JsNumber(2)))
+    }
+
+    "resolve string constraints" in {
+      val schema = JsonSource.schemaFromString(
+        """{
+          |  "type": "string",
+          |  "minLength": 1,
+          |  "maxLength": 10,
+          |  "pattern": "^(\\([0-9]{3}\\))?[0-9]{3}-[0-9]{4}$"
+          |}""".stripMargin).get
+      RefResolver.resolve("#/minLength", Context(schema)) must beSome(SchemaValue(JsNumber(1)))
+      RefResolver.resolve("#/maxLength", Context(schema)) must beSome(SchemaValue(JsNumber(10)))
+      RefResolver.resolve("#/pattern", Context(schema)) must beSome(SchemaValue(JsString("^(\\([0-9]{3}\\))?[0-9]{3}-[0-9]{4}$")))
+    }
+
 
     "resolve anyOf constraint" in
       new WithServer(app = new FakeApplication(withRoutes = routes), port = 1234) {
@@ -51,6 +84,7 @@ class ResolveSpec extends Specification {
 
         val resolved = RefResolver.resolve("#/anyOf", context)
         Json.toJson(RefResolver.resolveAll(context)(resolved.get)) must beEqualTo(Json.obj(
+          "type" -> "array",
           "items" -> Json.arr(
             Json.obj(
               "type" -> "string",
@@ -73,6 +107,7 @@ class ResolveSpec extends Specification {
 
       Json.toJson(RefResolver.resolveAll(context)(resolved.get)) must beEqualTo(
         Json.obj(
+          "type" -> "array",
           "items" -> Json.arr(
             Json.obj(
               "type" -> "string",
@@ -96,6 +131,7 @@ class ResolveSpec extends Specification {
       val resolved = RefResolver.resolve("#/allOf", context)
       Json.toJson(RefResolver.resolveAll(context)(resolved.get)) must beEqualTo(
         Json.obj(
+          "type" -> "array",
           "items" -> Json.arr(
             Json.obj
             (
@@ -206,7 +242,7 @@ class ResolveSpec extends Specification {
         Json.toJson(resolved.get) must beEqualTo(Json.obj("type" -> "string", "minLength" -> 10, "maxLength" -> 20))
       }
 
-    "should resolve additionalProperties constraint" in
+    "resolve additionalProperties constraint" in
       new WithServer(app = new FakeApplication(withRoutes = routes), port = 1234) {
 
         GlobalContextCache.clear()
@@ -231,7 +267,6 @@ class ResolveSpec extends Specification {
         result.isSuccess must beTrue
         val result2 = SchemaValidator.validate(schema, Json.obj("foo" -> JsString("foo")))
         result2.isFailure must beTrue
-
       }
   }
 }
