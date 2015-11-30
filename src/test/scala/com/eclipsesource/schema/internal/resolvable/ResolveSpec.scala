@@ -1,7 +1,7 @@
 package com.eclipsesource.schema.internal.resolvable
 
 import com.eclipsesource.schema.internal.{GlobalContextCache, RefResolver, Context}
-import com.eclipsesource.schema.{SchemaValue, SchemaValidator, JsonSource}
+import com.eclipsesource.schema.{SchemaNull, SchemaValue, SchemaValidator, JsonSource}
 import controllers.Assets
 import org.specs2.mutable.Specification
 import play.api.data.mapping.Path
@@ -20,12 +20,21 @@ class ResolveSpec extends Specification {
 
 
     "normalize path" in {
-      // TODO reenable test
-      //      RefResolver.normalize("#foo", "http://x.y.z/rootschema.json#") must beEqualTo("http://x.y.z/rootschema.json#foo")
-      //      RefResolver.normalize("otherschema.json", "http://x.y.z/rootschema.json#") must beEqualTo("http://x.y.z/otherschema.json#")
-      //      RefResolver.normalize("#bar", "http://x.y.z/otherschema.json#") must beEqualTo("http://x.y.z/otherschema.json#bar")
-      //      RefResolver.normalize("t/inner.json#a", "http://x.y.z/otherschema.json#") must beEqualTo("http://x.y.z/t/inner.json#a")
-      true must beTrue
+      val someSchema = SchemaNull()
+      val root = "http://x.y.z/rootschema.json#"
+      val other = "http://x.y.z/otherschema.json#"
+
+      RefResolver.normalize("#foo",
+        Context(someSchema, Some(root), Some(root))) must beEqualTo("http://x.y.z/rootschema.json#foo")
+
+      RefResolver.normalize("otherschema.json",
+        Context(someSchema, Some(other), Some(other))) must beEqualTo("http://x.y.z/otherschema.json#")
+
+      RefResolver.normalize("#bar",
+        Context(someSchema, Some(other), Some(other))) must beEqualTo("http://x.y.z/otherschema.json#bar")
+
+      RefResolver.normalize("t/inner.json#a",
+        Context(someSchema, Some(other), Some(other))) must beEqualTo("http://x.y.z/t/inner.json#a")
     }
 
     "resolve array constraints" in {
@@ -228,7 +237,6 @@ class ResolveSpec extends Specification {
     "should resolve definitions constraint" in
       new WithServer(app = new FakeApplication(withRoutes = routes), port = 1234) {
 
-        GlobalContextCache.clear()
         val schema = JsonSource.schemaFromString(
           """{
             |"type": "boolean",
@@ -245,7 +253,6 @@ class ResolveSpec extends Specification {
     "resolve additionalProperties constraint" in
       new WithServer(app = new FakeApplication(withRoutes = routes), port = 1234) {
 
-        GlobalContextCache.clear()
         val schema = JsonSource.schemaFromString(
           """{
             |"id": "http://localhost:1234/talk.json#",

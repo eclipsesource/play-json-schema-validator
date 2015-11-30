@@ -1,7 +1,11 @@
 package com.eclipsesource.schema.internal
 
+import java.net.URI
+
 import com.eclipsesource.schema.SchemaType
 import play.api.data.mapping.Path
+
+import scala.util.Try
 
 
 case class Context(
@@ -13,7 +17,7 @@ case class Context(
                     visited: Set[String] = Set.empty // tracks all visited refs
 ) {
   def isRootScope = {
-    val isRootScope =  for {
+    val isRootScope = for {
       scope <- id
       rootScope <- rootId
     } yield scope == rootScope
@@ -23,23 +27,20 @@ case class Context(
 
 object GlobalContextCache {
 
-  var cache: Map[String, SchemaType] = Map()
-
-  def clear() = {
-//    println("CACHE CLEAR")
-    cache = Map.empty
-  }
+  private var cache: Map[String, SchemaType] = Map()
 
   def add(url: String)(schemaType: SchemaType) = {
-//    println(s"ADD TO CACHE $url -> ${schemaType.prettyPrint}")
-    cache = cache + (url -> schemaType)
-    schemaType
+    def isAbsolute(path: String) = Try { new URI(path) }.map(_.isAbsolute).getOrElse(false)
+    if (isAbsolute(url)) {
+      cache = cache + (url -> schemaType)
+      schemaType
+    } else {
+      schemaType
+    }
   }
 
   def get(url: String) = {
-//    println(s"ASK CACHE for $url/$cache")
     val cached = cache.get(url)
-//    cached.foreach(x => println(s"CACHE HIT $x"))
     cached
   }
 }

@@ -52,7 +52,6 @@ trait SchemaValidator {
   def validate[A: Format](schemaUrl: URL, input: A): VA[A] = {
     val writes = implicitly[Writes[A]]
     val reads = implicitly[Reads[A]]
-    GlobalContextCache.clear()
     validate(schemaUrl, input, writes).fold(
       valid = {
         json => reads.reads(json) match {
@@ -73,9 +72,8 @@ trait SchemaValidator {
       case container: HasId => container.id
       case _ => None
     }
-    val context = Context(schema, id)
+    val context = Context(schema, id, id)
     val updatedRoot = RefResolver.resolveAll(context)(schema)
-    GlobalContextCache.clear()
     process(
       updatedRoot,
       input,
@@ -84,18 +82,7 @@ trait SchemaValidator {
   }
 
   def validate[A](schema: SchemaType, input: => JsValue, reads: Reads[A]) : VA[A] = {
-    val id = schema match {
-      case container: HasId => container.id
-      case _ => None
-    }
-    val context = Context(schema, id, None)
-    val updatedRoot = RefResolver.resolveAll(context)(schema)
-    GlobalContextCache.clear()
-    val result: VA[JsValue] = process(
-      updatedRoot,
-      input,
-      context.copy(documentRoot = updatedRoot)
-    )
+    val result = validate(schema)(input)
     result.fold(
       valid = {
         json => reads.reads(json) match {
@@ -109,27 +96,14 @@ trait SchemaValidator {
 
   def validate[A](schema: SchemaType, input: A, writes: Writes[A]): VA[JsValue] = {
     val inputJs = writes.writes(input)
-    val context = Context(schema)
-    val updatedRoot = RefResolver.resolveAll(context)(schema)
-    GlobalContextCache.clear()
-    process(updatedRoot, inputJs, context.copy(documentRoot = updatedRoot))
+    validate(schema)(inputJs)
   }
 
   def validate[A: Format](schema: SchemaType, input: A): VA[A] = {
     val writes = implicitly[Writes[A]]
     val reads = implicitly[Reads[A]]
     val inputJs = writes.writes(input)
-    val context = schema match {
-      case withId: HasId => Context(schema, withId.id, withId.id)
-      case other => Context(schema)
-    }
-    //val updatedRoot = RefResolver.resolveAll(context)(schema)
-    GlobalContextCache.clear()
-    val result: VA[JsValue] = process(
-      context.documentRoot,
-      inputJs,
-      context
-    )
+    val result = validate(schema)(inputJs)
     result.fold(
       valid = {
         json => reads.reads(json) match {

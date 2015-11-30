@@ -12,18 +12,21 @@ import scala.util.Try
 
 object RefResolver {
 
-  private def normalize(path: String, context: Context): String = {
+  private[internal] def normalize(path: String, context: Context): String = {
 
-    //def dropEndingHash(scope: String) = if (scope.endsWith("#")) scope.dropRight(1) else scope
-    def compose(scope: String) =  if (scope.endsWith("/")) scope + path else scope + "/" + path
-
-    val resolutionScope = if (context.isRootScope) findBaseUrl(context.id).map(_.toString) else context.id
+    def pathWithHash: String = if (!path.contains("#") && !path.endsWith("/")) s"$path#" else path
+    def compose(scope: String) = if (scope.endsWith("/")) scope + pathWithHash else scope + "/" + pathWithHash
+    def dropHashIfAny(scope: String) = if (scope.endsWith("#")) scope.dropRight(1) + path else scope
     val isAbsolute = Try { new URI(path) }.map(_.isAbsolute).getOrElse(false)
 
-    if (isAbsolute) {
-      path
-    } else {
-      resolutionScope.map(compose).getOrElse(path)
+    path match {
+      case p if p.startsWith("#") =>
+        context.id.map(dropHashIfAny).getOrElse(path)
+      case _ if isAbsolute =>
+        pathWithHash
+      case other =>
+        val resolutionScope = if (context.isRootScope) findBaseUrl(context.id).map(_.toString) else context.id
+        resolutionScope.map(compose).getOrElse(path)
     }
   }
 
@@ -72,7 +75,7 @@ object RefResolver {
     } else {
       GlobalContextCache.get(path).fold {
         val resolved = resolve(context.documentRoot, path, context)
-        resolved.map(GlobalContextCache.add(path))
+        resolved.map(GlobalContextCache.add(normalize(path, context)))
       } { Some(_) }
     }
   }
