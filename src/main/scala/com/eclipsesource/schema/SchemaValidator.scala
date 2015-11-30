@@ -2,8 +2,9 @@ package com.eclipsesource.schema
 
 import java.net.URL
 
-import com.eclipsesource.schema.internal.{Context, RefResolver, Results, SchemaUtil}
+import com.eclipsesource.schema.internal._
 import play.api.data.mapping.{Failure, Path, Success, VA}
+import play.api.data.validation.ValidationError
 import play.api.libs.json._
 
 trait SchemaValidator {
@@ -15,20 +16,18 @@ trait SchemaValidator {
     } yield schema
 
     schema match {
-      case None => Failure(Seq())
+      case None => Failure(Seq(Path -> Seq(ValidationError("Schema can not be parsed."))))
       case Some(s) =>
         val id = s match {
-          case container: SchemaContainer => container.id
+          case container: HasId => container.id
           case _ => None
         }
-        val path = schemaUrl.getFile.substring(0, schemaUrl.getFile.lastIndexOf('/'))
-        val basePath = new URL(schemaUrl.getProtocol + "://" + schemaUrl.getHost + path)
-        val context = Context(Path, Path, s, Set.empty, id, Some(basePath))
-        val updatedRoot = RefResolver.replaceRefs(context)(s)
+        val context = Context(s, id.orElse(Some(schemaUrl.toString)), Some(schemaUrl.toString))
+        val updatedRoot = RefResolver.resolveAll(context)(s)
         process(
           updatedRoot,
           input,
-          context.copy(root = updatedRoot)
+          context.copy(documentRoot = updatedRoot)
         )
     }
   }
@@ -70,30 +69,20 @@ trait SchemaValidator {
 
   def validate(schema: SchemaType)(input: => JsValue): VA[JsValue] = {
     val id = schema match {
-      case container: SchemaContainer => container.id
+      case container: HasId => container.id
       case _ => None
     }
-    val context = Context(Path, Path, schema, Set.empty, id)
-    val updatedRoot = RefResolver.replaceRefs(context)(schema)
+    val context = Context(schema, id, id)
+    val updatedRoot = RefResolver.resolveAll(context)(schema)
     process(
       updatedRoot,
       input,
-      context.copy(root = updatedRoot)
+      context.copy(documentRoot = updatedRoot)
     )
   }
 
   def validate[A](schema: SchemaType, input: => JsValue, reads: Reads[A]) : VA[A] = {
-    val id = schema match {
-      case container: SchemaContainer => container.id
-      case _ => None
-    }
-    val context = Context(Path, Path, schema, Set.empty, id)
-    val updatedRoot = RefResolver.replaceRefs(context)(schema)
-    val result: VA[JsValue] = process(
-      updatedRoot,
-      input,
-      context.copy(root = updatedRoot)
-    )
+    val result = validate(schema)(input)
     result.fold(
       valid = {
         json => reads.reads(json) match {
@@ -107,22 +96,14 @@ trait SchemaValidator {
 
   def validate[A](schema: SchemaType, input: A, writes: Writes[A]): VA[JsValue] = {
     val inputJs = writes.writes(input)
-    val context = Context(Path, Path, schema, Set.empty)
-    val updatedRoot = RefResolver.replaceRefs(context)(schema)
-    process(updatedRoot, inputJs, context.copy(root = updatedRoot))
+    validate(schema)(inputJs)
   }
 
   def validate[A: Format](schema: SchemaType, input: A): VA[A] = {
     val writes = implicitly[Writes[A]]
     val reads = implicitly[Reads[A]]
     val inputJs = writes.writes(input)
-    val context = Context(Path, Path, schema, Set.empty)
-    val updatedRoot = RefResolver.replaceRefs(context)(schema)
-    val result: VA[JsValue] = process(
-      updatedRoot,
-      inputJs,
-      context.copy(root = updatedRoot)
-    )
+    val result = validate(schema)(inputJs)
     result.fold(
       valid = {
         json => reads.reads(json) match {

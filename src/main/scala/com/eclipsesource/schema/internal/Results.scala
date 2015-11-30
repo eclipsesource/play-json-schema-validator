@@ -26,14 +26,6 @@ object Results {
     })
   }
 
-  def mergeAsObject(valid: Seq[(String, JsValue)], invalid: Seq[VA[JsValue]]): VA[JsValue] = {
-    if (invalid.nonEmpty) {
-      invalid.collect { case f@Failure(_) => f }.reduceLeft((f1, f2) => Failure.merge(f1, f2))
-    } else {
-      Success(JsObject(valid))
-    }
-  }
-
   def success(prop: (String, JsValue)): PropertyValidationResult = {
     prop._1 -> Success(prop._2)
   }

@@ -22,7 +22,7 @@ object SchemaMacro {
         case "Boolean"   => SchemaBoolean()
         case arr if universeType.baseClasses.contains(seqSym) =>
           val itemType = schemaType(universeType, universeType.resultType.typeArgs.head.toString)
-          SchemaArray(() => itemType)
+          SchemaArray(itemType)
         case cls =>
 
           val fields = universeType.decls.collectFirst {
@@ -59,20 +59,16 @@ object SchemaMacro {
     implicit val compoundLiftable = Liftable[CompoundSchemaType] { c =>
       q"${symbolOf[CompoundSchemaType].companion}()"
     }
-    implicit val booleanConstantLiftable = Liftable[SchemaBooleanConstant] { c =>
-      q"${symbolOf[SchemaBooleanConstant].companion}()"
+    implicit val valueLiftable = Liftable[SchemaValue] { c =>
+      q"${symbolOf[SchemaValue].companion}()"
     }
-    implicit val arrayConstantLiftable = Liftable[SchemaArrayConstant] { c =>
-      q"${symbolOf[SchemaArrayConstant].companion}()"
-    }
-    implicit val refLiftable = Liftable[SchemaRef] { c =>
-      q"${symbolOf[SchemaRef].companion}()"
-    }
+
+
     implicit val tupleLiftable = Liftable[SchemaTuple] { c =>
       q"${symbolOf[SchemaTuple].companion}()"
     }
     lazy implicit val arrayLiftable: Liftable[SchemaArray] = Liftable[SchemaArray] { (arr: SchemaArray) =>
-      val lifted = schemaLiftable(arr.items)
+      val lifted = schemaLiftable(arr.item)
       q"${symbolOf[SchemaArray].companion}($lifted)"
     }
     lazy implicit val classLiftable: Liftable[SchemaObject] = Liftable[SchemaObject] { cls =>
@@ -89,9 +85,7 @@ object SchemaMacro {
       case c: SchemaObject => classLiftable(c)
       case n: SchemaNull => nullLiftable(n)
       case c: CompoundSchemaType => compoundLiftable(c)
-      case c: SchemaArrayConstant => arrayConstantLiftable(c)
-      case c: SchemaBooleanConstant => booleanConstantLiftable(c)
-      case r: SchemaRef => refLiftable(r)
+      case c: SchemaValue => valueLiftable(c)
       case t: SchemaTuple => tupleLiftable(t)
     }
 

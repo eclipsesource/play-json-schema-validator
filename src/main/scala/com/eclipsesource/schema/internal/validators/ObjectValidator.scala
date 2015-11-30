@@ -108,7 +108,7 @@ object ObjectValidator extends SchemaTypeValidator[SchemaObject] {
         ((), (), status)
       } else {
         schema.constraints.additionalPropertiesOrDefault match {
-          case SchemaBooleanConstant(enabled) =>
+          case SchemaValue(JsBoolean(enabled)) =>
             if (enabled) {
               ((), (), Results.merge(status, Success(JsObject(unmatchedFields))))
             } else {
@@ -164,9 +164,9 @@ object ObjectValidator extends SchemaTypeValidator[SchemaObject] {
 
       val dependencies = schema.constraints.dependencies.getOrElse(Seq.empty)
       val (updatedSchema, updatedStatus) = dependencies.foldLeft((schema, status))((acc, dep) => dep match {
-        case (name, arr: SchemaArrayConstant) =>
+        case (name, SchemaValue(JsArray(values))) =>
           // collecting strings should not be necessary at this point
-          val validated = validatePropertyDependency(name, arr.seq.collect { case JsString(str) => str}, context)
+          val validated = validatePropertyDependency(name, values.collect { case JsString(str) => str}, context)
           (acc._1, Results.merge(acc._2, validated))
         case (name, cls: SchemaObject) if obj.keys.contains(name) => (extendSchemaByDependency(acc._1, dep._2), acc._2)
         case _ => acc

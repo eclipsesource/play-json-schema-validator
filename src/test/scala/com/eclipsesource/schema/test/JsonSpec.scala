@@ -38,7 +38,8 @@ object JsonSpec extends ThrownExpectations {
   def fromUrl(url: URL): Either[String, Seq[(String, Seq[SpecResult])]] = {
     JsonSource.fromURL(url).getOrElse(failure(s"Could not read JSON from $url.")) match {
       case JsArray(specs) => Right(executeSpecs(specs))
-      case json => Left(s"URL $url does not contain any specs or has wrong format. See https://github.com/json-schema/JSON-Schema-Test-Suite for correct format")
+      case json =>
+        Left(s"URL $url does not contain any specs or has wrong format. See https://github.com/json-schema/JSON-Schema-Test-Suite for correct format")
     }
   }
 

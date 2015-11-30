@@ -1,9 +1,10 @@
 package com.eclipsesource.schema
 
 import play.api.data.mapping.{VA}
-import play.api.libs.json.{JsUndefined, JsValue}
+import play.api.libs.json._
 
-import scalaz.{Semigroup, ReaderWriterState}
+import scala.util.{Try, Success, Failure}
+import scalaz._
 
 package object internal {
 

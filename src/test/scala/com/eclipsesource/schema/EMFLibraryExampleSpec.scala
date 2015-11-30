@@ -55,9 +55,7 @@ class EMFLibraryExampleSpec extends Specification {
 
     "handle multiple required errors" in {
       val result2: JsResult[SchemaType] = JsonSource.schemaFromString(librarySchema)
-      println(result2)
       val schema = result2.get
-      println(Json.prettyPrint(Json.toJson(schema)))
       lazy val goethe: JsObject = Json.obj(
         "name" -> "Goethe"
       )

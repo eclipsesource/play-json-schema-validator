@@ -1,8 +1,9 @@
 package com.eclipsesource.schema.internal
 
-import java.net.{URL, URLDecoder}
+import java.net.{URI, URL, URLDecoder}
 
 import com.eclipsesource.schema._
+
 import play.api.data.mapping.Path
 import play.api.libs.json.Json
 
@@ -11,158 +12,245 @@ import scala.util.Try
 
 object RefResolver {
 
-  def replaceRefs(context: Context)(schema: SchemaType): SchemaType = {
+  private[internal] def normalize(path: String, context: Context): String = {
 
-    def findFirstUnvisitedRef(schemaObject: SchemaObject): Option[SchemaRef] = schemaObject.properties.collectFirst {
-      case attr@SchemaAttribute(_, ref: SchemaRef) if !context.visited.contains(ref) => ref
+    def pathWithHash: String = if (!path.contains("#") && !path.endsWith("/")) s"$path#" else path
+    def compose(scope: String) = if (scope.endsWith("/")) scope + pathWithHash else scope + "/" + pathWithHash
+    def dropHashIfAny(scope: String) = if (scope.endsWith("#")) scope.dropRight(1) + path else scope
+    val isAbsolute = Try { new URI(path) }.map(_.isAbsolute).getOrElse(false)
+
+    path match {
+      case p if p.startsWith("#") =>
+        context.id.map(dropHashIfAny).getOrElse(path)
+      case _ if isAbsolute =>
+        pathWithHash
+      case other =>
+        val resolutionScope = if (context.isRootScope) findBaseUrl(context.id).map(_.toString) else context.id
+        resolutionScope.map(compose).getOrElse(path)
+    }
+  }
+
+  /**
+    * Resolve all refs in the given schema.
+    *
+    * @param context the resolution context
+    * @param schema the schema in which all refs should be resolved
+    * @return the schema with all refs resolved
+    */
+  def resolveAll(context: Context)(schema: SchemaType): SchemaType = {
+    def findRef(schemaObject: SchemaObject): Option[RefAttribute] = schemaObject.properties.collectFirst {
+      case ref@RefAttribute(_, _) if !context.visited.contains(ref.pointer) => ref
     }
 
     schema match {
-      case container: SchemaContainer =>
-        val id = updateContextId(context, container)
-        container.updated(container.id, container.schemaTypes.map(t => replaceRefs(context.copy(id = id))(t)):_*)
+      case container: SchemaArrayLike =>
+        container.updated(resolveAll(updateResolutionScope(context, container)))
 
-      case cls: SchemaObject =>
-
-        val id = updateContextId(context, cls)
+      case obj: SchemaObject =>
         val (substitutedType, updContext) = (for {
-          unvisited <- findFirstUnvisitedRef(cls)
-          c = context.copy(visited = context.visited + unvisited, id = id)
-          resolved <- resolveRef(unvisited, c)
-        } yield (resolved, c)).getOrElse((cls, context))
+          unvisited <- findRef(obj)
+          updatedContext = updateResolutionScope(context, obj).copy(visited = context.visited + unvisited.pointer)
+          resolved  <- resolve(unvisited.pointer, updatedContext)
+        } yield (resolved, updatedContext)).getOrElse((obj, context))
 
-        substitutedType match {
-          // if resolved type is a class, resolve all refs it contains
-          case c: SchemaObject => c.copy(constraints = c.constraints.updated(replaceRefs(updContext)))
-          case other => other
-        }
+        substitutedType.updated(resolveAll(updContext))
 
       case other => other
     }
   }
 
-  def updateContextId(context: Context, container: HasId): Option[String] = {
-    (if (container != context.root) {
-      for {
+  private def updateResolutionScope(context: Context, schema: SchemaType): Context = schema match {
+    case withId: HasId =>
+      val updatedScope = for {
         baseId <- context.id
-        schemaId <- container.id
-      } yield baseId + schemaId
-    } else {
-      context.id
-    }).fold(context.id)(i => Some(i))
+        schemaId <- withId.id
+      } yield normalize(schemaId, context)
+      context.copy(id = updatedScope orElse context.id)
+    case other => context
   }
 
-  // TODO: switch to Either in order to provide more fine-grained error message
-  private[schema] def fetchSchema(url: String, context: Context): Option[SchemaType] = {
-    val contents: BufferedSource = Source.fromURL(url)
-
-    for {
-      json <- Try { Json.parse(contents.getLines().mkString) }.toOption
-      resolvedSchema <- Json.fromJson[SchemaType](json).asOpt
-    } yield resolvedSchema
-  }
-
-  private def isRef: SchemaType => Boolean = {
-    case ref@SchemaRef(_, _, false) => true
-    case _ => false
-
-  }
-
-  private def isSchemaRefClass: SchemaType => Boolean = {
-    case cls: SchemaObject if cls.properties.exists(p => isRef(p.schemaType)) => true
-    case _ => false
-  }
-
-  def resolveRef(path: String, context: Context): Option[SchemaType] = {
+  def resolve(path: String, context: Context): Option[SchemaType] = {
     if (path.isEmpty) {
-      Some(context.root)
+      Some(context.documentRoot)
     } else {
-      val resolved = resolveRef(context.root, toFragments(path), context)
-      resolved.map(res => replaceRefs(context)(res))
+      GlobalContextCache.get(path).fold {
+        val resolved = resolve(context.documentRoot, path, context)
+        resolved.map(GlobalContextCache.add(normalize(path, context)))
+      } { Some(_) }
     }
   }
 
-  def resolveRef(ref: SchemaRef, context: Context): Option[SchemaType] = {
-    val r = context.id.getOrElse("") + ref.pointer.path
-    resolveRef(r, context)
+  private[schema] def resolve(current: SchemaType, path: String, context: Context): Option[SchemaType] = {
+    (current, path) match {
+
+      case (_, ref) if ref.startsWith("http") =>
+        val fragmentStartIndex = ref.indexOf("#")
+        val hasHash = fragmentStartIndex > 0
+        val idx = if (hasHash) fragmentStartIndex + 1 else 0
+
+        fetchSchema(new URL(ref)).flatMap(resolved =>
+          if (hasHash) {
+            val root = if (current == context.documentRoot) resolved else context.documentRoot
+            resolve(resolved, "#" + ref.substring(idx), context.copy(documentRoot = root))
+          } else {
+            Some(resolved)
+          }
+        )
+
+      case (schema,"#") => Some(context.documentRoot)
+
+      case (schema, ref) if ref.startsWith("#") =>
+        resolve(context.documentRoot, ref.substring(math.min(2, ref.length)), context)
+
+      case (container: Resolvable, fragments) =>
+        //        println(s"Fragments or relative ${container.prettyPrint} / $fragments")
+        val resultOpt = for {
+          resolved <- resolveFragments(toFragments(fragments), context, container)
+          result   <- resolveRefIfAny(resolved, updateResolutionScope(context, resolved))
+        } yield result
+        resultOpt orElse resolveRelative(fragments, context)
+
+      case (_, _) => Some(current)
+    }
   }
 
+  /**
+    * Resolve ref if the given schema contains any.
+    *
+    * @param schema the schema
+    * @param context the resolution context
+    * @return the resolved ref, if any, otherwise None
+    */
+  private def resolveRefIfAny(schema: SchemaType, context: Context): Option[SchemaType] = {
+    def hasRef(obj: SchemaObject): Boolean =  obj.properties.exists(_.name == "$ref")
 
-  private[schema] def resolveRef(current: SchemaType, fragments: List[String], context: Context): Option[SchemaType] = {
-
-    (current, fragments.headOption) match {
-
-      case (_, Some(ref)) if ref.startsWith("http") =>
-
-        resolveRemoteRef(current, fragments, context, ref)
-
-      case (_, Some("#")) =>
-        resolveRef(context.root, fragments.tail, context)
-
-      case (container: Resolvable, Some(fragment)) =>
-        // container is not supposed to contain a ref at this point
-        // resolve single property or URL fragment
-        resolveFragment(fragments, context, container, fragment) orElse
-          resolveUrl(context.baseUrl, fragment)
-
-      case (ref: SchemaRef, None) =>
-        resolveRef(ref.pointer.path, context.copy(visited =  context.visited + ref))
-
-      case (cls: SchemaObject, None) if isSchemaRefClass(cls)   =>
+    schema match {
+      case obj: SchemaObject if hasRef(obj) =>
         for {
-          ref <- cls.properties.collectFirst { case SchemaAttribute("$ref", schemaRef: SchemaRef) => schemaRef }
-          resolved <- resolveRef(ref, context)
+          ref      <- obj.properties.collectFirst { case ref: RefAttribute => ref }
+          resolved <- resolve(ref.pointer, context.copy(visited =  context.visited + ref.pointer))
         } yield resolved
-
-      case (_, None) => Some(current)
+      case other => Some(other)
     }
   }
 
-  private def resolveUrl(baseUrl: Option[URL], fragment: String): Option[SchemaType] = for {
-    bp <- baseUrl
-    json <- JsonSource.fromURL(new URL(s"${bp.toString}/$fragment")).toOption
-    schema <- Json.fromJson[SchemaType](json).asOpt
-  } yield schema
-
-  private def resolveFragment(fragments: List[String], context: Context, container: SchemaType with Resolvable, fragment: String): Option[SchemaType] = {
-    for {
-      resolved <- container.resolvePath(fragment)
-      result <- resolveRef(resolved, fragments.tail,
-        context.copy(
-          schemaPath = context.schemaPath.compose(Path(fragment)),
-          instancePath = context.instancePath.compose(Path(fragment))
-
-        ))
-    } yield result
+  /**
+    * Resolve a given list of fragments against a given schema.
+    *
+    * @param fragments a list of single fragments to be resolved
+    * @param context the initial context
+    * @param schema the scheam to resolve against the single fragments
+    * @return the resolved schema
+    */
+  private def resolveFragments(fragments: List[String], context: Context, schema: SchemaType): Option[SchemaType] = {
+    (fragments, schema) match {
+      case (Nil, result) => Some(result)
+      case (fragment :: rest, resolvable: Resolvable) =>
+        for {
+          resolved <- resolvable.resolvePath(fragment)
+          result <- resolveFragments(rest,
+            context.copy(
+              schemaPath = context.schemaPath.compose(Path(fragment)),
+              instancePath = context.instancePath.compose(Path(fragment))
+            ),
+            resolved
+          )
+        } yield result
+    }
   }
 
-  private def resolveRemoteRef(current: SchemaType, fragments: List[String], context: Context, ref: String): Option[SchemaType] = {
-    for {
-      schema <- fetchSchema(ref, context)
-      result <- resolveRef(schema, fragments.tail, if (context.root == current) context.copy(root = schema) else context)
-    } yield result
+  /**
+    * Fetch a schema from the given URI.
+    *
+    * @param url the absolute URI string from which to fetch schema
+    * @return a schema wrapped in an Option
+    */
+  private[schema] def fetchSchema(url: URL): Option[SchemaType] = {
+    // TODO: switch to Either in order to provide more fine-grained error message
+    GlobalContextCache.get(url.toString) match {
+      case cached@Some(_) => cached
+      case otherwise =>
+        val contents: BufferedSource = Source.fromURL(url)
+        val resolved = for {
+          json <- Try { Json.parse(contents.getLines().mkString) }.toOption
+          resolvedSchema <- Json.fromJson[SchemaType](json).asOpt
+        } yield resolvedSchema
+        resolved.map { GlobalContextCache.add(url.toString) }
+    }
   }
 
-  private def toFragments(uri: String): List[String] = {
-    val fragmentStartIndex = uri.indexOf("#")
-    val fragments: List[String] = uri.find((c: Char) => c == '#')
-      .map(_ => uri.substring(fragmentStartIndex, uri.length))
-      .getOrElse("").split("/").toList
-      .map(
-        segment =>
-          // perform escaping
-          URLDecoder.decode(segment, "UTF-8")
-            .replace("~1", "/")
-            .replace("~0", "~")
+  /**
+    * Finds out the actual base URI based on a given resolution scope.
+    *
+    * @param scope the resolution scope from which to determine the base URL
+    * @return the base URL, if any, otherwise None
+    */
+  private def findBaseUrl(scope: Option[String]): Option[URL] = {
+    scope.map(url => {
+      val schemaUrl = new URL(url)
+      val protocol = schemaUrl.getProtocol
+      val host = schemaUrl.getHost
+      val port = schemaUrl.getPort
+      val file = schemaUrl.getFile
+
+      if (schemaUrl.getHost.nonEmpty) {
+        if (schemaUrl.getPort != -1) {
+          new URL(s"$protocol://$host:$port")
+        } else {
+          new URL(s"$protocol://$host")
+        }
+      } else {
+        new URL(s"$protocol://${file.substring(0, file.lastIndexOf("/"))}")
+      }
+    })
+  }
+
+  /**
+    * Resolve the given fragments relatively against the base URL.
+    *
+    * @param relativeFragments a fragments to be resolved
+    * @param context the resolution context
+    * @return the resolved schema
+    */
+  private def resolveRelative(relativeFragments: String, context: Context): Option[SchemaType] = {
+    val hashIdx = relativeFragments.indexOf("#")
+    val hasHash = hashIdx != -1
+    val documentName = if (hasHash) relativeFragments.substring(0, hashIdx) else relativeFragments
+    val normalized = context.id.map(id => normalize(documentName, context))
+    val r= for {
+      n <- normalized
+      schema   <- fetchSchema(new URL(n))
+      resolved <- resolve(schema,
+        if (hasHash) relativeFragments.substring(hashIdx) else "#",
+        context.copy(documentRoot = schema)
       )
-    if (fragmentStartIndex < 0) {
-      List(uri)
-    } else if (fragmentStartIndex == 0) {
-      fragments
-    } else {
-      val baseUri = uri.substring(0, fragmentStartIndex)
-      List(baseUri) ++ fragments
-    }
+    } yield resolved
+    r
   }
 
+  /**
+    * Split the given URI string into single fragments.
+    * If the given URI is an absolute path the base URI
+    * will be ignored.
+    *
+    * @param uri the URI to be split
+    * @return the single fragments as a list
+    */
+  private def toFragments(uri: String): List[String] = {
+
+    def escape(s: String): String =
+      URLDecoder.decode(s, "UTF-8")
+        .replace("~1", "/")
+        .replace("~0", "~")
+
+    def withoutBaseUri(s: String): Option[String] = {
+      s.find(_ == '#')
+        .map(_ => uri.substring(uri.indexOf("#")))
+    }
+
+    val withoutBase = withoutBaseUri(uri)
+    withoutBase.getOrElse(uri)
+      .split("/").toList
+      .map(escape)
+  }
 }

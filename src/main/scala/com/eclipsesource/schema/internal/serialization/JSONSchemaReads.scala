@@ -29,9 +29,7 @@ trait JSONSchemaReads {
   }.or {
     numberReader.map(s => s : SchemaType)
   }.or {
-    booleanConstantReader.map(s => s : SchemaType)
-  }.or {
-    arrayConstantReader.map(s => s : SchemaType)
+    jsValueReader.map(s => s: SchemaType)
   }.or {
     delegatingObjectReader.map(s => s : SchemaType)
   }.or {
@@ -104,24 +102,26 @@ trait JSONSchemaReads {
     })
   }
 
-  lazy val booleanConstantReader: Reads[SchemaBooleanConstant] = new Reads[SchemaBooleanConstant] {
-    override def reads(json: JsValue): JsResult[SchemaBooleanConstant] = json match {
-      case bool@JsBoolean(_) => JsSuccess(SchemaBooleanConstant(bool.value))
-      case _ => JsError("Expected boolean.")
+  lazy val jsValueReader: Reads[SchemaValue] = new Reads[SchemaValue] {
+    override def reads(json: JsValue): JsResult[SchemaValue] = json match {
+      case bool@JsBoolean(_) => JsSuccess(SchemaValue(bool))
+      case s@JsString(_) => JsSuccess(SchemaValue(s))
+      case a@JsArray(els) => JsSuccess(SchemaValue(a))
+      case _ => JsError("Expected json.")
     }
   }
 
   lazy val nullReader: Reads[SchemaNull] = {
     anyConstraintReader.flatMap(any => {
       // TODO: null constraint type could be removed
-      Reads.pure(SchemaNull(NullConstraints(any)))
+      Reads.pure(SchemaNull(NoConstraints(any)))
     })
   }
 
   lazy val booleanReader: Reads[SchemaBoolean] = {
     anyConstraintReader.flatMap(any => {
       // TODO: boolean constraint type could be removed
-      Reads.pure(SchemaBoolean(BooleanConstraints(any)))
+      Reads.pure(SchemaBoolean(NoConstraints(any)))
     })
   }
 
@@ -154,12 +154,12 @@ trait JSONSchemaReads {
           val (items, additionalItems, minItems, maxItems, uniqueItems, id, any) = read
 
           if (any.schemaTypeAsString.exists(_ != "array") ||
-            (any.schemaTypeAsString.isEmpty && read.take(6).toList.forall(_.isEmpty))) {
+            (any.schemaTypeAsString.isEmpty && read.take(5).toList.forall(_.isEmpty))) {
             Reads.apply(_ => JsError("Expected array."))
           } else {
             Reads.pure(
               SchemaArray(
-                () => items.getOrElse(emptyObject),
+                items.getOrElse(emptyObject),
                 ArrayConstraints(maxItems, minItems, additionalItems, uniqueItems, any), id)
             )
           }
@@ -178,28 +178,15 @@ trait JSONSchemaReads {
       val (items, additionalItems, minItems, maxItems, uniqueItems, id, any) = read
 
       if (any.schemaTypeAsString.exists(_ != "array") ||
-        (any.schemaTypeAsString.isEmpty &&read.take(6).toList.forall(_.isEmpty) || items.isEmpty)) {
+        (any.schemaTypeAsString.isEmpty && read.take(4).toList.forall(_.isEmpty) || items.isEmpty)) {
         Reads.apply(_ => JsError("Expected tuple."))
       } else {
         Reads.pure(
-          SchemaTuple(() => items.get,
-            items.size,
-            // initialize with empty schema
+          SchemaTuple(items.get,
             ArrayConstraints(maxItems, minItems, additionalItems, uniqueItems, any),
             id
           )
         )
-      }
-    }
-  }
-
-  lazy val arrayConstantReader: Reads[SchemaArrayConstant] = {
-    new Reads[SchemaArrayConstant] {
-      override def reads(json: JsValue): JsResult[SchemaArrayConstant] = {
-        json match {
-          case JsArray(els) => JsSuccess(SchemaArrayConstant(els.collect { case str@JsString(_) => str}.toSeq))
-          case _ => JsError("Expected a array of strings")
-        }
       }
     }
   }
@@ -246,13 +233,11 @@ trait JSONSchemaReads {
 
       val (properties, patternProperties, additionalProperties, required, dependencies, minProperties, maxProperties, ref, id, anyConstraints) = read
 
-      val props: List[SchemaAttribute] = properties.map(tuples2Attributes).getOrElse(List.empty)
+      val props: List[Property] = properties.map(tuples2Property).getOrElse(List.empty)
 
       Reads.pure(
         SchemaObject(
-          props ++ ref.map(path => Seq(SchemaAttribute(Keywords.Object.Ref,
-            SchemaRef(JSONPointer(path), isAttribute = true, isRemote = path.startsWith("http"))))
-          ).getOrElse(Seq.empty),
+          props ++ ref.map(path => Seq(RefAttribute(path, path.startsWith("http")))).getOrElse(Seq.empty),
           ObjectConstraints(
             additionalProperties,
             dependencies,
@@ -307,7 +292,7 @@ trait JSONSchemaReads {
     }
   }
 
-  private def tuples2Attributes(props: Iterable[(String, SchemaType)]): List[SchemaAttribute] = {
+  private def tuples2Property(props: Iterable[(String, SchemaType)]): List[Property] = {
     props.map(property => SchemaAttribute(property._1, property._2)).toList
   }
 }

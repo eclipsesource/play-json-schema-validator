@@ -37,9 +37,14 @@ package object schema
     def validate(json: => JsValue, context: Context)(implicit validator: SchemaTypeValidator[S]): VA[JsValue] = {
       schemaType match {
         case schema: SchemaObject if hasRef(schema) =>
-          resolveRef(json, schema, context) match {
+          val reference = schema.properties.collectFirst { case ref@RefAttribute(_, _) => ref }
+          val r = for {
+            ref <- reference
+            resolved <- RefResolver.resolve(ref.pointer, context)
+          } yield resolved
+          r match {
             case None => Results.failureWithPath(
-              s"Could not resolve ref $schema",
+              s"Could not resolve ref ${reference.get}",
               context.schemaPath,
               context.instancePath,
               json
@@ -57,24 +62,9 @@ package object schema
           )
       }
     }
-
-    def resolveRef(json: => JsValue, schema: SchemaObject, context: Context): Option[SchemaType] = {
-      val reference = schema.properties.collectFirst { case SchemaAttribute("$ref", ref@SchemaRef(_, _, _)) => ref }
-      for {
-        ref <- reference
-        resolved <- RefResolver.resolveRef(ref, context)
-      } yield resolved
-    }
   }
 
   implicit class FailureExtensions(errors: Seq[(Path, Seq[ValidationError])]) {
-    def toJsError: JsError = {
-      // groups errors by path
-      val groupedErrors: Seq[(Path, Seq[ValidationError])] = errors.groupBy(_._1).map(x => x._1 -> x._2.flatMap(_._2)).toSeq
-      // merge args into top-level
-      JsError(groupedErrors.map(e => (JsPath \ e._1.toString(), e._2)))
-    }
-
     def toJson: JsArray = SchemaUtil.toJson(errors)
   }
 }

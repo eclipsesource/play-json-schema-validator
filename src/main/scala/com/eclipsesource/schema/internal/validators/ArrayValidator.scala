@@ -11,7 +11,7 @@ object ArrayValidator extends SchemaTypeValidator[SchemaArray] with ArrayConstra
   override def validate(schema: SchemaArray, json: => JsValue, context: Context): VA[JsValue] = json match {
     case JsArray(values) =>
       val elements: Seq[VA[JsValue]] = values.zipWithIndex.map { case (jsValue, idx) =>
-        SchemaValidator.process(schema.items, jsValue,
+        SchemaValidator.process(schema.item, jsValue,
           context.copy(
             schemaPath = context.schemaPath \ idx,
             instancePath = context.instancePath \ idx

@@ -3,20 +3,20 @@ package com.eclipsesource.schema.internal.validators
 import com.eclipsesource.schema._
 import com.eclipsesource.schema.internal.{Context, Results}
 import play.api.data.mapping.{Failure, Success, VA}
-import play.api.libs.json.{JsArray, JsValue}
+import play.api.libs.json.{JsBoolean, JsArray, JsValue}
 
 object TupleValidator extends SchemaTypeValidator[SchemaTuple] with ArrayConstraintValidator {
 
   override def validate(schema: SchemaTuple, json: => JsValue, context: Context): VA[JsValue] = json match {
     case JsArray(values) =>
       val instanceSize = values.size
-      val schemaSize = schema.schemaTypes.size
+      val schemaSize = schema.items.size
 
       val results: Seq[VA[JsValue]] = if (instanceSize > schemaSize) {
         val additionalInstanceValues: Seq[JsValue] = values.takeRight(instanceSize - schemaSize)
         val additionalItemsSchema: SchemaType = schema.constraints.additionalItems.getOrElse(SchemaObject())
         additionalItemsSchema match {
-          case SchemaBooleanConstant(false) =>
+          case SchemaValue(JsBoolean(false)) =>
             Seq(
               Results.failureWithPath(
                 s"Too many items. Expected $schemaSize items, found $instanceSize.",
@@ -25,10 +25,10 @@ object TupleValidator extends SchemaTypeValidator[SchemaTuple] with ArrayConstra
                 json
               )
             )
-          case SchemaBooleanConstant(true) =>
+          case SchemaValue(JsBoolean(true)) =>
             values.map(Success(_))
           case items =>
-            val instanceValuesValidated: Seq[VA[JsValue]] = schema.items().zipWithIndex.map { case (item, idx) =>
+            val instanceValuesValidated: Seq[VA[JsValue]] = schema.items.zipWithIndex.map { case (item, idx) =>
               SchemaValidator.process(item, values(idx),
                 context.copy(
                   schemaPath = context.schemaPath \ idx,
@@ -50,7 +50,7 @@ object TupleValidator extends SchemaTypeValidator[SchemaTuple] with ArrayConstra
         }
       } else {
         values.zipWithIndex.map { case (jsValue, idx) =>
-          SchemaValidator.process(schema.items()(idx), jsValue,
+          SchemaValidator.process(schema.items(idx), jsValue,
             context.copy(
               schemaPath = context.schemaPath \ idx,
               instancePath = context.instancePath \ idx
