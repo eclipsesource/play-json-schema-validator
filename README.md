@@ -18,7 +18,7 @@ Then add the library itself via:
 
 ```
 libraryDependencies ++= Seq(
- "com.eclipsesource" %% "play-json-schema-validator" % "0.5.5"
+ "com.eclipsesource" %% "play-json-schema-validator" % "0.6.0"
 )
 ``` 
  
@@ -72,12 +72,13 @@ Erros feature a `schemaPath`, an `instancePath`, a `value` and a `msgs` property
   "schemaPath" : "/properties/title",
   "instancePath" : "/title",
   "value" : "a",
-  "msgs" : [ "a violates min length of 3", "a does not match pattern ^[A-Z].*" ]
+  "msgs" : [ "a violates min length of 3", "a does not match pattern ^[A-Z].*" ],
+  "errors": []
 }
 ```
 
 ### anyOf, oneOf, allOf 
-In case of `allOf`, `anyOf` and `oneOf`, the failure(s) also contain an `errors` array property which holds the actual sub errors. For instance, if we have a schema like the following:
+In case of `allOf`, `anyOf` and `oneOf`,  the `errors` array property holds the actual sub errors. For instance, if we have a schema like the following:
 
 ```Javascript
 {
@@ -92,20 +93,22 @@ and we validate the value `1.5`, the `toJson` method returns this error:
 ```Javascript
 {
   "schemaPath" : "/",
+  "msgs" : [ "1.5 does not match any of the schemas" ],
+  "value" : 1.5,
+  "instancePath" : "/",
   "errors" : [ {
     "schemaPath" : "/",
     "instancePath" : "/",
     "value" : 1.5,
-    "msgs" : [ "Wrong type. Expected integer, was number" ]
+    "msgs" : [ "Wrong type. Expected integer, was number" ],
+    "errors": []
   }, {
     "schemaPath" : "/",
     "instancePath" : "/",
     "value" : 1.5,
-    "msgs" : [ "minimum violated: 1.5 is less than 2" ]
-  } ],
-  "msgs" : [ "1.5 does not match any of the schemas" ],
-  "value" : 1.5,
-  "instancePath" : "/"
+    "msgs" : [ "minimum violated: 1.5 is less than 2" ],
+    "errors": []
+  } ]
 }
 ```
 
