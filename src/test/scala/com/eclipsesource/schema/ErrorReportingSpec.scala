@@ -137,7 +137,7 @@ class ErrorReportingSpec extends Specification {
         |}""".stripMargin).get
     val result: VA[JsValue] = SchemaValidator.validate(schema)(Json.obj("foo" -> "baz"))
     result.isFailure must beTrue
-    result.asEither must beLeft.like { case error => error.toJson(0) \ "msgs" == JsDefined(JsArray(Seq(JsString("""{"foo":"baz"} does not match all schemas""")))) }
+    result.asEither must beLeft.like { case error => error.toJson(0) \ "msgs" == JsDefined(JsArray(Seq(JsString("""Instance does not match all schemas""")))) }
   }
 
   "handle oneOf validation errors" in {
@@ -155,7 +155,7 @@ class ErrorReportingSpec extends Specification {
 
     val result: VA[JsValue] = SchemaValidator.validate(schema)(JsNumber(3))
     result.isFailure must beTrue
-    result.asEither must beLeft.like { case error => error.toJson(0) \ "msgs" == JsDefined(JsArray(Seq(JsString("""3 does match more than one schema""")))) }
+    result.asEither must beLeft.like { case error => error.toJson(0) \ "msgs" == JsDefined(JsArray(Seq(JsString("""Instance matches more than one schema""")))) }
   }
 
 }

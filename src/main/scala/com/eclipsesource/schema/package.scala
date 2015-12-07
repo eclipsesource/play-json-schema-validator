@@ -32,7 +32,7 @@ package object schema
 
     def prettyPrint: String = SchemaUtil.prettyPrint(schemaType)
 
-    private def hasRef(schema: SchemaObject) = schema.properties.exists { _.name == "$ref" }
+    private def hasRef(schema: SchemaObject) = schema.properties.collectFirst { case RefAttribute(_, _) => }.isDefined
 
     def validate(json: => JsValue, context: Context)(implicit validator: SchemaTypeValidator[S]): VA[JsValue] = {
       schemaType match {
@@ -43,8 +43,9 @@ package object schema
             resolved <- RefResolver.resolve(ref.pointer, context)
           } yield resolved
           r match {
-            case None => Results.failureWithPath(
-              s"Could not resolve ref ${reference.get}",
+            case None =>
+              Results.failureWithPath(
+              s"Could not resolve ref ${reference.map(_.pointer).getOrElse("")}",
               context.schemaPath,
               context.instancePath,
               json
