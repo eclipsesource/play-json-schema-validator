@@ -26,8 +26,8 @@ trait ArrayConstraintValidator {
           } else {
             failure(
               s"Too many items. ${values.size} items found, but only $max item(s) are allowed.",
-              context.schemaPath.toString(),
-              context.instancePath.toString(),
+              context.schemaPath,
+              context.instancePath,
               json
             )
           }
@@ -47,8 +47,8 @@ trait ArrayConstraintValidator {
           } else {
             failure(
               s"Not enough items. ${values.size} items found, but at least $minItems item(s) need to be present.",
-              context.schemaPath.toString(),
-              context.instancePath.toString(),
+              context.schemaPath,
+              context.instancePath,
               json
             )
           }
@@ -66,8 +66,8 @@ trait ArrayConstraintValidator {
           } else {
             failure(
               s"[${values.mkString(", ")}] contains duplicates",
-              context.schemaPath.toString(),
-              context.instancePath.toString(),
+              context.schemaPath,
+              context.instancePath,
               json
             )
           }
@@ -79,8 +79,8 @@ trait ArrayConstraintValidator {
   private def expectedArray(json: JsValue, context: Context) =
     failure(
       s"Wrong type. Expected array, was ${SchemaUtil.typeOfAsString(json)}",
-      context.schemaPath.toString(),
-      context.instancePath.toString(),
+      context.schemaPath,
+      context.instancePath,
       json
     )
 }

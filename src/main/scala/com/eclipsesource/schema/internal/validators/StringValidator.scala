@@ -34,8 +34,8 @@ object StringValidator extends SchemaTypeValidator[SchemaString] {
             } else {
               failure(
                 s"$string does not match pattern $pattern",
-                context.schemaPath.toString(),
-                context.instancePath.toString(),
+                context.schemaPath,
+                context.instancePath,
                 json
               )
             }
@@ -55,8 +55,8 @@ object StringValidator extends SchemaTypeValidator[SchemaString] {
           } else {
             failure(
               s"$string violates min length of $minLength",
-              context.schemaPath.toString(),
-              context.instancePath.toString(),
+              context.schemaPath,
+              context.instancePath,
               json
             )
           }
@@ -76,8 +76,8 @@ object StringValidator extends SchemaTypeValidator[SchemaString] {
             } else {
               failure(
                 s"$string violates max length of $max",
-                context.schemaPath.toString(),
-                context.instancePath.toString(),
+                context.schemaPath,
+                context.instancePath,
                 json
               )
             }
@@ -89,8 +89,8 @@ object StringValidator extends SchemaTypeValidator[SchemaString] {
   private def expectedString(json: JsValue, context: Context) =
     failure(
       "Expected string",
-      context.schemaPath.toString(),
-      context.instancePath.toString(),
+      context.schemaPath,
+      context.instancePath,
       json
     )
 
