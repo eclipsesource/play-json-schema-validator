@@ -28,8 +28,8 @@ object AnyConstraintValidator {
           } else {
             failure(
               s"$json matches schema '$schema' although it should not.",
-              context.schemaPath.toString(),
-              context.instancePath.toString(),
+              context.schemaPath,
+              context.instancePath,
               json
             )
           }
@@ -42,17 +42,23 @@ object AnyConstraintValidator {
       Rule.fromMapping { json =>
         any.allOf.map(
           schemas => {
-            val allValidationResults = schemas.map(schema => SchemaValidator.process(schema, json, context))
+            val allValidationResults: Seq[VA[JsValue]] = schemas.map(schema =>
+              SchemaValidator.process(schema, json, context)
+            )
             val allMatch = allValidationResults.forall(_.isSuccess)
             if (allMatch) {
               Success(json)
             } else {
               failure(
-                s"$json does not match all schemas",
-                context.schemaPath.toString(),
-                context.instancePath.toString(),
+                s"Instance does not match all schemas",
+                context.schemaPath,
+                context.instancePath,
                 json,
-                Some(allValidationResults)
+                allValidationResults.collect { case Failure(errors) =>
+                  errors.headOption
+                    .map(error => s"Unmatched schema at ${error._1.toString()}")
+                    .getOrElse("Could not obtain path")
+                }
               )
             }
           }
@@ -65,15 +71,16 @@ object AnyConstraintValidator {
       Rule.fromMapping { json =>
         any.anyOf.map(
           schemas => {
-            val allValidationResults: Seq[VA[JsValue]] = schemas.map(SchemaValidator.validate(_)(json))
+            val allValidationResults: Seq[VA[JsValue]] = schemas.map(schema =>
+              SchemaValidator.process(schema, json, context)
+            )
             val maybeSuccess = allValidationResults.find(_.isSuccess)
             maybeSuccess.map(success => Success(json)).getOrElse(
               failure(
                 s"$json does not match any of the schemas",
-                context.schemaPath.toString(),
-                context.instancePath.toString(),
-                json,
-                Some(allValidationResults)
+                context.schemaPath,
+                context.instancePath,
+                json
               )
             )
           }
@@ -86,22 +93,23 @@ object AnyConstraintValidator {
       Rule.fromMapping { json =>
         any.oneOf.map(
           schemas => {
-            val allValidationResults = schemas.map(schema => SchemaValidator.validate(schema)(json))
+            val allValidationResults = schemas.map(schema =>
+              SchemaValidator.process(schema, json, context)
+            )
             allValidationResults.count(_.isSuccess) match {
               case 0 =>
                 failure(
-                  s"$json does not match any schema",
-                  context.schemaPath.toString(),
-                  context.instancePath.toString(),
-                  json,
-                  Some(allValidationResults)
+                  s"Instance does not match any schema",
+                  context.schemaPath,
+                  context.instancePath,
+                  json
                 )
               case 1 => Success(json)
-              case _ =>
+              case o =>
                 failure(
-                  s"$json does match more than one schema",
-                  context.schemaPath.toString(),
-                  context.instancePath.toString(),
+                  s"Instance matches more than one schema",
+                  context.schemaPath,
+                  context.instancePath,
                   json
                 )
             }
@@ -119,8 +127,8 @@ object AnyConstraintValidator {
           case Some(values) =>
             failure(
               s"$json is not part of enum [${values.mkString(", ")}]",
-              context.schemaPath.toString(),
-              context.instancePath.toString(),
+              context.schemaPath,
+              context.instancePath,
               json
             )
           case None => Success(json)

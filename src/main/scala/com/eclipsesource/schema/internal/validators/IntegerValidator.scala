@@ -16,8 +16,8 @@ object IntegerValidator extends SchemaTypeValidator[SchemaInteger] with NumberCo
         case other =>
           failure(
             s"Wrong type. Expected integer, was ${SchemaUtil.typeOfAsString(other)}",
-            context.schemaPath.toString(),
-            context.instancePath.toString(),
+            context.schemaPath,
+            context.instancePath,
             other
           )
       }

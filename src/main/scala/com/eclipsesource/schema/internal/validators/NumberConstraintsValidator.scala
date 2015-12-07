@@ -1,9 +1,8 @@
 package com.eclipsesource.schema.internal.validators
 
+import com.eclipsesource.schema.internal.{Context, SchemaUtil}
 import com.eclipsesource.schema.internal.constraints.Constraints.{Maximum, Minimum, NumberConstraints}
-import com.eclipsesource.schema.internal.{Context, Results, SchemaUtil}
-import play.api.data.mapping.{Failure, Rule, Success}
-import play.api.data.validation.ValidationError
+import play.api.data.mapping.{Rule, Success}
 import play.api.libs.json.{JsNumber, JsValue}
 
 trait NumberConstraintsValidator {
@@ -31,8 +30,8 @@ trait NumberConstraintsValidator {
               val comparison = if (isExclusive) "less than or equal to" else "less than"
               failure(
                 s"$minType violated: $number is $comparison ${min.min}",
-                context.schemaPath.toString(),
-                context.instancePath.toString(),
+                context.schemaPath,
+                context.instancePath,
                 number
               )
             }
@@ -65,8 +64,8 @@ trait NumberConstraintsValidator {
               val comparison = if (isExclusive) "bigger than or equal to" else "bigger than"
               failure(
                 s"$maxType violated: $number is $comparison ${max.max}",
-                context.schemaPath.toString(),
-                context.instancePath.toString(),
+                context.schemaPath,
+                context.instancePath,
                 number
               )
             }
@@ -86,8 +85,8 @@ trait NumberConstraintsValidator {
             } else {
               failure(
                 s"$number is not a multiple of $factor.",
-                context.schemaPath.toString(),
-                context.instancePath.toString(),
+                context.schemaPath,
+                context.instancePath,
                 number
               )
             }
@@ -100,8 +99,8 @@ trait NumberConstraintsValidator {
   private def expectedNumber(json: JsValue, context: Context) =
     failure(
       s"Wrong type. Expected number, was ${SchemaUtil.typeOfAsString(json)}",
-      context.schemaPath.toString(),
-      context.instancePath.toString(),
+      context.schemaPath,
+      context.instancePath,
       json
     )
 }
