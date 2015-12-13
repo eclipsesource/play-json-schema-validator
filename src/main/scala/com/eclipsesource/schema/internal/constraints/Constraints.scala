@@ -12,12 +12,11 @@ object Constraints {
   }
 
   trait Constraint extends Resolvable {
-    def updated(fn: SchemaType => SchemaType): Constraint
+
   }
 
   case class NoConstraints(any: AnyConstraint = AnyConstraint(None, None, None, None))
     extends Constraint with HasAnyConstraint {
-    override def updated(fn: (SchemaType) => SchemaType): Constraint = copy(any = any.updated(fn))
     override def resolvePath(path: String): Option[SchemaType] = any.resolvePath(path)
   }
 
@@ -29,16 +28,6 @@ object Constraints {
                            enum: Option[Seq[JsValue]] = None,
                            not: Option[SchemaType] = None)
     extends Constraint with Resolvable {
-
-    override def updated(fn: SchemaType => SchemaType): AnyConstraint = {
-      copy(
-        allOf = allOf.map(_.map(fn)),
-        anyOf = anyOf.map(_.map(fn)),
-        oneOf = oneOf.map(_.map(fn)),
-        definitions = definitions.map(_.map(entry => entry._1 -> fn(entry._2))),
-        not  = not.map(fn)
-      )
-    }
 
     override def resolvePath(path: String): Option[SchemaType] = path match {
       case Keywords.Any.AllOf => allOf.map(types => SchemaTuple(types))
@@ -63,18 +52,6 @@ object Constraints {
       additionalProps.fold(ObjectConstraints.emptyObject)(identity)
     }
 
-    override def updated(fn: (SchemaType) => SchemaType): ObjectConstraints = {
-      copy(
-        additionalProps.map(t => fn(t)),
-        dependencies.map(_.map(dep => dep._1 -> fn(dep._2))),
-        patternProps.map(_.map(p => p._1 -> fn(p._2))),
-        required,
-        minProperties,
-        maxProperties,
-        any.updated(fn)
-      )
-    }
-
     override def resolvePath(path: String): Option[SchemaType] = path match {
       case Keywords.Object.Dependencies => dependencies.map(entries => SchemaObject(entries.toSeq.map(e => SchemaAttribute(e._1, e._2))))
       case Keywords.Object.PatternProperties => patternProps.map(patternProps => SchemaObject(patternProps.toSeq.map(e => SchemaAttribute(e._1, e._2))))
@@ -92,11 +69,6 @@ object Constraints {
                               additionalItems: Option[SchemaType] = None,
                               unique: Option[Boolean] = None,
                               any: AnyConstraint = AnyConstraint()) extends Constraint with HasAnyConstraint {
-
-    override def updated(fn: (SchemaType) => SchemaType): ArrayConstraints = copy(
-      additionalItems = additionalItems.map(fn),
-      any = any.updated(fn)
-    )
 
     override def resolvePath(path: String): Option[SchemaType] = path match {
       case Keywords.Array.MinItems => minItems.map(min => SchemaValue(JsNumber(min)))
@@ -118,10 +90,6 @@ object Constraints {
                                any: AnyConstraint = AnyConstraint())
     extends Constraint with HasAnyConstraint {
 
-    override def updated(fn: (SchemaType) => SchemaType): NumberConstraints = {
-      copy(any = any.updated(fn))
-    }
-
     override def resolvePath(path: String): Option[SchemaType] = path match {
       case Keywords.Number.Min => min.map(m => SchemaValue(JsNumber(m.min)))
       case Keywords.Number.Max => max.map(m => SchemaValue(JsNumber(m.max)))
@@ -135,10 +103,6 @@ object Constraints {
                                 pattern: Option[String] = None,
                                 any: AnyConstraint = AnyConstraint())
     extends Constraint with HasAnyConstraint {
-
-    override def updated(fn: (SchemaType) => SchemaType): StringConstraints = {
-      copy(any = any.updated(fn))
-    }
 
     override def resolvePath(path: String): Option[SchemaType] = path match {
       case Keywords.String.MinLength => minLength.map(min => SchemaValue(JsNumber(min)))

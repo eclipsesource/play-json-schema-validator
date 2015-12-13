@@ -3,7 +3,7 @@ package com.eclipsesource.schema.internal.serialization
 import com.eclipsesource.schema._
 import com.eclipsesource.schema.internal.constraints.Constraints.{Maximum, Minimum, NumberConstraints}
 import org.specs2.mutable.Specification
-import play.api.libs.json.{Json, JsString}
+import play.api.libs.json.{Json}
 
 class SchemaWritesSpec extends Specification {
 
@@ -53,6 +53,21 @@ class SchemaWritesSpec extends Specification {
       Json.toJson(SchemaArray(SchemaNumber())) must beEqualTo(Json.obj(
         "type" -> "array",
         "items" -> Json.obj("type" -> "number")
+      ))
+    }
+
+    "serialize $ref" in {
+      Json.toJson(SchemaObject(Seq(RefAttribute("#", isRemote = false)))) must beEqualTo(Json.obj(
+        "type" -> "object",
+        "properties" -> Json.obj(
+          "$ref" -> "#"
+        )
+      ))
+    }
+
+    "compound type" in {
+      Json.toJson(CompoundSchemaType(Seq(SchemaNumber(), SchemaBoolean()))) must beEqualTo(Json.obj(
+        "type" -> Json.arr("number", "boolean")
       ))
     }
   }
