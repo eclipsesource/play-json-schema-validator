@@ -58,42 +58,27 @@ class ErrorReportingSpec extends Specification {
           |}""".stripMargin).get
       val result: VA[JsValue] = SchemaValidator.validate(schema)(Json.obj("bar" -> Json.obj()))
       result.isFailure must beTrue
-      result.asEither must beLeft.like { case error => error.toJson.as[JsArray].value.size == 2 }
-      true must beTrue
+      result.asEither must beLeft.like { case error =>
+        error.toJson.value.size == 2
+      }
     }
   }
 
-  "handle anyOf validation errors" in {
+  "handle anyOf validation errors (none matches)" in {
     val schema = JsonSource.schemaFromString(
       """{
-        |"anyOf": [
-        |  {
-        |    "type": "integer"
-        |  },
-        |  {
-        |    "minimum": 2
-        |  }
-        |]
+        |  "anyOf": [
+        |    { "type": "integer" },
+        |    {"minimum": 2 }
+        |  ]
         |}""".stripMargin).get
     val result: VA[JsValue] = SchemaValidator.validate(schema)(JsNumber(1.5))
     result.isFailure must beTrue
-    result.asEither must beLeft.like { case error => (error.toJson(0) \ "schemaPath") == JsDefined(JsString("/")) }
-  }
-
-  "handle anyOf validation errors" in {
-    val schema = JsonSource.schemaFromString(
-      """
-        |{
-        |  "anyOf": [
-        |    { "type": "string", "maxLength": 5 },
-        |    { "type": "number", "minimum": 0   }
-        |  ]
-        |}
-      """.
-        stripMargin).get
-    val result: VA[JsValue] = SchemaValidator. validate(schema)(JsString("too long"))
-    result.isFailure must beTrue
-    result.asEither must beLeft.like { case error => error.toJson(0) \ "schemaPath" == JsDefined(JsString("/")) }
+    result.asEither must beLeft.like { case error =>
+      (error.toJson \ "schemaPath") == JsDefined(JsString("/"))
+      val JsDefined(subErrors) = (error.toJson(0) \ "errors")
+      subErrors.as[JsObject].keys.size == 2
+    }
   }
 
   "handle nested anyOf validation errors" in {
@@ -114,7 +99,9 @@ class ErrorReportingSpec extends Specification {
         |}""".stripMargin).get
     val result: VA[JsValue] = SchemaValidator.validate(schema)(Json.obj("foo" -> 1.5))
     result.isFailure must beTrue
-    result.asEither must beLeft.like { case error => error.toJson(0) \ "schemaPath" == JsDefined(JsString("/properties/foo")) }
+    result.asEither must beLeft.like { case error =>
+      error.toJson(0) \ "schemaPath" == JsDefined(JsString("#/properties/foo"))
+    }
   }
 
   "handle allOf validation errors" in {
@@ -135,12 +122,36 @@ class ErrorReportingSpec extends Specification {
         |  }
         |]
         |}""".stripMargin).get
-    val result: VA[JsValue] = SchemaValidator.validate(schema)(Json.obj("foo" -> "baz"))
+    val result = SchemaValidator.validate(schema)(Json.obj("foo" -> "baz"))
     result.isFailure must beTrue
-    result.asEither must beLeft.like { case error => error.toJson(0) \ "msgs" == JsDefined(JsArray(Seq(JsString("""Instance does not match all schemas""")))) }
+    result.asEither must beLeft.like { case error =>
+      error.toJson(0) \ "msgs" == JsDefined(JsArray(Seq(JsString("Instance does not match all schemas"))))
+    }
   }
 
-  "handle oneOf validation errors" in {
+  "handle oneOf validation errors (two or more match)" in {
+    val schema = JsonSource.schemaFromString(
+      """{
+        |  "oneOf": [
+        |    {
+        |      "type": "integer"
+        |    },
+        |    {
+        |      "minimum": 2
+        |    }
+        |  ]
+        |}""".
+        stripMargin).
+      get
+
+    val result: VA[JsValue] = SchemaValidator.validate(schema)(JsNumber(3))
+    result.isFailure must beTrue
+    result.asEither must beLeft.like { case error =>
+      error.toJson(0) \ "msgs" == JsDefined(JsArray(Seq(JsString("Instance matches more than one schema"))))
+    }
+  }
+
+  "handle oneOf validation errors (none matches)" in {
     val schema = JsonSource.schemaFromString(
       """{
         |"oneOf": [
@@ -151,11 +162,14 @@ class ErrorReportingSpec extends Specification {
         |    "minimum": 2
         |  }
         |]
-        |}""".stripMargin).get
+        |}""".
+        stripMargin).get
 
-    val result: VA[JsValue] = SchemaValidator.validate(schema)(JsNumber(3))
+    val result: VA[JsValue] = SchemaValidator.validate(schema)(JsNumber(1.14))
     result.isFailure must beTrue
-    result.asEither must beLeft.like { case error => error.toJson(0) \ "msgs" == JsDefined(JsArray(Seq(JsString("""Instance matches more than one schema""")))) }
+    result.asEither must beLeft.like { case error =>
+      val JsDefined(obj) = error.toJson(0)
+      obj \ "msgs" == JsDefined(JsArray(Seq(JsString("Instance does not match any schema"))))
+    }
   }
-
 }

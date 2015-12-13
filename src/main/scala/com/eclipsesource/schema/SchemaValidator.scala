@@ -3,6 +3,7 @@ package com.eclipsesource.schema
 import java.net.URL
 
 import com.eclipsesource.schema.internal._
+import com.eclipsesource.schema.internal.validators.AnyConstraintValidator
 import play.api.data.mapping.{Failure, Path, Success, VA}
 import play.api.data.validation.ValidationError
 import play.api.libs.json._
@@ -23,11 +24,10 @@ trait SchemaValidator {
           case _ => None
         }
         val context = Context(s, id.orElse(Some(schemaUrl.toString)), Some(schemaUrl.toString))
-        val updatedRoot = RefResolver.resolveAll(context)(s)
         process(
-          updatedRoot,
+          s,
           input,
-          context.copy(documentRoot = updatedRoot)
+          context
         )
     }
   }
@@ -73,11 +73,10 @@ trait SchemaValidator {
       case _ => None
     }
     val context = Context(schema, id, id)
-    val updatedRoot = RefResolver.resolveAll(context)(schema)
     process(
-      updatedRoot,
+      schema,
       input,
-      context.copy(documentRoot = updatedRoot)
+      context
     )
   }
 
@@ -118,35 +117,53 @@ trait SchemaValidator {
   private[schema] def process(schema: SchemaType, json: JsValue, context: Context): VA[JsValue] = {
 
     (json, schema) match {
-      case (_, schemaObject: SchemaObject) if schema.constraints.any.schemaTypeAsString.isEmpty =>
-        schemaObject.validate(json, context)
-      case (_: JsObject, schemaObject: SchemaObject) if schema.constraints.any.schemaTypeAsString.isDefined =>
-        schemaObject.validate(json, context)
-      case (_, c: CompoundSchemaType) =>
-        c.validate(json, context)
-      case (jsArray: JsArray, schemaArray: SchemaArray) =>
-        schemaArray.validate(jsArray, context)
-      case (jsArray: JsArray, schemaTuple: SchemaTuple) =>
-        schemaTuple.validate(jsArray, context)
-      case (jsNumber: JsNumber, schemaNumber: SchemaNumber) =>
-        schemaNumber.validate(jsNumber, context)
-      case (jsNumber: JsNumber, schemaInteger: SchemaInteger) =>
-        schemaInteger.validate(jsNumber, context)
-      case (jsBoolean: JsBoolean, schemaBoolean: SchemaBoolean) =>
-        schemaBoolean.validate(jsBoolean, context)
-      case (jsString: JsString, schemaString: SchemaString) =>
-        schemaString.validate(jsString, context)
-      case (JsNull, schemaNull: SchemaNull) =>
-        schemaNull.validate(json, context)
-      case (_, _) if schema.constraints.any.schemaTypeAsString.isEmpty =>
-        Success(json)
-      case _ =>
-        Results.failureWithPath(s"Wrong type. Expected $schema, was ${SchemaUtil.typeOfAsString(json)}.",
-          context.schemaPath,
-          context.instancePath,
-          json)
+      case (_, schemaObject: SchemaObject)
+        if schemaObject.properties.collectFirst { case r@RefAttribute(path, _) if !context.visited.contains(r) => r }.isDefined =>
+          val pointer = schemaObject.properties.collectFirst { case r@RefAttribute(path, _) if !context.visited.contains(r) => path }
+          RefResolver.resolveRefIfAny(context)(schemaObject) match {
+            case None => Results.failureWithPath(
+              s"Could not resolve ref ${pointer.getOrElse("")}",
+              context.schemaPath,
+              context.instancePath,
+              json)
+            case Some(resolved) =>
+              val updatedContext = RefResolver.updateResolutionScope(context, resolved).copy(schemaPath =  Path(pointer.getOrElse("#")))
+              Results.merge(
+                process(resolved,  json, updatedContext),
+                AnyConstraintValidator.validate(json, resolved.constraints.any, updatedContext)
+              )
+          }
+        case (_: JsObject, schemaObject: SchemaObject) if schema.constraints.any.schemaTypeAsString.isDefined =>
+          schemaObject.validate(json, context)
+        case (_, schemaObject: SchemaObject) if schema.constraints.any.schemaTypeAsString.isEmpty =>
+          schemaObject.validate(json, context)
+        case (_, c: CompoundSchemaType) =>
+          c.validate(json, context)
+        case (jsArray: JsArray, schemaArray: SchemaArray) if schemaArray.id.isDefined =>
+          schemaArray.validate(jsArray, RefResolver.updateResolutionScope(context, schemaArray))
+        case (jsArray: JsArray, schemaArray: SchemaArray) =>
+          schemaArray.validate(jsArray, context)
+        case (jsArray: JsArray, schemaTuple: SchemaTuple) =>
+          schemaTuple.validate(jsArray, context)
+        case (jsNumber: JsNumber, schemaNumber: SchemaNumber) =>
+          schemaNumber.validate(jsNumber, context)
+        case (jsNumber: JsNumber, schemaInteger: SchemaInteger) =>
+          schemaInteger.validate(jsNumber, context)
+        case (jsBoolean: JsBoolean, schemaBoolean: SchemaBoolean) =>
+          schemaBoolean.validate(jsBoolean, context)
+        case (jsString: JsString, schemaString: SchemaString) =>
+          schemaString.validate(jsString, context)
+        case (JsNull, schemaNull: SchemaNull) =>
+          schemaNull.validate(json, context)
+        case (_, _) if schema.constraints.any.schemaTypeAsString.isEmpty =>
+          Success(json)
+        case _ =>
+          Results.failureWithPath(s"Wrong type. Expected $schema, was ${SchemaUtil.typeOfAsString(json)}.",
+            context.schemaPath,
+            context.instancePath,
+            json)
+        }
     }
   }
-}
 
-object SchemaValidator extends SchemaValidator
+  object SchemaValidator extends SchemaValidator

@@ -34,12 +34,12 @@ object SchemaUtil {
         case Some(o@JsObject(fields)) =>
           Some(
             aggregatedError.fold(
-              deepMerge(o, Json.obj("msgs" -> Json.arr(err.message)))
-            )(errObj => deepMerge(errObj, Json.obj("msgs" -> Json.arr(err.message))))
+              deepMerge(o, Json.obj("msgs" -> err.messages))
+            )(errObj => deepMerge(errObj, Json.obj("msgs" -> err.messages)))
           )
         case _ => aggregatedError
       })
-      maybeError.fold(accumulatedErrors)(o => accumulatedErrors.+:(o))
+      maybeError.fold(accumulatedErrors)(o => accumulatedErrors :+ o)
     }
   }
 

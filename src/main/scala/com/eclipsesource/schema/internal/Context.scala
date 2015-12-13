@@ -2,7 +2,7 @@ package com.eclipsesource.schema.internal
 
 import java.net.URI
 
-import com.eclipsesource.schema.SchemaType
+import com.eclipsesource.schema.{RefAttribute, SchemaType}
 import play.api.data.mapping.Path
 
 import scala.util.Try
@@ -10,11 +10,11 @@ import scala.util.Try
 
 case class Context(
                     documentRoot: SchemaType,
-                    id: Option[String] = None, // current resolution scope
+                    id: Option[String] = None,     // current resolution scope
                     rootId: Option[String] = None, // base URI
-                    schemaPath: Path = Path(),
+                    schemaPath: Path = Path("#"),
                     instancePath: Path = Path(),
-                    visited: Set[String] = Set.empty // tracks all visited refs
+                    visited: Set[RefAttribute] = Set.empty // tracks all visited refs
 ) {
   def isRootScope = {
     val isRootScope = for {
@@ -29,7 +29,7 @@ object GlobalContextCache {
 
   private var cache: Map[String, SchemaType] = Map()
 
-  def add(url: String)(schemaType: SchemaType) = {
+  def add(url: String)(schemaType: SchemaType): SchemaType = {
     def isAbsolute(path: String) = Try { new URI(path) }.map(_.isAbsolute).getOrElse(false)
     if (isAbsolute(url)) {
       cache = cache + (url -> schemaType)

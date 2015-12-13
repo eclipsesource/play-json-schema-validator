@@ -35,33 +35,10 @@ package object schema
     private def hasRef(schema: SchemaObject) = schema.properties.collectFirst { case RefAttribute(_, _) => }.isDefined
 
     def validate(json: => JsValue, context: Context)(implicit validator: SchemaTypeValidator[S]): VA[JsValue] = {
-      schemaType match {
-        case schema: SchemaObject if hasRef(schema) =>
-          val reference = schema.properties.collectFirst { case ref@RefAttribute(_, _) => ref }
-          val r = for {
-            ref <- reference
-            resolved <- RefResolver.resolve(ref.pointer, context)
-          } yield resolved
-          r match {
-            case None =>
-              Results.failureWithPath(
-              s"Could not resolve ref ${reference.map(_.pointer).getOrElse("")}",
-              context.schemaPath,
-              context.instancePath,
-              json
-            )
-            case Some(resolved) =>
-              Results.merge(
-                SchemaValidator.process(resolved, json, context),
-                AnyConstraintValidator.validate(json, resolved.constraints.any, context)
-              )
-          }
-        case _ =>
-          Results.merge(
-            validator.validate(schemaType, json, context),
-            AnyConstraintValidator.validate(json, schemaType.constraints.any, context)
-          )
-      }
+      Results.merge(
+        validator.validate(schemaType, json, context),
+        AnyConstraintValidator.validate(json, schemaType.constraints.any, context)
+      )
     }
   }
 

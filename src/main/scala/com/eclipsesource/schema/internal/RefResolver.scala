@@ -12,10 +12,14 @@ import scala.util.Try
 
 object RefResolver {
 
-  private[internal] def normalize(path: String, context: Context): String = {
+  private[schema] def normalize(path: String, context: Context): String = {
 
     def pathWithHash: String = if (!path.contains("#") && !path.endsWith("/")) s"$path#" else path
-    def compose(scope: String) = if (scope.endsWith("/")) scope + pathWithHash else scope + "/" + pathWithHash
+    def compose(scope: String) = {
+      if (scope.endsWith("/"))
+        scope + pathWithHash
+      else scope + "/" + pathWithHash
+    }
     def dropHashIfAny(scope: String) = if (scope.endsWith("#")) scope.dropRight(1) + path else scope
     val isAbsolute = Try { new URI(path) }.map(_.isAbsolute).getOrElse(false)
 
@@ -31,35 +35,31 @@ object RefResolver {
   }
 
   /**
-    * Resolve all refs in the given schema.
+    * Find a $ref in the given schema, if any and tries to resolve it.
     *
     * @param context the resolution context
-    * @param schema the schema in which all refs should be resolved
-    * @return the schema with all refs resolved
+    * @param schema the schema with a $ref, if any
+    * @return the resolved schema
     */
-  def resolveAll(context: Context)(schema: SchemaType): SchemaType = {
+
+  private[schema] def resolveRefIfAny(context: Context)(schema: SchemaType): Option[SchemaType] = {
     def findRef(schemaObject: SchemaObject): Option[RefAttribute] = schemaObject.properties.collectFirst {
-      case ref@RefAttribute(_, _) if !context.visited.contains(ref.pointer) => ref
+      case ref: RefAttribute if !context.visited.contains(ref) => ref
     }
-
     schema match {
-      case container: SchemaArrayLike =>
-        container.updated(resolveAll(updateResolutionScope(context, container)))
-
-      case obj: SchemaObject =>
-        val (substitutedType, updContext) = (for {
+      case obj: SchemaObject if findRef(obj).isDefined =>
+        for {
           unvisited <- findRef(obj)
-          updatedContext = updateResolutionScope(context, obj).copy(visited = context.visited + unvisited.pointer)
+          updatedContext = updateResolutionScope(context, obj).copy(visited = context.visited + unvisited)
           resolved  <- resolve(unvisited.pointer, updatedContext)
-        } yield (resolved, updatedContext)).getOrElse((obj, context))
+          r <- resolveRefIfAny(updatedContext)(resolved)
+        } yield r
 
-        substitutedType.updated(resolveAll(updContext))
-
-      case other => other
+      case other => Some(other)
     }
   }
 
-  private def updateResolutionScope(context: Context, schema: SchemaType): Context = schema match {
+  def updateResolutionScope(context: Context, schema: SchemaType): Context = schema match {
     case withId: HasId =>
       val updatedScope = for {
         baseId <- context.id
@@ -69,33 +69,45 @@ object RefResolver {
     case other => context
   }
 
-  def resolve(path: String, context: Context): Option[SchemaType] = {
+  private[schema] def resolve(path: String, context: Context): Option[SchemaType] = {
     if (path.isEmpty) {
       Some(context.documentRoot)
     } else {
       GlobalContextCache.get(path).fold {
-        val resolved = resolve(context.documentRoot, path, context)
-        resolved.map(GlobalContextCache.add(normalize(path, context)))
+        for {
+        // root is potentially a $ref
+          root <- resolveRefIfAny(context)(context.documentRoot)
+          resolved <- resolve(root, path, context.copy(documentRoot = root))
+        } yield {
+          GlobalContextCache.add(normalize(path, context))(resolved)
+        }
       } { Some(_) }
     }
   }
 
-  private[schema] def resolve(current: SchemaType, path: String, context: Context): Option[SchemaType] = {
+  private def resolve(current: SchemaType, path: String, context: Context): Option[SchemaType] = {
     (current, path) match {
 
-      case (_, ref) if ref.startsWith("http") =>
-        val fragmentStartIndex = ref.indexOf("#")
+      case (_, pointer) if pointer.startsWith("http") =>
+        val fragmentStartIndex = pointer.indexOf("#")
         val hasHash = fragmentStartIndex > 0
         val idx = if (hasHash) fragmentStartIndex + 1 else 0
 
-        fetchSchema(new URL(ref)).flatMap(resolved =>
+        // change document root
+        def resolveWithUpdatedRoot(resolved: SchemaType) = {
           if (hasHash) {
             val root = if (current == context.documentRoot) resolved else context.documentRoot
-            resolve(resolved, "#" + ref.substring(idx), context.copy(documentRoot = root))
+            resolve(resolved, "#" + pointer.substring(idx), context.copy(documentRoot = root))
           } else {
             Some(resolved)
           }
-        )
+        }
+
+        for {
+          fetchedSchema <- fetchSchema(new URL(pointer))
+          resolved <- resolveRefIfAny(context)(fetchedSchema)
+          result <- resolveWithUpdatedRoot(resolved)
+        } yield result
 
       case (schema,"#") => Some(context.documentRoot)
 
@@ -103,34 +115,12 @@ object RefResolver {
         resolve(context.documentRoot, ref.substring(math.min(2, ref.length)), context)
 
       case (container: Resolvable, fragments) =>
-        //        println(s"Fragments or relative ${container.prettyPrint} / $fragments")
         val resultOpt = for {
           resolved <- resolveFragments(toFragments(fragments), context, container)
-          result   <- resolveRefIfAny(resolved, updateResolutionScope(context, resolved))
-        } yield result
+        } yield resolved
         resultOpt orElse resolveRelative(fragments, context)
 
       case (_, _) => Some(current)
-    }
-  }
-
-  /**
-    * Resolve ref if the given schema contains any.
-    *
-    * @param schema the schema
-    * @param context the resolution context
-    * @return the resolved ref, if any, otherwise None
-    */
-  private def resolveRefIfAny(schema: SchemaType, context: Context): Option[SchemaType] = {
-    def hasRef(obj: SchemaObject): Boolean =  obj.properties.exists(_.name == "$ref")
-
-    schema match {
-      case obj: SchemaObject if hasRef(obj) =>
-        for {
-          ref      <- obj.properties.collectFirst { case ref: RefAttribute => ref }
-          resolved <- resolve(ref.pointer, context.copy(visited =  context.visited + ref.pointer))
-        } yield resolved
-      case other => Some(other)
     }
   }
 
@@ -148,13 +138,15 @@ object RefResolver {
       case (fragment :: rest, resolvable: Resolvable) =>
         for {
           resolved <- resolvable.resolvePath(fragment)
-          result <- resolveFragments(rest,
+          res <- resolveFragments(rest,
             context.copy(
               schemaPath = context.schemaPath.compose(Path(fragment)),
               instancePath = context.instancePath.compose(Path(fragment))
             ),
             resolved
           )
+        // res is possibly a ref
+          result <- resolveRefIfAny(context)(res)
         } yield result
     }
   }
@@ -165,7 +157,7 @@ object RefResolver {
     * @param url the absolute URI string from which to fetch schema
     * @return a schema wrapped in an Option
     */
-  private[schema] def fetchSchema(url: URL): Option[SchemaType] = {
+  private[schema] def fetchSchema(url: URL, recursiveResolve: Boolean = true): Option[SchemaType] = {
     // TODO: switch to Either in order to provide more fine-grained error message
     GlobalContextCache.get(url.toString) match {
       case cached@Some(_) => cached
@@ -216,16 +208,15 @@ object RefResolver {
     val hashIdx = relativeFragments.indexOf("#")
     val hasHash = hashIdx != -1
     val documentName = if (hasHash) relativeFragments.substring(0, hashIdx) else relativeFragments
-    val normalized = context.id.map(id => normalize(documentName, context))
-    val r= for {
-      n <- normalized
-      schema   <- fetchSchema(new URL(n))
-      resolved <- resolve(schema,
+    for {
+      normalized <- context.id.map(id => normalize(documentName, context))
+      fetchedSchema   <- fetchSchema(new URL(normalized))
+      res <- resolveRefIfAny(context)(fetchedSchema)
+      resolved <- resolve(res,
         if (hasHash) relativeFragments.substring(hashIdx) else "#",
-        context.copy(documentRoot = schema)
+        context.copy(documentRoot = res)
       )
     } yield resolved
-    r
   }
 
   /**
