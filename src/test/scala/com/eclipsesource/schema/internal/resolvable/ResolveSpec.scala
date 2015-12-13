@@ -18,8 +18,7 @@ class ResolveSpec extends Specification {
 
   "RefResolver" should {
 
-
-    "normalize path" in {
+    "normalize path with remote document root" in {
       val someSchema = SchemaNull()
       val root = "http://x.y.z/rootschema.json#"
       val other = "http://x.y.z/otherschema.json#"
@@ -80,7 +79,6 @@ class ResolveSpec extends Specification {
       RefResolver.resolve("#/pattern", Context(schema)) must beSome(SchemaValue(JsString("^(\\([0-9]{3}\\))?[0-9]{3}-[0-9]{4}$")))
     }
 
-
     "resolve anyOf constraint" in
       new WithServer(app = new FakeApplication(withRoutes = routes), port = 1234) {
 
@@ -91,17 +89,14 @@ class ResolveSpec extends Specification {
 
         val context = Context(schema)
 
-        val resolved = RefResolver.resolve("#/anyOf", context)
-        Json.toJson(RefResolver.resolveAll(context)(resolved.get)) must beEqualTo(Json.obj(
-          "type" -> "array",
-          "items" -> Json.arr(
-            Json.obj(
-              "type" -> "string",
-              "minLength" -> 10,
-              "maxLength" -> 20
-            )
+        val resolved = RefResolver.resolve("#/anyOf/0", context)
+
+        Json.toJson(RefResolver.resolveRefIfAny(context)(resolved.get)) must beEqualTo(
+          Json.obj(
+            "type" -> "string",
+            "minLength" -> 10,
+            "maxLength" -> 20
           )
-        )
         )
       }
 
@@ -112,18 +107,13 @@ class ResolveSpec extends Specification {
           |}""".stripMargin).get
 
       val context = Context(schema)
-      val resolved = RefResolver.resolve("oneOf", context)
+      val resolved = RefResolver.resolve("#/oneOf/0", context)
 
-      Json.toJson(RefResolver.resolveAll(context)(resolved.get)) must beEqualTo(
+      Json.toJson(RefResolver.resolveRefIfAny(context)(resolved.get)) must beEqualTo(
         Json.obj(
-          "type" -> "array",
-          "items" -> Json.arr(
-            Json.obj(
-              "type" -> "string",
-              "minLength" -> 10,
-              "maxLength" -> 20
-            )
-          )
+          "type" -> "string",
+          "minLength" -> 10,
+          "maxLength" -> 20
         )
       )
     }
@@ -137,19 +127,13 @@ class ResolveSpec extends Specification {
           stripMargin).get
       val context = Context(schema)
 
-      val resolved = RefResolver.resolve("#/allOf", context)
-      Json.toJson(RefResolver.resolveAll(context)(resolved.get)) must beEqualTo(
+      val resolved = RefResolver.resolve("#/allOf/0", context)
+      Json.toJson(RefResolver.resolveRefIfAny(context)(resolved.get)) must beEqualTo(
         Json.obj(
-          "type" -> "array",
-          "items" -> Json.arr(
-            Json.obj
-            (
-              "type" ->
-                "string",
-              "minLength" -> 10,
-              "maxLength" -> 20
-            )
-          )
+          "type" ->
+            "string",
+          "minLength" -> 10,
+          "maxLength" -> 20
         )
       )
     }

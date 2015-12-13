@@ -13,8 +13,8 @@ object ArrayValidator extends SchemaTypeValidator[SchemaArray] with ArrayConstra
       val elements: Seq[VA[JsValue]] = values.zipWithIndex.map { case (jsValue, idx) =>
         SchemaValidator.process(schema.item, jsValue,
           context.copy(
-            schemaPath = context.schemaPath \ idx,
-            instancePath = context.instancePath \ idx
+            schemaPath = context.schemaPath,
+            instancePath = context.instancePath \ idx.toString
           )
         )
       }

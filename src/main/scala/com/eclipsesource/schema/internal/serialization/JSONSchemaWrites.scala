@@ -16,14 +16,22 @@ trait JSONSchemaWrites {
     case t: SchemaTuple => tupleWriter.writes(t)
     case a: SchemaArray => arrayWriter.writes(a)
     case o: SchemaObject => objectWriter.writes(o)
-    case c: SchemaValue => c.value
     case n: SchemaNull => nullWriter.writes(n)
     case n: CompoundSchemaType => compoundWriter.writes(n)
+    case v: SchemaValue => v.value
   }
 
   lazy val compoundWriter: Writes[CompoundSchemaType] = OWrites[CompoundSchemaType] { compound =>
     // TODO: cast
-    compound.alternatives.map(c => schemaTypeWriter.writes(c)).foldLeft(Json.obj())((o, json) => o ++ json.asInstanceOf[JsObject])
+    compound.alternatives.map(schemaTypeWriter.writes)
+      .foldLeft(Json.obj("type" -> Seq()))((o, json) => {
+        val typesSoFar = (o \ "type").as[JsArray]
+        val types = json \ "type" match {
+          case JsDefined(t) => typesSoFar :+ t
+          case _ => typesSoFar
+        }
+        o ++ json.asInstanceOf[JsObject] ++ Json.obj("type" -> types)
+      })
   }
 
   lazy val nullWriter: Writes[SchemaNull] = OWrites[SchemaNull] { nll =>

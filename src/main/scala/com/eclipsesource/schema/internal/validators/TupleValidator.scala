@@ -31,8 +31,8 @@ object TupleValidator extends SchemaTypeValidator[SchemaTuple] with ArrayConstra
             val instanceValuesValidated: Seq[VA[JsValue]] = schema.items.zipWithIndex.map { case (item, idx) =>
               SchemaValidator.process(item, values(idx),
                 context.copy(
-                  schemaPath = context.schemaPath \ idx,
-                  instancePath = context.instancePath \ idx
+                  schemaPath = context.schemaPath \ idx.toString,
+                  instancePath = context.instancePath \ idx.toString
                 )
               )
             }
@@ -41,8 +41,8 @@ object TupleValidator extends SchemaTypeValidator[SchemaTuple] with ArrayConstra
                 val index = idx + schemaSize
                 SchemaValidator.process(items, jsValue,
                   context.copy(
-                    schemaPath = context.schemaPath \ index,
-                    instancePath = context.instancePath \ index
+                    schemaPath = context.schemaPath \ index.toString,
+                    instancePath = context.instancePath \ index.toString
                   )
                 )
             }
@@ -52,8 +52,8 @@ object TupleValidator extends SchemaTypeValidator[SchemaTuple] with ArrayConstra
         values.zipWithIndex.map { case (jsValue, idx) =>
           SchemaValidator.process(schema.items(idx), jsValue,
             context.copy(
-              schemaPath = context.schemaPath \ idx,
-              instancePath = context.instancePath \ idx
+              schemaPath = context.schemaPath \ idx.toString,
+              instancePath = context.instancePath \ idx.toString
             )
           )
         }
