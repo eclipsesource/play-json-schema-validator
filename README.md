@@ -84,32 +84,35 @@ In case of `allOf`, `anyOf` and `oneOf`,  the `errors` array property holds the 
 {
   "anyOf": [
     { "type": "integer" },
-    { "minimum": 2 }
+    { "minimum": 2      }
   ]
 }
 ```
 and we validate the value `1.5`, the `toJson` method returns this error: 
 
 ```Javascript
-{
-  "schemaPath" : "/",
-  "msgs" : [ "1.5 does not match any of the schemas" ],
+[ {
+  "schemaPath" : "#",
+  "errors" : {
+    "/anyOf/0" : [ {
+      "schemaPath" : "#/anyOf/0",
+      "errors" : { },
+      "msgs" : [ "Wrong type. Expected integer, was number" ],
+      "value" : 1.5,
+      "instancePath" : "/"
+    } ],
+    "/anyOf/1" : [ {
+      "schemaPath" : "#/anyOf/1",
+      "errors" : { },
+      "msgs" : [ "minimum violated: 1.5 is less than 2" ],
+      "value" : 1.5,
+      "instancePath" : "/"
+    } ]
+  },
+  "msgs" : [ "Instance does not match any of the schemas" ],
   "value" : 1.5,
-  "instancePath" : "/",
-  "errors" : [ {
-    "schemaPath" : "/",
-    "instancePath" : "/",
-    "value" : 1.5,
-    "msgs" : [ "Wrong type. Expected integer, was number" ],
-    "errors": []
-  }, {
-    "schemaPath" : "/",
-    "instancePath" : "/",
-    "value" : 1.5,
-    "msgs" : [ "minimum violated: 1.5 is less than 2" ],
-    "errors": []
-  } ]
-}
+  "instancePath" : "/"
+} ]
 ```
 
 ## Example
