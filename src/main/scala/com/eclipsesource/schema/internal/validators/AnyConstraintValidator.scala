@@ -4,7 +4,7 @@ import com.eclipsesource.schema.SchemaValidator
 import com.eclipsesource.schema.internal._
 import com.eclipsesource.schema.internal.constraints.Constraints.AnyConstraint
 import play.api.data.mapping._
-import play.api.libs.json.{JsObject, Json, JsValue}
+import play.api.libs.json._
 
 object AnyConstraintValidator {
 
@@ -37,11 +37,28 @@ object AnyConstraintValidator {
       }
     }
 
-  private def collectFailures(results: Seq[VA[JsValue]], path: String): JsObject = results.zipWithIndex.foldLeft(Json.obj()){
-    case (obj, (Failure(errors), idx)) =>
-      // TODO: why distinct?
-      obj ++ Json.obj(s"/$path/$idx" -> SchemaUtil.toJson(errors.distinct))
-    case (obj, _) => obj
+  private def collectFailures(results: Seq[VA[JsValue]], path: String): JsObject = {
+
+    def repath(suffix: String)(obj: JsObject): JsObject = {
+      val fields = obj.fields.map {
+        case ("schemaPath", JsString(schemaPath)) => ("schemaPath", JsString(s"$schemaPath$suffix"))
+        case field => field
+      }
+      JsObject(fields)
+    }
+
+    results.zipWithIndex.foldLeft(Json.obj()) {
+      case (obj, (Failure(errors), idx)) =>
+        // TODO: why distinct?
+        obj ++ Json.obj(s"/$path/$idx" ->
+          JsArray(
+            SchemaUtil.toJson(errors.distinct).value.map {
+              case obj: JsObject => repath(s"/$path/$idx")(obj)
+              case js => js
+            }
+          ))
+      case (obj, _) => obj
+    }
   }
 
   def validateAllOf: scalaz.Reader[(AnyConstraint, Context), Rule[JsValue, JsValue]] =

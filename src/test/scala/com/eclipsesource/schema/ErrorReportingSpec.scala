@@ -1,7 +1,7 @@
 package com.eclipsesource.schema
 
 import org.specs2.mutable.Specification
-import play.api.data.mapping.VA
+import play.api.data.mapping.{ValidationError, Path, VA}
 import play.api.libs.json._
 
 class ErrorReportingSpec extends Specification {
@@ -69,16 +69,21 @@ class ErrorReportingSpec extends Specification {
       """{
         |  "anyOf": [
         |    { "type": "integer" },
-        |    {"minimum": 2 }
+        |    { "minimum": 2      }
         |  ]
         |}""".stripMargin).get
+
     val result: VA[JsValue] = SchemaValidator.validate(schema)(JsNumber(1.5))
+    val failure: Seq[(Path, Seq[ValidationError])] = result.asEither.left.get
+    val failureJson = failure.toJson
+    val JsDefined(subErrors) = failureJson(0) \ "errors"
+
     result.isFailure must beTrue
-    result.asEither must beLeft.like { case error =>
-      (error.toJson \ "schemaPath") == JsDefined(JsString("/"))
-      val JsDefined(subErrors) = (error.toJson(0) \ "errors")
-      subErrors.as[JsObject].keys.size == 2
-    }
+    failureJson(0) \ "schemaPath" must beEqualTo(JsDefined(JsString("#")))
+    subErrors.as[JsObject].keys must haveSize(2)
+    (subErrors.as[JsObject] \ "/anyOf/1").as[JsArray].value.head \ "schemaPath" must beEqualTo(
+      JsDefined(JsString("#/anyOf/1"))
+    )
   }
 
   "handle nested anyOf validation errors" in {
