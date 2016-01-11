@@ -55,9 +55,11 @@ validate[A: Format](schema: SchemaType, input: A): VA[A]
 
 ## Error Reporting
 
-In case the `validate` method returns an failure, errors can be converted to JSON by calling the `toJson` on the errors. Below is given an example taken from the example app:
+In case the `validate` method returns an failure, errors can be converted to JSON by calling the `toJson` on the errors (the `toJson` method is available via an implicit class on `Seq[(Path, Seq[ValidationError])]`. Below is given an example taken from the example app:
 
 ```Scala
+import com.eclipsesource.schema._ // brings toJson into scope
+
 val result: VA[Post] = SchemaValidator.validate(schema, json, Post.reads)
 result.fold(
   invalid = { errors =>  BadRequest(errors.toJson) },
