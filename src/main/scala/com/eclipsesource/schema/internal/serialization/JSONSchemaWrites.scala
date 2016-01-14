@@ -119,6 +119,7 @@ trait JSONSchemaWrites {
       asJsObject(Keywords.String.MinLength, stringConstraints.minLength) ++
       asJsObject(Keywords.String.MaxLength, stringConstraints.maxLength) ++
       asJsObject(Keywords.String.Pattern, stringConstraints.pattern) ++
+      asJsObject(Keywords.String.Format, stringConstraints.format) ++
       anyConstraintWriter.writes(stringConstraints.any)
   }
 

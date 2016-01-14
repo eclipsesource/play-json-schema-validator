@@ -101,6 +101,7 @@ object Constraints {
   case class StringConstraints( minLength: Option[Int] = None,
                                 maxLength: Option[Int] = None,
                                 pattern: Option[String] = None,
+                                format:  Option[String] = None,
                                 any: AnyConstraint = AnyConstraint())
     extends Constraint with HasAnyConstraint {
 
@@ -108,6 +109,7 @@ object Constraints {
       case Keywords.String.MinLength => minLength.map(min => SchemaValue(JsNumber(min)))
       case Keywords.String.MaxLength => maxLength.map(max => SchemaValue(JsNumber(max)))
       case Keywords.String.Pattern => pattern.map(p => SchemaValue(JsString(p)))
+      case Keywords.String.Format => format.map(f => SchemaValue(JsString(f)))
       case other => any.resolvePath(other)
     }
   }
