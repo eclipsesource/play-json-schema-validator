@@ -1,5 +1,4 @@
 
-import bintray.Plugin._
 import sbt.Keys._
 import sbt._
 import sbtrelease.ReleasePlugin
@@ -49,6 +48,8 @@ object Dependencies {
 
 object Build extends Build {
 
+  import bintray.BintrayKeys._
+update
   val Repositories = Seq(
     "Typesafe repository"           at "http://repo.typesafe.com/typesafe/releases/",
     "Sonatype OSS Snapshots"        at "https://oss.sonatype.org/content/repositories/snapshots",
@@ -69,11 +70,11 @@ object Build extends Build {
       Keys.parallelExecution in Test := false
     )
 
-  val releaseSettings = ReleasePlugin.releaseSettings ++ bintrayPublishSettings ++ Seq(
+  val releaseSettings = ReleasePlugin.releaseSettings ++ Seq(
     publishMavenStyle := true,
-    publishTo := (publishTo in bintray.Keys.bintray).value, // set it globally so that sbt-release plugin does not freak out.
-    bintray.Keys.bintrayOrganization in bintray.Keys.bintray := None,
-    bintray.Keys.packageLabels in bintray.Keys.bintray := Seq("json", "json-schema", "play", "scala"),
+    bintrayOrganization := None,
+    bintrayPackageLabels := Seq("json", "json-schema", "play", "scala"),
+    bintrayVcsUrl := Some("git@github.com:eclipsesource/play-json-schema-validator.git"),
     ReleaseKeys.crossBuild := true
   )
 
@@ -86,7 +87,6 @@ object Build extends Build {
       resolvers ++= Repositories,
       retrieveManaged := true,
       libraryDependencies ++= Dependencies.core,
-      testFrameworks += new TestFramework("org.scalameter.ScalaMeterFramework"),
       addCompilerPlugin("org.scalamacros" % "paradise" % "2.0.1" cross CrossVersion.full)
     )
 
