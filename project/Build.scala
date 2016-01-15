@@ -9,29 +9,27 @@ object Version {
   val play          = "2.4.2"
   val playTest      = "2.4.2"
   val scalaz        = "7.1.3"
-  val scalameter    = "0.6"
   val specs2        = "2.4.9"
-  val spray         = "1.3.2"
   val akka          = "2.3.6"
-  val scalaLogging  = "3.1.0"
   val shapeless     = "2.1.0"
   val jtoValidationCore = "1.1"
   val jtoValidationJson = "1.1"
+  val guava         = "19.0"
 }
 
 object Library {
+  val guava         = "com.google.guava"  % "guava"                   % Version.guava
   val scalaz        = "org.scalaz"        %% "scalaz-core"            % Version.scalaz
   val play          = "com.typesafe.play" %% "play"                   % Version.play
   val playJson      = "com.typesafe.play" %% "play-json"              % Version.play
   val playWs        = "com.typesafe.play" %% "play-ws"                % Version.play
-  val scalaLogging  = "com.typesafe.scala-logging" %% "scala-logging" % Version.scalaLogging
   val playTest      = "com.typesafe.play" %% "play-specs2"            % Version.play           % "test"
-  val scalameter    = "com.storm-enroute" %% "scalameter"             % Version.scalameter     % "test"
   val scalaXml      =  "org.scala-lang.modules" %% "scala-xml" % "1.0.3"
   val shapeless     = "com.chuusai"       %% "shapeless"              % Version.shapeless
   val specs2        = "org.specs2"        %% "specs2"                 % Version.specs2         % "test"
   val jtoValidationCore = "io.github.jto" %% "validation-core"        % Version.jtoValidationCore
   val jtoValidationJson = "io.github.jto" %% "validation-json"        % Version.jtoValidationJson
+
 }
 
 object Dependencies {
@@ -41,9 +39,9 @@ object Dependencies {
     playTest,
     playJson,
     scalaz,
-    scalameter,
     shapeless,
     specs2,
+    guava,
     jtoValidationCore,
     jtoValidationJson
   )

@@ -8,14 +8,17 @@ import com.eclipsesource.schema.internal.{Context}
 import play.api.data.mapping.{Rule, Success, VA}
 import play.api.libs.json.{JsString, JsValue}
 
+import scala.util.matching.Regex
+
 object StringValidator extends SchemaTypeValidator[SchemaString] {
 
   def validate(schema: SchemaString, json: => JsValue, context: Context): VA[JsValue] = {
     val reader = for {
       minLength <- validateMinLength
       maxLength <- validateMaxLength
-      pattern <- validatePattern
-    } yield minLength |+| maxLength |+| pattern
+      pattern   <- validatePattern
+      format    <- validateFormat
+    } yield minLength |+| maxLength |+| pattern |+| format
     reader.run((schema.constraints, context))
       .repath(_.compose(context.instancePath))
       .validate(json)
@@ -41,7 +44,6 @@ object StringValidator extends SchemaTypeValidator[SchemaString] {
             }
           case None => Success(json)
         }
-        case json => expectedString(json, context)
       }
     }
 
@@ -60,7 +62,6 @@ object StringValidator extends SchemaTypeValidator[SchemaString] {
               json
             )
           }
-        case json => expectedString(json, context)
       }
     }
 
@@ -82,13 +83,43 @@ object StringValidator extends SchemaTypeValidator[SchemaString] {
               )
             }
         }
-        case json => expectedString(json, context)
       }
     }
 
-  private def expectedString(json: JsValue, context: Context) =
+
+  val validateFormat: scalaz.Reader[(StringConstraints, Context), Rule[JsValue, JsValue]] =
+    scalaz.Reader { case (constraints, context) =>
+
+      val format = for {
+        formatName <- constraints.format
+        f <- Formats.get(formatName)
+      } yield f
+
+      Rule.fromMapping {
+        case json@JsString(string) if constraints.format.isDefined =>
+          format match {
+            // format found
+            case Some(f) =>
+              if (f.validate(string)) {
+                Success(json)
+              } else {
+                failure(
+                  s"$string does not match format $f",
+                  context.schemaPath,
+                  context.instancePath,
+                  json
+                )
+              }
+            // unknown format
+            case None => unknownFormat(json, context, constraints.format.getOrElse(""))
+          }
+        case json@JsString(string) => Success(json)
+      }
+    }
+
+  private def unknownFormat(json: JsValue, context: Context, format: String) =
     failure(
-      "Expected string",
+      s"Unknown format $format",
       context.schemaPath,
       context.instancePath,
       json

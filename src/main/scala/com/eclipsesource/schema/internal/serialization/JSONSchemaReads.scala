@@ -86,18 +86,19 @@ trait JSONSchemaReads {
 
   lazy val stringReader: Reads[SchemaString] = {
     ((__ \ Keywords.String.MinLength).readNullable[Int] and
-        (__ \ Keywords.String.MaxLength).readNullable[Int] and
-        (__ \ Keywords.String.Pattern).readNullable[String] and
+      (__ \ Keywords.String.MaxLength).readNullable[Int] and
+      (__ \ Keywords.String.Pattern).readNullable[String] and
+      (__ \ Keywords.String.Format).readNullable[String] and
         anyConstraintReader
       ).tupled.flatMap(read => {
 
-      val (minLength, maxLength, pattern, anyConstraints) = read
+      val (minLength, maxLength, pattern, format, anyConstraints) = read
 
       if (anyConstraints.schemaTypeAsString.exists(_ != "string") ||
-        (anyConstraints.schemaTypeAsString.isEmpty &&List(minLength, maxLength, pattern).forall(_.isEmpty))) {
+        (anyConstraints.schemaTypeAsString.isEmpty && List(minLength, maxLength, format, pattern).forall(_.isEmpty))) {
         Reads.apply(_ => JsError("Expected string."))
       } else {
-        Reads.pure(SchemaString(StringConstraints(minLength, maxLength, pattern, anyConstraints)))
+        Reads.pure(SchemaString(StringConstraints(minLength, maxLength, pattern, format, anyConstraints)))
       }
     })
   }

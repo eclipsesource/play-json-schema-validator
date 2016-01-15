@@ -41,6 +41,7 @@ object Keywords {
     val MinLength = "minLength"
     val MaxLength = "maxLength"
     val Pattern = "pattern"
+    val Format = "format"
   }
 
   object Array {
