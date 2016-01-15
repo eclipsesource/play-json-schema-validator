@@ -44,7 +44,6 @@ object StringValidator extends SchemaTypeValidator[SchemaString] {
             }
           case None => Success(json)
         }
-        case json => expectedString(json, context)
       }
     }
 
@@ -63,7 +62,6 @@ object StringValidator extends SchemaTypeValidator[SchemaString] {
               json
             )
           }
-        case json => expectedString(json, context)
       }
     }
 
@@ -85,7 +83,6 @@ object StringValidator extends SchemaTypeValidator[SchemaString] {
               )
             }
         }
-        case json => expectedString(json, context)
       }
     }
 
@@ -117,21 +114,12 @@ object StringValidator extends SchemaTypeValidator[SchemaString] {
             case None => unknownFormat(json, context, constraints.format.getOrElse(""))
           }
         case json@JsString(string) => Success(json)
-        case json => expectedString(json, context)
       }
     }
 
   private def unknownFormat(json: JsValue, context: Context, format: String) =
     failure(
       s"Unknown format $format",
-      context.schemaPath,
-      context.instancePath,
-      json
-    )
-
-  private def expectedString(json: JsValue, context: Context) =
-    failure(
-      "Expected string",
       context.schemaPath,
       context.instancePath,
       json
