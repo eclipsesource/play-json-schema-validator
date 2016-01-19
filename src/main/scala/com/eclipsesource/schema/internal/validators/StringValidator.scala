@@ -104,7 +104,7 @@ object StringValidator extends SchemaTypeValidator[SchemaString] {
                 Success(json)
               } else {
                 failure(
-                  s"$string does not match format $f",
+                  s"$string does not match format ${f.name}",
                   context.schemaPath,
                   context.instancePath,
                   json
