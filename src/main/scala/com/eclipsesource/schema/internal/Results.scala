@@ -30,13 +30,18 @@ object Results {
     prop._1 -> Success(prop._2)
   }
 
-  def failureWithPath(msg: String, schemaPath: Path, instancePath: Path, instance: JsValue): VA[JsValue] = {
+  def failureWithPath(msg: String,
+                      schemaPath: Path,
+                      instancePath: Path,
+                      instance: JsValue,
+                     additionalInfo: JsObject = Json.obj()): VA[JsValue] = {
     Failure(Seq(instancePath ->
       Seq(ValidationError(msg,
         Json.obj(
           "schemaPath" -> schemaPath.toString(),
           "instancePath" -> instancePath.toString(),
-          "value" -> instance
+          "value" -> instance,
+          "errors" ->  additionalInfo
         )
       ))
     ))
