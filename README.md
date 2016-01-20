@@ -119,6 +119,6 @@ and we validate the value `1.5`, the `toJson` method returns this error:
 
 ## Example
 
-An online demo of the library can be seen [here](https://ancient-atoll-3956.herokuapp.com/).
+An online demo of the library can be seen [here](http://play-json-schema-validator.herokuapp.com/).
 
 For a complete Play application that makes use of this library, please see [this example](https://github.com/edgarmueller/play-json-schema-example).
