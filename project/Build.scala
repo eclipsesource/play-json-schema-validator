@@ -12,7 +12,6 @@ object Version {
   val specs2        = "2.4.9"
   val jtoValidationCore = "1.1"
   val jtoValidationJson = "1.1"
-  val paradise      = "2.1.0"
   val guava         = "19.0"
 }
 
@@ -46,7 +45,7 @@ object Dependencies {
 object Build extends Build {
 
   import bintray.BintrayKeys._
-update
+
   val Repositories = Seq(
     "Typesafe repository"           at "http://repo.typesafe.com/typesafe/releases/",
     "Sonatype OSS Snapshots"        at "https://oss.sonatype.org/content/repositories/snapshots",
@@ -63,8 +62,7 @@ update
       crossScalaVersions := Seq("2.10.6", "2.11.6"),
       licenses := Seq("Apache-2.0" -> url("http://www.apache.org/licenses/LICENSE-2.0")),
       Keys.fork in Test := false,
-      Keys.parallelExecution in Test := false,
-      addCompilerPlugin("org.scalamacros" % "paradise" % Version.paradise cross CrossVersion.full)
+      Keys.parallelExecution in Test := false
     )
 
   val releaseSettings = ReleasePlugin.releaseSettings ++ Seq(
