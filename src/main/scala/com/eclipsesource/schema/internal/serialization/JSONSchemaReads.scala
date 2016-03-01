@@ -8,7 +8,6 @@ import play.api.libs.json.Reads._
 import play.api.libs.json._
 
 import scala.collection.immutable.Iterable
-import shapeless.syntax.std.tuple._
 
 trait JSONSchemaReads {
 
@@ -53,7 +52,12 @@ trait JSONSchemaReads {
       val typeAsString = anyConstraints.schemaTypeAsString
 
       if (typeAsString.exists(_ != "number")
-        || (typeAsString.isEmpty && read.take(5).toList.forall(_.isEmpty))) {
+        || (typeAsString.isEmpty
+        && min.isEmpty
+        && max.isEmpty
+        && exclusiveMin.isEmpty
+        && exclusiveMax.isEmpty
+        && multipleOf.isEmpty)) {
         Reads.apply(_ => JsError("Expected number"))
       } else {
         Reads.pure(SchemaNumber(NumberConstraints(minimum, maximum, multipleOf, anyConstraints)))
@@ -76,7 +80,12 @@ trait JSONSchemaReads {
       val typeAsString = anyConstraints.schemaTypeAsString
 
       if (typeAsString.exists(_ != "integer")
-        || (typeAsString.isEmpty && read.take(5).toList.forall(_.isEmpty))) {
+        || (typeAsString.isEmpty
+        && min.isEmpty
+        && max.isEmpty
+        && exclusiveMin.isEmpty
+        && exclusiveMax.isEmpty
+        && multipleOf.isEmpty)) {
         Reads.apply(_ => JsError("Expected integer."))
       } else {
         Reads.pure(SchemaInteger(NumberConstraints(minimum, maximum, multipleOf, anyConstraints)))
@@ -155,7 +164,12 @@ trait JSONSchemaReads {
           val (items, additionalItems, minItems, maxItems, uniqueItems, id, any) = read
 
           if (any.schemaTypeAsString.exists(_ != "array") ||
-            (any.schemaTypeAsString.isEmpty && read.take(5).toList.forall(_.isEmpty))) {
+            (any.schemaTypeAsString.isEmpty
+              && items.isEmpty
+              && additionalItems.isEmpty
+              && minItems.isEmpty
+              && maxItems.isEmpty
+              && uniqueItems.isEmpty)) {
             Reads.apply(_ => JsError("Expected array."))
           } else {
             Reads.pure(
@@ -179,7 +193,11 @@ trait JSONSchemaReads {
       val (items, additionalItems, minItems, maxItems, uniqueItems, id, any) = read
 
       if (any.schemaTypeAsString.exists(_ != "array") ||
-        (any.schemaTypeAsString.isEmpty && read.take(4).toList.forall(_.isEmpty) || items.isEmpty)) {
+        ((any.schemaTypeAsString.isEmpty
+          && items.isEmpty
+          && additionalItems.isEmpty
+          && minItems.isEmpty
+          && maxItems.isEmpty) || items.isEmpty)) {
         Reads.apply(_ => JsError("Expected tuple."))
       } else {
         Reads.pure(
