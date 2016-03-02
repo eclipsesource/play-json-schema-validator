@@ -1,18 +1,13 @@
 package com.eclipsesource.schema
 
 import org.specs2.mutable.Specification
-import java.net.URL
 import com.eclipsesource.schema.test.JsonSpec
 import play.api.libs.json._
 
-class FormatSpec extends Specification {
+class FormatSpec extends Specification with JsonSpec {
+  validate("optional/format")
 
   "Format" should {
-    "validate" in {
-      val resourceUrl: URL = getClass.getResource("/draft4/optional/format.json")
-      foreach(JsonSpec.examplesFromUrl(resourceUrl))(example => example.execute)
-    }
-
     "not validate unknown format" in {
       val formatName = "unknown"
       val schema = JsonSource.schemaFromString(
