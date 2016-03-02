@@ -1,7 +1,7 @@
 package com.eclipsesource
 
 import com.eclipsesource.schema.internal.validators._
-import com.eclipsesource.schema.internal.{RefResolver, Results, Context, SchemaUtil}
+import com.eclipsesource.schema.internal.{Results, Context, SchemaUtil}
 import com.eclipsesource.schema.internal.serialization.{JSONSchemaReads, JSONSchemaWrites}
 import play.api.data.mapping.{Path, Success, VA}
 import play.api.data.validation.ValidationError
@@ -31,8 +31,6 @@ package object schema
   implicit class SchemaTypeExtensionOps[S <: SchemaType](schemaType: S) {
 
     def prettyPrint: String = SchemaUtil.prettyPrint(schemaType)
-
-    private def hasRef(schema: SchemaObject) = schema.properties.collectFirst { case RefAttribute(_, _) => }.isDefined
 
     def validate(json: => JsValue, context: Context)(implicit validator: SchemaTypeValidator[S]): VA[JsValue] = {
       Results.merge(

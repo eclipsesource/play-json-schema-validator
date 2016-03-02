@@ -1,5 +1,6 @@
 package com.eclipsesource.schema.internal.validators
 
+import java.text.BreakIterator
 import java.util.regex.Pattern
 
 import com.eclipsesource.schema.SchemaString
@@ -123,10 +124,11 @@ object StringValidator extends SchemaTypeValidator[SchemaString] {
       json
     )
 
-  private def lengthOf(str: String): Int = {
-    val pattern = Pattern.compile("\u0B95\u0BCD\u0BB7\\p{M}?|\\p{L}|\\p{Nd}\\p{M}?")
-    val matcher = pattern.matcher(str)
-    val chars = Iterator.continually(matcher.find()).takeWhile(_ == true)
-    chars.size
+  private def lengthOf(text: String, locale: java.util.Locale = java.util.Locale.ENGLISH): Int = {
+    val charIterator = java.text.BreakIterator.getCharacterInstance(locale)
+    charIterator.setText(text)
+    var length = 0
+    while (charIterator.next() != BreakIterator.DONE) length += 1
+    length
   }
 }
