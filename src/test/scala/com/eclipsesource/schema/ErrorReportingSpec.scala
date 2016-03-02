@@ -21,7 +21,6 @@ class ErrorReportingSpec extends Specification {
       val result: VA[JsValue] = SchemaValidator.validate(schema)(Json.obj("title" -> "a"))
       result.isFailure must beTrue
       result.asEither must beLeft.like { case error => (error.toJson(0) \ "msgs").get.as[JsArray].value.size == 2 }
-      true must beTrue
     }
 
     "handle multiple required errors" in {
@@ -37,7 +36,6 @@ class ErrorReportingSpec extends Specification {
       val result: VA[JsValue] = SchemaValidator.validate(schema)(Json.obj())
       result.isFailure must beTrue
       result.asEither must beLeft.like { case error => error.toJson.as[JsArray].value.size == 2 }
-      true must beTrue
     }
 
     "handle nested multiple required errors" in {

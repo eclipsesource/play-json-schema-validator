@@ -1,21 +1,14 @@
 package com.eclipsesource.schema
 
-import java.net.URL
-
 import com.eclipsesource.schema.test.{JsonSpec}
 import org.specs2.mutable.Specification
-import play.api.libs.json.{JsNumber, JsArray, Json}
+import play.api.libs.json.{JsNumber, JsArray}
 
-class AdditionalItemsSpec extends Specification {
+class AdditionalItemsSpec extends Specification with JsonSpec {
+
+  validate("additionalItems")
 
   "AdditionalItems" should {
-
-    val resourceUrl: URL = getClass.getResource("/draft4/additionalItems.json")
-
-    "validate" in {
-      foreach(JsonSpec.examplesFromUrl(resourceUrl))(_.execute)
-    }
-
     val schema = JsonSource.schemaFromString(
       """{
         |  "items": [{}, {}, {}],

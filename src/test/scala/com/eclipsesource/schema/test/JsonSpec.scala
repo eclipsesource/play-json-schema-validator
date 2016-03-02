@@ -1,42 +1,53 @@
 package com.eclipsesource.schema.test
 
-import java.io.InputStream
 import java.net.URL
 
 import com.eclipsesource.schema._
-import org.specs2.execute.Result
-import org.specs2.matcher.ThrownExpectations
-import org.specs2.specification.Example
-import play.api.data.mapping.{VA, Path, ValidationError}
+import org.specs2._
+import execute._
+import matcher._
+import specification.core._
+import org.specs2.specification.dsl.mutable.{FragmentBuilder, ExampleDsl}
+import play.api.data.mapping.{Path, ValidationError}
 import play.api.libs.json._
 import play.api.libs.functional.syntax._
-
-import scala.util.Try
 
 case class JsonSchemaSpec(description: String, schema: SchemaType, tests: Seq[JsonSchemaTest])
 case class JsonSchemaTest(description: String, data: JsValue, valid: Boolean)
 case class SpecResult(description: String, valid: Boolean, error: Option[Seq[(Path, Seq[ValidationError])]])
 
-object JsonSpec extends ThrownExpectations {
+trait JsonSpec extends FragmentBuilder {
 
-  def examplesFromUrl(url: URL): Seq[Example] = {
-    val results: Either[String, Seq[Example]] = fromUrl(url).right.map(specs => {
-      for {
-        spec <- specs
-        test <- spec._2
-      } yield {
-        if (test.valid) {
-          Example(spec._1, success(test.description))
-        } else {
-          Example(spec._1, failure(s"'${test.description}' of spec '${spec._1}' failed."))
-        }
+  val spec = new org.specs2.mutable.Specification {}
+  import spec._
+
+  def validate(name: String): Fragments =
+    addFragments(validateFragments(name))
+
+  def validateFragments(name: String): Fragments =
+    s2"""|$name should be ok $p
+         |${examplesFromUrl(getClass.getResource(s"/draft4/$name.json"))}""".stripMargin
+
+  def examplesFromUrl(url: URL): Fragments = {
+    val results: Either[String, Fragments] = fromUrl(url).right.map { specs =>
+      Fragments.foreach(specs) { case (specName, rs) =>
+        val examples = Fragments.foreach(rs) { result =>
+          s2"""  ${result.description ! test(specName, result)}""".stripMargin
+       }
+
+       s2"""|$specName $br
+            |$examples""".stripMargin
       }
-    })
-    results.right.getOrElse(Seq(Example("Spec init", failure(s"Could not read specs from $url."))))
+    }
+    results.right.getOrElse(Fragments("Spec init" ! Failure(s"Could not read specs from $url.")))
   }
 
+  def test(specName: String, result: SpecResult) =
+    if (result.valid) Success(result.description)
+    else              Failure(s"'${result.description}' of spec '$specName' failed.")
+
   def fromUrl(url: URL): Either[String, Seq[(String, Seq[SpecResult])]] = {
-    JsonSource.fromURL(url).getOrElse(failure(s"Could not read JSON from $url.")) match {
+    JsonSource.fromURL(url).getOrElse(Failure(s"Could not read JSON from $url.")) match {
       case JsArray(specs) => Right(executeSpecs(specs))
       case json =>
         Left(s"URL $url does not contain any specs or has wrong format. See https://github.com/json-schema/JSON-Schema-Test-Suite for correct format")
@@ -44,7 +55,7 @@ object JsonSpec extends ThrownExpectations {
   }
 
   def fromFile(filePath: String): Either[String, Seq[(String, Seq[SpecResult])]] = {
-    JsonSource.fromFile(filePath).getOrElse(failure(s"Could not read JSON from $filePath.")) match {
+    JsonSource.fromFile(filePath).getOrElse(Failure(s"Could not read JSON from $filePath.")) match {
       case JsArray(specs) => Right(executeSpecs(specs))
       case json => Left(s"File $filePath does not contain any specs or has wrong format. See https://github.com/json-schema/JSON-Schema-Test-Suite for correct format.")
     }
@@ -80,6 +91,6 @@ object JsonSpec extends ThrownExpectations {
     ((__ \ "description").read[String] and
       (__ \ "data").read[JsValue] and
       (__ \ "valid").read[Boolean])
-      .tupled.map { case (desc, data, valid) => JsonSchemaTest(desc, data, valid)}
+      .tupled.map { case (desc, data, valid) => JsonSchemaTest(desc, data, valid) }
   }
 }

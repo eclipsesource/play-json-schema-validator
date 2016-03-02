@@ -1,19 +1,13 @@
 package com.eclipsesource.schema
 
-import java.net.URL
-
 import com.eclipsesource.schema.test.JsonSpec
 import org.specs2.mutable.Specification
-import play.api.libs.json.{JsArray, JsDefined, JsString}
+import play.api.libs.json._
 
-class MaxLengthSpec extends Specification {
+class MaxLengthSpec extends Specification with JsonSpec {
+  validate("maxLength")
 
   "MaxLength" should {
-    "validate" in {
-      val resourceUrl: URL = getClass.getResource("/draft4/maxLength.json")
-      foreach(JsonSpec.examplesFromUrl(resourceUrl))(example => example.execute)
-    }
-
     "fail with an error in case the string is too long" in {
       val schema = JsonSource.schemaFromString(
         """{
@@ -25,5 +19,4 @@ class MaxLengthSpec extends Specification {
       result.asEither must beLeft.like { case error => (error.toJson(0) \ "msgs") == JsDefined(JsArray(Seq(JsString("foo violates max length of 2")))) }
     }
   }
-
 }

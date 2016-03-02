@@ -2,18 +2,13 @@ package com.eclipsesource.schema
 
 import com.eclipsesource.schema.test.JsonSpec
 import org.specs2.mutable.Specification
-import java.net.URL
 
 import play.api.libs.json.JsString
 
-class MinLengthSpec extends Specification {
+class MinLengthSpec extends Specification with JsonSpec {
+  validate("minLength")
 
   "MinLength" should {
-
-    "validate" in {
-      val resourceUrl: URL = getClass.getResource("/draft4/minLength.json")
-      foreach(JsonSpec.examplesFromUrl(resourceUrl))(example => example.execute)
-    }
 
     "validate against numeric strings that are long enough" in {
       val schema = JsonSource.schemaFromString(

@@ -7,9 +7,9 @@ import sbtrelease.ReleasePlugin._
 object Version {
   val play          = "2.4.2"
   val playTest      = "2.4.2"
-  val scalaz        = "7.1.3"
+  val scalaz        = "7.2.0"
   val scalaXml      = "1.0.3"
-  val specs2        = "2.4.9"
+  val specs2        = "3.7.1"
   val jtoValidationCore = "1.1"
   val jtoValidationJson = "1.1"
   val guava         = "19.0"
@@ -21,11 +21,11 @@ object Library {
   val play          = "com.typesafe.play" %% "play"                   % Version.play
   val playJson      = "com.typesafe.play" %% "play-json"              % Version.play
   val playWs        = "com.typesafe.play" %% "play-ws"                % Version.play
-  val playTest      = "com.typesafe.play" %% "play-specs2"            % Version.play           % "test"
   val scalaXml      = "org.scala-lang.modules" %% "scala-xml" % "1.0.3"
-  val specs2        = "org.specs2"        %% "specs2"                 % Version.specs2         % "test"
   val jtoValidationCore = "io.github.jto" %% "validation-core"        % Version.jtoValidationCore
   val jtoValidationJson = "io.github.jto" %% "validation-json"        % Version.jtoValidationJson
+  val playTest      = "com.typesafe.play" %% "play-specs2"            % Version.play           % "test"
+  val specs2        = "org.specs2"        %% "specs2-core"            % Version.specs2         % "test"
 }
 
 object Dependencies {
