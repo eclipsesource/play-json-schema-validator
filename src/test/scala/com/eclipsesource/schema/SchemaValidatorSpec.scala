@@ -58,7 +58,8 @@ class SchemaValidatorSpec extends PlaySpecification {
             |  "additionalProperties": { "$ref": "http://localhost:1234/talk.json#/properties/title" }
             |}""".stripMargin).get
 
-        val valid = Json.obj("title" -> "This is a valid instance")
+        // min length 10, max length 20
+        val valid = Json.obj("title" -> "This is valid")
         val invalid = Json.obj("title" -> "Too short")
 
         SchemaValidator.validate(schema, valid).isSuccess must beTrue
