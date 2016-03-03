@@ -23,7 +23,9 @@ trait JsonSpec extends FragmentBuilder {
 
   def validate(name: String): Fragments =
     try addFragments(validateFragments(name))
-    catch { case e: Exception => addFragment(Fragment(Text(s"Could not create examples for $name"), Execution.executed(Error(e)))) }
+    catch { case e: Exception =>
+      addFragments(Fragments(br, Fragment(Text(s"Could not create examples for $name"), Execution.executed(Skipped(e.getMessage)))))
+    }
 
   def validateFragments(name: String): Fragments =
     s2"""|$name should be ok $p
