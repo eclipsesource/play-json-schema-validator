@@ -7,7 +7,7 @@ import org.specs2._
 import execute._
 import matcher._
 import specification.core._
-import org.specs2.specification.dsl.mutable.{FragmentBuilder, ExampleDsl}
+import org.specs2.specification.dsl.mutable.{FragmentBuilder}
 import play.api.data.mapping.{Path, ValidationError}
 import play.api.libs.json._
 import play.api.libs.functional.syntax._
@@ -22,7 +22,8 @@ trait JsonSpec extends FragmentBuilder {
   import spec._
 
   def validate(name: String): Fragments =
-    addFragments(validateFragments(name))
+    try addFragments(validateFragments(name))
+    catch { case e: Exception => addFragment(Fragment(Text(s"Could not create examples for $name"), Execution.executed(Error(e)))) }
 
   def validateFragments(name: String): Fragments =
     s2"""|$name should be ok $p
