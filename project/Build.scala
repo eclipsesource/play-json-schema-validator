@@ -9,7 +9,7 @@ object Version {
   val playTest      = "2.4.2"
   val scalaz        = "7.2.0"
   val scalaXml      = "1.0.3"
-  val specs2        = "3.7.1"
+  val specs2        = "3.7.2"
   val jtoValidationCore = "1.1"
   val jtoValidationJson = "1.1"
   val guava         = "19.0"

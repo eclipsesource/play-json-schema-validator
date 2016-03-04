@@ -13,17 +13,15 @@ object JsonSource {
   
   def schemaFromString(json: String): JsResult[SchemaType] = Json.fromJson[SchemaType](Json.parse(json))
 
-  def fromURL(url: URL): Try[JsValue] = {
+  def fromURL(url: URL): Try[JsValue] = Try {
     val source = Source.fromURL(url)
-    val lines = try source.getLines().mkString("\n") finally source.close()
-    fromString(lines)
-  }
+    try source.getLines.mkString("\n") finally source.close
+  }.flatMap(fromString)
 
-  def fromFile(filePath: String): Try[JsValue] = {
+  def fromFile(filePath: String): Try[JsValue] = Try {
     val source = Source.fromFile(filePath)
-    val lines  = try source.getLines().mkString("\n") finally source.close()
-    fromString(lines)
-  }
+    try source.getLines.mkString("\n") finally source.close
+  }.flatMap(fromString)
 
 
 }

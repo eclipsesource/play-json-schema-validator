@@ -20,7 +20,7 @@ class RefRemoteSpec extends PlaySpecification with JsonSpec with AfterAll with O
   def afterAll = server.stop
 
   "Validation from remote resources is possible" >> {
-    { server.start must not(throwAn[Exception]) } continueWith
+    { { server.start; Thread.sleep(1000) } must not(throwAn[Exception]) } continueWith
     validate("refRemote")
   }
 }
