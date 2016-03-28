@@ -3,10 +3,8 @@ package com.eclipsesource.schema
 import java.net.URL
 
 import controllers.Assets
-import play.api.libs.json._
 import play.api.mvc.Handler
 import play.api.test.{FakeApplication, PlaySpecification, WithServer}
-import play.api.libs.json.Reads._
 import play.api.libs.json._
 
 class SchemaValidatorSpec extends PlaySpecification {
@@ -66,6 +64,17 @@ class SchemaValidatorSpec extends PlaySpecification {
         SchemaValidator.validate(schema, invalid).isFailure must beTrue
       }
 
+    "return unaltered validated array" in {
+      val schema = JsonSource.schemaFromString(
+        """{
+          |  "type": "array",
+          |  "items": { "type": "integer" }
+          |}""".stripMargin).get
+      val result = SchemaValidator.validate(schema)(Json.arr(1,2,3))
+      result.asOpt must beSome.which {
+        case arr@JsArray(seq) => seq must haveLength(3)
+      }
+    }
 
     "validate oneOf constraint via $ref" in
       new WithServer(app = new FakeApplication(withRoutes = routes), port = 1234) {
@@ -113,7 +122,7 @@ class SchemaValidatorSpec extends PlaySpecification {
       result.get.location.name must beEqualTo("Munich")
     }
 
-    "validate with Wrties" in
+    "validate with Writes" in
       new WithServer(app = new FakeApplication(withRoutes = routes), port = 1234) {
 
         val talk = Talk(Location("Munich"))
