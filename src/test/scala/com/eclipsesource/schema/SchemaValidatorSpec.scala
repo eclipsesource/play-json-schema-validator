@@ -3,9 +3,11 @@ package com.eclipsesource.schema
 import java.net.URL
 
 import controllers.Assets
+import play.api.data.mapping.VA
 import play.api.mvc.Handler
 import play.api.test.{FakeApplication, PlaySpecification, WithServer}
 import play.api.libs.json._
+import play.api.libs.functional.syntax._
 
 class SchemaValidatorSpec extends PlaySpecification {
 
@@ -137,7 +139,25 @@ class SchemaValidatorSpec extends PlaySpecification {
       val result = SchemaValidator.validate(resourceUrl, instance)
       result.isSuccess must beTrue
     }
-
   }
 
+  "report errors of wrong reads" in
+    new WithServer(app = new FakeApplication(withRoutes = routes), port = 1234) {
+      case class Foo(location: Location, title: String)
+      val lr: Reads[Foo] = (
+        (JsPath \ "loc").read[Location] and
+          (JsPath \ "title").read[String]
+        )(Foo.apply _)
+
+      val fooInstance = Json.obj(
+        "location" -> Json.obj(
+          "name" -> "Munich"
+        ),
+        "title" -> "Some title"
+      )
+      val result: VA[Foo] = SchemaValidator.validate(schema, fooInstance, lr)
+      result.asEither must beLeft.like { case error =>
+        (error.toJson(0).get \ "instancePath") must beEqualTo(JsDefined(JsString("/loc")))
+      }
+    }
 }
