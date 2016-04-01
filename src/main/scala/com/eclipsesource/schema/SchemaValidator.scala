@@ -34,13 +34,8 @@ trait SchemaValidator {
 
   def validate[A](schemaUrl: URL, input: => JsValue, reads: Reads[A]) : VA[A] = {
     validate(schemaUrl, input).fold(
-      valid = {
-        json => reads.reads(json) match {
-          case JsSuccess(success, _) => Success(success)
-          case JsError(errors) => Failure(errors.map(e => Path(e._1.toJsonString) -> e._2))
-        }
-      },
-      invalid = errors => Failure(errors)
+      valid = readAndValidate(reads),
+      invalid = errors => Failure(essentialErrorInfo(errors, Some(input)))
     )
   }
 
@@ -53,13 +48,8 @@ trait SchemaValidator {
     val writes = implicitly[Writes[A]]
     val reads = implicitly[Reads[A]]
     validate(schemaUrl, input, writes).fold(
-      valid = {
-        json => reads.reads(json) match {
-          case JsSuccess(success, _) => Success(success)
-          case JsError(errors) => Failure(errors.map(e => Path(e._1.toJsonString) -> e._2))
-        }
-      },
-      invalid = errors => Failure(errors)
+      valid = readAndValidate(reads),
+      invalid = errors => Failure(essentialErrorInfo(errors, None))
     )
   }
 
@@ -83,13 +73,8 @@ trait SchemaValidator {
   def validate[A](schema: SchemaType, input: => JsValue, reads: Reads[A]) : VA[A] = {
     val result = validate(schema)(input)
     result.fold(
-      valid = {
-        json => reads.reads(json) match {
-          case JsSuccess(success, _) => Success(success)
-          case JsError(errors) => Failure(errors.map(e => Path(e._1.toJsonString) -> e._2))
-        }
-      },
-      invalid = errors => Failure(errors)
+      valid = readAndValidate(reads),
+      invalid = errors => Failure(essentialErrorInfo(errors, Some(input)))
     )
   }
 
@@ -104,14 +89,47 @@ trait SchemaValidator {
     val inputJs = writes.writes(input)
     val result = validate(schema)(inputJs)
     result.fold(
-      valid = {
-        json => reads.reads(json) match {
-          case JsSuccess(success, _) => Success(success)
-          case JsError(errors) => Failure(errors.map(e => Path(e._1.toJsonString) -> e._2))
-        }
-      },
-      invalid = errors => Failure(errors)
+      valid = readAndValidate(reads),
+      invalid = errors => Failure(essentialErrorInfo(errors, Some(inputJs)))
     )
+  }
+
+  private def readAndValidate[A](reads: Reads[A]): JsValue => VA[A] = json =>
+    reads.reads(json) match {
+      case JsSuccess(success, _) => Success(success)
+      case JsError(errors) => Failure(essentialJsErrorInfo(errors, Some(json)))
+    }
+
+  private def essentialJsErrorInfo(errors: Seq[(JsPath, Seq[ValidationError])], json: Option[JsValue]): Seq[(Path, Seq[ValidationError])] = {
+    essentialErrorInfo(errors.map { case (path, errs) => Path(path.toJsonString) -> errs }, json)
+  }
+
+  private def essentialErrorInfo(errors: Seq[(Path, Seq[ValidationError])], json: Option[JsValue]): Seq[(Path, Seq[ValidationError])] = {
+
+    def dropObjPrefix(path: String): String = {
+      if (path.startsWith("/obj")) {
+        "/" + path.substring(5)
+      } else {
+        path
+      }
+    }
+
+    errors.map { case (path, validationErrors) =>
+      path ->
+        validationErrors.map(err =>
+          err.args.size match {
+            case 0 => ValidationError(err.message,
+              Json.obj(
+                "schemaPath" -> "n/a",
+                "instancePath" -> dropObjPrefix(path.toString()),
+                "value" -> json.fold[JsValue](Json.obj())(identity),
+                "errors" -> Json.obj()
+              )
+            )
+            case _ => err
+          }
+        )
+    }
   }
 
   private[schema] def process(schema: SchemaType, json: JsValue, context: Context): VA[JsValue] = {

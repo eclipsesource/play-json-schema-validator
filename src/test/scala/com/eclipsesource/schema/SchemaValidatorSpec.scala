@@ -3,11 +3,11 @@ package com.eclipsesource.schema
 import java.net.URL
 
 import controllers.Assets
-import play.api.libs.json._
+import play.api.data.mapping.VA
 import play.api.mvc.Handler
 import play.api.test.{FakeApplication, PlaySpecification, WithServer}
-import play.api.libs.json.Reads._
 import play.api.libs.json._
+import play.api.libs.functional.syntax._
 
 class SchemaValidatorSpec extends PlaySpecification {
 
@@ -66,6 +66,17 @@ class SchemaValidatorSpec extends PlaySpecification {
         SchemaValidator.validate(schema, invalid).isFailure must beTrue
       }
 
+    "return unaltered validated array" in {
+      val schema = JsonSource.schemaFromString(
+        """{
+          |  "type": "array",
+          |  "items": { "type": "integer" }
+          |}""".stripMargin).get
+      val result = SchemaValidator.validate(schema)(Json.arr(1,2,3))
+      result.asOpt must beSome.which {
+        case arr@JsArray(seq) => seq must haveLength(3)
+      }
+    }
 
     "validate oneOf constraint via $ref" in
       new WithServer(app = new FakeApplication(withRoutes = routes), port = 1234) {
@@ -113,7 +124,7 @@ class SchemaValidatorSpec extends PlaySpecification {
       result.get.location.name must beEqualTo("Munich")
     }
 
-    "validate with Wrties" in
+    "validate with Writes" in
       new WithServer(app = new FakeApplication(withRoutes = routes), port = 1234) {
 
         val talk = Talk(Location("Munich"))
@@ -128,7 +139,25 @@ class SchemaValidatorSpec extends PlaySpecification {
       val result = SchemaValidator.validate(resourceUrl, instance)
       result.isSuccess must beTrue
     }
-
   }
 
+  "report errors of wrong reads" in
+    new WithServer(app = new FakeApplication(withRoutes = routes), port = 1234) {
+      case class Foo(location: Location, title: String)
+      val lr: Reads[Foo] = (
+        (JsPath \ "loc").read[Location] and
+          (JsPath \ "title").read[String]
+        )(Foo.apply _)
+
+      val fooInstance = Json.obj(
+        "location" -> Json.obj(
+          "name" -> "Munich"
+        ),
+        "title" -> "Some title"
+      )
+      val result: VA[Foo] = SchemaValidator.validate(schema, fooInstance, lr)
+      result.asEither must beLeft.like { case error =>
+        (error.toJson(0).get \ "instancePath") must beEqualTo(JsDefined(JsString("/loc")))
+      }
+    }
 }
