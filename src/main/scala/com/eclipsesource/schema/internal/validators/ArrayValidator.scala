@@ -1,9 +1,11 @@
 package com.eclipsesource.schema.internal.validators
 
+import com.eclipsesource.schema.internal.validation.VA
 import com.eclipsesource.schema.internal.{Context, Results, SchemaUtil}
 import com.eclipsesource.schema.{SchemaArray, SchemaValidator}
-import play.api.data.mapping.{Failure, Success, VA}
 import play.api.libs.json.{JsArray, JsValue}
+
+import scalaz.{Success, Failure}
 
 
 object ArrayValidator extends SchemaTypeValidator[SchemaArray] with ArrayConstraintValidator {

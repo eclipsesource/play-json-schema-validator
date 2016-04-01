@@ -1,8 +1,8 @@
 package com.eclipsesource.schema.jsonforms
 
 import com.eclipsesource.schema._
+import com.eclipsesource.schema.internal.validation.VA
 import org.specs2.mutable.Specification
-import play.api.data.mapping.VA
 import play.api.libs.json._
 
 class JsonFormsSpec extends Specification {
@@ -133,8 +133,8 @@ class JsonFormsSpec extends Specification {
                               |}]
                               |}""".stripMargin)
 
-      val result: VA[JsValue] = SchemaValidator.validate(jsonFormSchema, json)
-      result.isFailure must beTrue
+      val result: JsResult[JsValue] = SchemaValidator.validate(jsonFormSchema, json)
+      result.isError must beTrue
       result.asEither must beLeft.like { case error =>
         val JsDefined(subErrors) = error.toJson(0) \ "errors"
         subErrors.as[JsObject].keys.size == 3

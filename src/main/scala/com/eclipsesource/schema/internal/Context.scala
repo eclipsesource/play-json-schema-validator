@@ -3,7 +3,7 @@ package com.eclipsesource.schema.internal
 import java.net.URI
 
 import com.eclipsesource.schema.{RefAttribute, SchemaType}
-import play.api.data.mapping.Path
+import play.api.libs.json.JsPath
 
 import scala.util.Try
 
@@ -12,8 +12,8 @@ case class Context(
                     documentRoot: SchemaType,
                     id: Option[String] = None,     // current resolution scope
                     rootId: Option[String] = None, // base URI
-                    schemaPath: Path = Path("#"),
-                    instancePath: Path = Path(),
+                    schemaPath: JsPath = JsPath \ "#",
+                    instancePath: JsPath = JsPath,
                     visited: Set[RefAttribute] = Set.empty // tracks all visited refs
 ) {
   def isRootScope = {

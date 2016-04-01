@@ -1,7 +1,7 @@
 package com.eclipsesource.schema.internal.validators
 
-import com.eclipsesource.schema.internal.{Context}
-import play.api.data.mapping.VA
+import com.eclipsesource.schema.internal.validation.VA
+import com.eclipsesource.schema.internal.Context
 import play.api.libs.json.JsValue
 
 trait SchemaTypeValidator[S] {

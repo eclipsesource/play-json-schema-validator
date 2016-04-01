@@ -3,9 +3,9 @@ package com.eclipsesource.schema.internal.validators
 import java.util.regex.Pattern
 import com.eclipsesource.schema._
 import com.eclipsesource.schema.internal._
-import play.api.data.mapping._
+import com.eclipsesource.schema.internal.validation.VA
 import play.api.libs.json._
-import scalaz.ReaderWriterState
+import scalaz.{Success, ReaderWriterState}
 
 object ObjectValidator extends SchemaTypeValidator[SchemaObject] {
 

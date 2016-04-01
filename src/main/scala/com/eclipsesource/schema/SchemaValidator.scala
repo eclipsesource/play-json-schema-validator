@@ -3,21 +3,30 @@ package com.eclipsesource.schema
 import java.net.URL
 
 import com.eclipsesource.schema.internal._
+import com.eclipsesource.schema.internal.validation.VA
 import com.eclipsesource.schema.internal.validators.AnyConstraintValidator
-import play.api.data.mapping.{Failure, Path, Success, VA}
 import play.api.data.validation.ValidationError
 import play.api.libs.json._
 
+import scalaz.{Success, Failure}
+
 trait SchemaValidator {
 
-  def validate(schemaUrl: URL, input: => JsValue): VA[JsValue] = {
+  implicit class VAExtensions[O](va: VA[O]) {
+    def toJsResult: JsResult[O] = va match {
+      case Success(s) => JsSuccess(s)
+      case Failure(errors) => JsError(errors)
+    }
+  }
+
+  def validate(schemaUrl: URL, input: => JsValue): JsResult[JsValue] = {
     val schema = for {
       schemaJson <- JsonSource.fromURL(schemaUrl).toOption
       schema <- Json.fromJson[SchemaType](schemaJson).asOpt
     } yield schema
 
-    schema match {
-      case None => Failure(Seq(Path -> Seq(ValidationError("Schema can not be parsed."))))
+    val result: VA[JsValue] = schema match {
+      case None => Failure(Seq(JsPath -> Seq(ValidationError("Schema can not be parsed."))))
       case Some(s) =>
         val id = s match {
           case container: HasId => container.id
@@ -30,26 +39,27 @@ trait SchemaValidator {
           context
         )
     }
+    result.toJsResult
   }
 
-  def validate[A](schemaUrl: URL, input: => JsValue, reads: Reads[A]) : VA[A] = {
+  def validate[A](schemaUrl: URL, input: => JsValue, reads: Reads[A]) : JsResult[A] = {
     validate(schemaUrl, input).fold(
       valid = readAndValidate(reads),
-      invalid = errors => Failure(essentialErrorInfo(errors, Some(input)))
+      invalid = errors => JsError(essentialErrorInfo(errors, Some(input)))
     )
   }
 
-  def validate[A](schemaUrl: URL, input: A, writes: Writes[A]): VA[JsValue] = {
+  def validate[A](schemaUrl: URL, input: A, writes: Writes[A]): JsResult[JsValue] = {
     val inputJs = writes.writes(input)
     validate(schemaUrl, inputJs)
   }
 
-  def validate[A: Format](schemaUrl: URL, input: A): VA[A] = {
+  def validate[A: Format](schemaUrl: URL, input: A): JsResult[A] = {
     val writes = implicitly[Writes[A]]
     val reads = implicitly[Reads[A]]
     validate(schemaUrl, input, writes).fold(
       valid = readAndValidate(reads),
-      invalid = errors => Failure(essentialErrorInfo(errors, None))
+      invalid = errors => JsError(essentialErrorInfo(errors, None))
     )
   }
 
@@ -57,7 +67,7 @@ trait SchemaValidator {
   // --
   //
 
-  def validate(schema: SchemaType)(input: => JsValue): VA[JsValue] = {
+  def validate(schema: SchemaType)(input: => JsValue): JsResult[JsValue] = {
     val id = schema match {
       case container: HasId => container.id
       case _ => None
@@ -67,44 +77,40 @@ trait SchemaValidator {
       schema,
       input,
       context
-    )
+    ).toJsResult
   }
 
-  def validate[A](schema: SchemaType, input: => JsValue, reads: Reads[A]) : VA[A] = {
+  def validate[A](schema: SchemaType, input: => JsValue, reads: Reads[A]) : JsResult[A] = {
     val result = validate(schema)(input)
     result.fold(
       valid = readAndValidate(reads),
-      invalid = errors => Failure(essentialErrorInfo(errors, Some(input)))
+      invalid  = errors => JsError(essentialErrorInfo(errors, Some(input)))
     )
   }
 
-  def validate[A](schema: SchemaType, input: A, writes: Writes[A]): VA[JsValue] = {
+  def validate[A](schema: SchemaType, input: A, writes: Writes[A]): JsResult[JsValue] = {
     val inputJs = writes.writes(input)
     validate(schema)(inputJs)
   }
 
-  def validate[A: Format](schema: SchemaType, input: A): VA[A] = {
+  def validate[A: Format](schema: SchemaType, input: A): JsResult[A] = {
     val writes = implicitly[Writes[A]]
     val reads = implicitly[Reads[A]]
     val inputJs = writes.writes(input)
     val result = validate(schema)(inputJs)
     result.fold(
       valid = readAndValidate(reads),
-      invalid = errors => Failure(essentialErrorInfo(errors, Some(inputJs)))
+      invalid = errors => JsError(essentialErrorInfo(errors, Some(inputJs)))
     )
   }
 
-  private def readAndValidate[A](reads: Reads[A]): JsValue => VA[A] = json =>
+  private def readAndValidate[A](reads: Reads[A]): JsValue => JsResult[A] = json =>
     reads.reads(json) match {
-      case JsSuccess(success, _) => Success(success)
-      case JsError(errors) => Failure(essentialJsErrorInfo(errors, Some(json)))
+      case JsSuccess(success, _) => JsSuccess(success)
+      case JsError(errors) => JsError(essentialErrorInfo(errors, Some(json)))
     }
 
-  private def essentialJsErrorInfo(errors: Seq[(JsPath, Seq[ValidationError])], json: Option[JsValue]): Seq[(Path, Seq[ValidationError])] = {
-    essentialErrorInfo(errors.map { case (path, errs) => Path(path.toJsonString) -> errs }, json)
-  }
-
-  private def essentialErrorInfo(errors: Seq[(Path, Seq[ValidationError])], json: Option[JsValue]): Seq[(Path, Seq[ValidationError])] = {
+  private def essentialErrorInfo(errors: Seq[(JsPath, Seq[ValidationError])], json: Option[JsValue]): Seq[(JsPath, Seq[ValidationError])] = {
 
     def dropObjPrefix(path: String): String = {
       if (path.startsWith("/obj")) {
@@ -145,7 +151,7 @@ trait SchemaValidator {
               context.instancePath,
               json)
             case Some(resolved) =>
-              val updatedContext = RefResolver.updateResolutionScope(context, resolved).copy(schemaPath =  Path(pointer.getOrElse("#")))
+              val updatedContext = RefResolver.updateResolutionScope(context, resolved).copy(schemaPath =  JsPath \ pointer.getOrElse("#"))
               Results.merge(
                 process(resolved,  json, updatedContext),
                 AnyConstraintValidator.validate(json, resolved.constraints.any, updatedContext)

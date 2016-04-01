@@ -56,6 +56,13 @@ class SchemaWritesSpec extends Specification {
       ))
     }
 
+    "serialize tuple" in {
+      Json.toJson(SchemaTuple(Seq(SchemaNumber()))) must beEqualTo(Json.obj(
+        "type" -> "array",
+        "items" -> Json.arr(Json.obj("type" -> "number"))
+      ))
+    }
+
     "serialize $ref" in {
       Json.toJson(SchemaObject(Seq(RefAttribute("#", isRemote = false)))) must beEqualTo(Json.obj(
         "type" -> "object",

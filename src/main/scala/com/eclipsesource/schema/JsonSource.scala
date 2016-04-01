@@ -18,10 +18,4 @@ object JsonSource {
     try source.getLines.mkString("\n") finally source.close
   }.flatMap(fromString)
 
-  def fromFile(filePath: String): Try[JsValue] = Try {
-    val source = Source.fromFile(filePath)
-    try source.getLines.mkString("\n") finally source.close
-  }.flatMap(fromString)
-
-
 }

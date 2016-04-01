@@ -3,8 +3,10 @@ package com.eclipsesource.schema.internal.validators
 import com.eclipsesource.schema.SchemaValidator
 import com.eclipsesource.schema.internal._
 import com.eclipsesource.schema.internal.constraints.Constraints.AnyConstraint
-import play.api.data.mapping._
+import com.eclipsesource.schema.internal.validation.{VA, Rule}
 import play.api.libs.json._
+
+import scalaz.{Failure, Success}
 
 object AnyConstraintValidator {
 
@@ -23,7 +25,7 @@ object AnyConstraintValidator {
     scalaz.Reader { case (any ,context) =>
       Rule.fromMapping { json =>
         any.not.map(schema =>
-          if (SchemaValidator.validate(schema, json).isFailure) {
+          if (SchemaValidator.validate(schema, json).isError) {
             Success(json)
           } else {
             failure(

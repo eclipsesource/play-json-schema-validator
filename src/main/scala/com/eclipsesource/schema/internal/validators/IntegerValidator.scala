@@ -2,10 +2,11 @@ package com.eclipsesource.schema.internal.validators
 
 import com.eclipsesource.schema.SchemaInteger
 import com.eclipsesource.schema.internal.constraints.Constraints.NumberConstraints
-import com.eclipsesource.schema.internal.{SchemaUtil, Results, Context}
-import play.api.data.mapping.{Failure, Rule, Success, VA}
-import play.api.data.validation.ValidationError
-import play.api.libs.json.{Json, JsNumber, JsValue}
+import com.eclipsesource.schema.internal.validation.{Rule, VA}
+import com.eclipsesource.schema.internal.{SchemaUtil, Context}
+import play.api.libs.json.{JsNumber, JsValue}
+
+import scalaz.Success
 
 object IntegerValidator extends SchemaTypeValidator[SchemaInteger] with NumberConstraintsValidator {
 

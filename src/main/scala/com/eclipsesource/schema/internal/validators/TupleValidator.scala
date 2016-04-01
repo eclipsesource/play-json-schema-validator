@@ -1,9 +1,11 @@
 package com.eclipsesource.schema.internal.validators
 
 import com.eclipsesource.schema._
+import com.eclipsesource.schema.internal.validation.VA
 import com.eclipsesource.schema.internal.{Context, Results}
-import play.api.data.mapping.{Failure, Success, VA}
 import play.api.libs.json.{JsBoolean, JsArray, JsValue}
+
+import scalaz.{Success, Failure}
 
 object TupleValidator extends SchemaTypeValidator[SchemaTuple] with ArrayConstraintValidator {
 

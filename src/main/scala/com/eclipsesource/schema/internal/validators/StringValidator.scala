@@ -6,8 +6,10 @@ import java.util.regex.Pattern
 import com.eclipsesource.schema.SchemaString
 import com.eclipsesource.schema.internal.constraints.Constraints.StringConstraints
 import com.eclipsesource.schema.internal.Context
-import play.api.data.mapping.{Rule, Success, VA}
+import com.eclipsesource.schema.internal.validation.{VA, Rule}
 import play.api.libs.json.{JsString, JsValue}
+
+import scalaz.Success
 
 object StringValidator extends SchemaTypeValidator[SchemaString] {
 

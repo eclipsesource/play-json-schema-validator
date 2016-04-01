@@ -4,7 +4,6 @@ import com.eclipsesource.schema.internal.{GlobalContextCache, RefResolver, Conte
 import com.eclipsesource.schema.{SchemaNull, SchemaValue, SchemaValidator, JsonSource}
 import controllers.Assets
 import org.specs2.mutable.Specification
-import play.api.data.mapping.Path
 import play.api.libs.json._
 import play.api.mvc.Handler
 import play.api.test.{FakeApplication, WithServer}
@@ -254,10 +253,13 @@ class ResolveSpec extends Specification {
             |}""".
             stripMargin).get
 
-        val result = SchemaValidator.validate(schema, Json.obj("foo" -> JsNumber(2015)))
-        result.isSuccess must beTrue
-        val result2 = SchemaValidator.validate(schema, Json.obj("foo" -> JsString("foo")))
-        result2.isFailure must beTrue
+        SchemaValidator.validate(schema,
+          Json.obj("foo" -> JsNumber(2015))
+        ).isSuccess must beTrue
+
+        SchemaValidator.validate(schema,
+          Json.obj("foo" -> JsString("foo"))
+        ).isError must beTrue
       }
   }
 }
