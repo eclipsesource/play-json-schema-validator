@@ -140,8 +140,8 @@ object RefResolver {
           resolved <- resolvable.resolvePath(fragment)
           res <- resolveFragments(rest,
             context.copy(
-              schemaPath = context.schemaPath.compose(Path(fragment)),
-              instancePath = context.instancePath.compose(Path(fragment))
+              schemaPath = context.schemaPath ++ Path(fragment),
+              instancePath = context.instancePath ++ Path(fragment)
             ),
             resolved
           )

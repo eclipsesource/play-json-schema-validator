@@ -79,6 +79,7 @@ class ErrorReportingSpec extends Specification {
     result.isFailure must beTrue
     failureJson(0) \ "schemaPath" must beEqualTo(JsDefined(JsString("#")))
     subErrors.as[JsObject].keys must haveSize(2)
+    println(subErrors.as[JsObject])
     (subErrors.as[JsObject] \ "/anyOf/1").as[JsArray].value.head \ "schemaPath" must beEqualTo(
       JsDefined(JsString("#/anyOf/1"))
     )
@@ -173,6 +174,52 @@ class ErrorReportingSpec extends Specification {
     result.asEither must beLeft.like { case error =>
       val JsDefined(obj) = error.toJson(0)
       obj \ "msgs" == JsDefined(JsArray(Seq(JsString("Instance does not match any schema"))))
+    }
+  }
+
+
+  "report correct anyOf error path" in {
+
+    val schemaString = """{
+                         |    "definitions": {
+                         |        "a": {
+                         |            "properties": {
+                         |                "foo": { "type": "number" }
+                         |            },
+                         |            "additionalProperties": false
+                         |        },
+                         |        "b": {
+                         |            "properties": {
+                         |                "bar": { "type": "number" }
+                         |            },
+                         |            "additionalProperties": false
+                         |        }
+                         |    },
+                         |    "anyOf": [
+                         |        {
+                         |            "$ref": "#/definitions/a"
+                         |        },
+                         |        {
+                         |            "$ref": "#/definitions/b"
+                         |        }
+                         |    ]
+                         |}""".stripMargin
+
+
+
+
+    val instance = """{
+                     |    "c": 1
+                     |}""".stripMargin
+
+    val schema = JsonSource.schemaFromString(schemaString).get
+    val json = Json.parse(instance)
+
+    val result: VA[JsValue] = SchemaValidator.validate(schema, json)
+    result.isFailure must beTrue
+    result.asEither must beLeft.like { case error =>
+      val firstAnyOf = (error.toJson(0) \ "errors" \ "/anyOf/0").get.as[JsArray]
+      (firstAnyOf(0) \ "schemaPath").get must beEqualTo(JsString("#/anyOf/0/definitions/a"))
     }
   }
 }

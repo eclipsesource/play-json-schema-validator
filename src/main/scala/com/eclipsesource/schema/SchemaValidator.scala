@@ -18,14 +18,14 @@ trait SchemaValidator {
 
     schema match {
       case None => Failure(Seq(Path -> Seq(ValidationError("Schema can not be parsed."))))
-      case Some(s) =>
-        val id = s match {
+      case Some(schemaType) =>
+        val id = schemaType match {
           case container: HasId => container.id
           case _ => None
         }
-        val context = Context(s, id.orElse(Some(schemaUrl.toString)), Some(schemaUrl.toString))
+        val context = Context(schemaType, id.orElse(Some(schemaUrl.toString)), Some(schemaUrl.toString))
         process(
-          s,
+          schemaType,
           input,
           context
         )
