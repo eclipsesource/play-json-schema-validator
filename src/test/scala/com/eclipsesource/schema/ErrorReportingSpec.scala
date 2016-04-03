@@ -79,7 +79,6 @@ class ErrorReportingSpec extends Specification {
     result.isFailure must beTrue
     failureJson(0) \ "schemaPath" must beEqualTo(JsDefined(JsString("#")))
     subErrors.as[JsObject].keys must haveSize(2)
-    println(subErrors.as[JsObject])
     (subErrors.as[JsObject] \ "/anyOf/1").as[JsArray].value.head \ "schemaPath" must beEqualTo(
       JsDefined(JsString("#/anyOf/1"))
     )
@@ -184,7 +183,7 @@ class ErrorReportingSpec extends Specification {
                          |    "definitions": {
                          |        "a": {
                          |            "properties": {
-                         |                "foo": { "type": "number" }
+                         |                "foo": { "type": "integer" }
                          |            },
                          |            "additionalProperties": false
                          |        },
@@ -220,6 +219,20 @@ class ErrorReportingSpec extends Specification {
     result.asEither must beLeft.like { case error =>
       val firstAnyOf = (error.toJson(0) \ "errors" \ "/anyOf/0").get.as[JsArray]
       (firstAnyOf(0) \ "schemaPath").get must beEqualTo(JsString("#/anyOf/0/definitions/a"))
+    }
+  }
+
+  "reporting errors for more than one missing properties" in {
+    val schema = JsonSource.schemaFromString(
+      """{
+        |"minProperties": 2
+      }""".stripMargin).get
+    val json = Json.obj()
+    val result: VA[JsValue] = SchemaValidator.validate(schema, json)
+    result.isFailure must beTrue
+    result.asEither must beLeft.like { case error =>
+      val msgs = (error.toJson(0) \ "msgs").get.as[JsArray]
+      msgs(0).get must beEqualTo(JsString("Found 0 properties, but at least 2 properties need to be present."))
     }
   }
 }
