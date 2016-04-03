@@ -37,11 +37,12 @@ object AnyConstraintValidator {
       }
     }
 
-  private def collectFailures(results: Seq[VA[JsValue]], path: String): JsObject = {
+  private def collectFailures(results: Seq[VA[JsValue]], prefix: String): JsObject = {
 
-    def repath(suffix: String)(obj: JsObject): JsObject = {
+    def repath(prefix: String)(obj: JsObject): JsObject = {
       val fields = obj.fields.map {
-        case ("schemaPath", JsString(schemaPath)) => ("schemaPath", JsString(s"$schemaPath$suffix"))
+        case ("schemaPath", JsString(schemaPath)) if schemaPath.startsWith("#") => ("schemaPath", JsString(s"#$prefix${schemaPath.drop(1)}"))
+        case ("schemaPath", JsString(schemaPath)) => ("schemaPath", JsString(s"$prefix$schemaPath"))
         case field => field
       }
       JsObject(fields)
@@ -50,10 +51,10 @@ object AnyConstraintValidator {
     results.zipWithIndex.foldLeft(Json.obj()) {
       case (obj, (Failure(errors), idx)) =>
         // TODO: why distinct?
-        obj ++ Json.obj(s"/$path/$idx" ->
+        obj ++ Json.obj(s"$prefix/$idx" ->
           JsArray(
             SchemaUtil.toJson(errors.distinct).value.map {
-              case obj: JsObject => repath(s"/$path/$idx")(obj)
+              case obj: JsObject => repath(s"$prefix/$idx")(obj)
               case js => js
             }
           ))
@@ -78,7 +79,7 @@ object AnyConstraintValidator {
                 context.schemaPath,
                 context.instancePath,
                 json,
-                collectFailures(allValidationResults, "allOf")
+                collectFailures(allValidationResults, "/allOf")
               )
             }
           }
@@ -101,7 +102,7 @@ object AnyConstraintValidator {
                 context.schemaPath,
                 context.instancePath,
                 json,
-                collectFailures(allValidationResults, "anyOf")
+                collectFailures(allValidationResults, "/anyOf")
               )
             }
           }
@@ -125,7 +126,7 @@ object AnyConstraintValidator {
                   context.schemaPath,
                   context.instancePath,
                   json,
-                  collectFailures(allValidationResults, "oneOf")
+                  collectFailures(allValidationResults, "/oneOf")
                 )
               case 1 => Success(json)
               case _ =>

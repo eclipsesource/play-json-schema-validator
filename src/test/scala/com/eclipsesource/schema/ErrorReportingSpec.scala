@@ -175,4 +175,64 @@ class ErrorReportingSpec extends Specification {
       obj \ "msgs" == JsDefined(JsArray(Seq(JsString("Instance does not match any schema"))))
     }
   }
+
+
+  "report correct anyOf error path" in {
+
+    val schemaString = """{
+                         |    "definitions": {
+                         |        "a": {
+                         |            "properties": {
+                         |                "foo": { "type": "integer" }
+                         |            },
+                         |            "additionalProperties": false
+                         |        },
+                         |        "b": {
+                         |            "properties": {
+                         |                "bar": { "type": "number" }
+                         |            },
+                         |            "additionalProperties": false
+                         |        }
+                         |    },
+                         |    "anyOf": [
+                         |        {
+                         |            "$ref": "#/definitions/a"
+                         |        },
+                         |        {
+                         |            "$ref": "#/definitions/b"
+                         |        }
+                         |    ]
+                         |}""".stripMargin
+
+
+
+
+    val instance = """{
+                     |    "c": 1
+                     |}""".stripMargin
+
+    val schema = JsonSource.schemaFromString(schemaString).get
+    val json = Json.parse(instance)
+
+    val result: VA[JsValue] = SchemaValidator.validate(schema, json)
+    result.isFailure must beTrue
+    result.asEither must beLeft.like { case error =>
+      val firstAnyOf = (error.toJson(0) \ "errors" \ "/anyOf/0").get.as[JsArray]
+      (firstAnyOf(0) \ "schemaPath").get must beEqualTo(JsString("#/anyOf/0/definitions/a"))
+    }
+  }
+
+  "reporting errors for more than one missing properties" in {
+    val schema = JsonSource.schemaFromString(
+      """{
+        |"minProperties": 2
+      }""".stripMargin).get
+    val json = Json.obj()
+    val result: VA[JsValue] = SchemaValidator.validate(schema, json)
+    result.isFailure must beTrue
+    result.asEither must beLeft.like { case error =>
+      val msgs = (error.toJson(0) \ "msgs").get.as[JsArray]
+      msgs(0).get must beEqualTo(JsString("Found 0 properties, but at least 2 properties need to be present."))
+    }
+  }
 }
