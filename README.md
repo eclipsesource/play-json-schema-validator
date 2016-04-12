@@ -23,11 +23,10 @@ Version 0.7.0 introduced some breaking changes, since the dependency to the Unif
 has been removed, i.e. the respective types are not part of the API anymore. This means that 
 `VA` isn't exposed anymore as well as the `toJson` acting on
 `Seq[(JsPath, Seq[ValidationError])]` instead of `Seq[(Path, Seq[ValidationError])]`.
-As a replacement for `VA` we now use  
-[JsResult](https://www.playframework.com/documentation/2.5.x/ScalaJson#Using-validation) 
+As a replacement for `VA` we now use [JsResult](https://www.playframework.com/documentation/2.5.x/ScalaJson#Using-validation) 
 to express the result of a schema validation, which is already part of play-json.
 
-Since Play 2.5.x dropped support for Scala 2.10, versions >= 0.7.0 are only available for Scala 2.11.
+Since Play 2.5.x dropped support for Scala 2.10, hence versions >= 0.7.0 are only available for Scala 2.11.
 
 ```
 libraryDependencies ++= Seq(
@@ -37,7 +36,7 @@ libraryDependencies ++= Seq(
 
 ### Play 2.4.x
 
-For, Play 2.4.x, the current version is 0.6.5. The Play 2.4.x branch of the validator supports Scala 2.10 and 2.11
+For, Play 2.4.x, the current version is 0.6.5, which supports Scala 2.10 and 2.11
 
 ```
 libraryDependencies ++= Seq(
@@ -145,4 +144,5 @@ and we validate the value `1.5`, the `toJson` method returns this error:
 ## Example
 
 An online demo of the library can be looked at [here](http://play-json-schema-validator.herokuapp.com/).
+
 See the respective [github repo](https://github.com/edgarmueller/schema-validator-web) for the source code.
