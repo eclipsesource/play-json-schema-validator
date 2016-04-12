@@ -26,7 +26,7 @@ has been removed, i.e. the respective types are not part of the API anymore. Thi
 As a replacement for `VA` we now use [JsResult](https://www.playframework.com/documentation/2.5.x/ScalaJson#Using-validation) 
 to express the result of a schema validation, which is already part of play-json.
 
-Since Play 2.5.x dropped support for Scala 2.10, hence versions >= 0.7.0 are only available for Scala 2.11.
+Play 2.5.x dropped support for Scala 2.10, hence versions >= 0.7.0 are only available for Scala 2.11.
 
 ```
 libraryDependencies ++= Seq(
