@@ -5,7 +5,7 @@ import sbtrelease.ReleasePlugin
 import sbtrelease.ReleasePlugin._
 
 object Version {
-  val play          = "2.5.1"
+  val play          = "2.5.0"
   val scalaz        = "7.2.0"
   val specs2        = "3.7.2"
   val guava         = "19.0"
