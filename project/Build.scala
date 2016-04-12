@@ -5,8 +5,7 @@ import sbtrelease.ReleasePlugin
 import sbtrelease.ReleasePlugin._
 
 object Version {
-  val play          = "2.4.2"
-  val playTest      = "2.4.2"
+  val play          = "2.5.1"
   val scalaz        = "7.2.0"
   val specs2        = "3.7.2"
   val guava         = "19.0"
@@ -16,7 +15,6 @@ object Library {
   val guava         = "com.google.guava"  % "guava"                   % Version.guava
   val scalaz        = "org.scalaz"        %% "scalaz-core"            % Version.scalaz
   val playJson      = "com.typesafe.play" %% "play-json"              % Version.play
-  val playWs        = "com.typesafe.play" %% "play-ws"                % Version.play
   val playTest      = "com.typesafe.play" %% "play-specs2"            % Version.play           % "test"
   val specs2        = "org.specs2"        %% "specs2-core"            % Version.specs2         % "test"
 }
