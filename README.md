@@ -2,19 +2,42 @@
 
 [![Build Status](https://travis-ci.org/eclipsesource/play-json-schema-validator.svg?branch=master)](https://travis-ci.org/eclipsesource/play-json-schema-validator) [![Coverage Status](https://coveralls.io/repos/eclipsesource/play-json-schema-validator/badge.svg?branch=master&service=github)](https://coveralls.io/github/eclipsesource/play-json-schema-validator?branch=master)
 
-This is a JSON schema (draft v4) validation library for Scala based on Play's JSON library and the [unified validation library](https://github.com/jto/validation).
+This is a JSON schema (draft v4) validation library for Scala based on Play's JSON library.
 
-If you experience any issues or have feature requests etc., please don't hesistate to [file an issue](https://github.com/eclipsesource/play-json-schema-validator/issues/new). Thanks!
+If you experience any issues or have feature requests etc., please don't hesitate to [file an issue](https://github.com/eclipsesource/play-json-schema-validator/issues/new). Thanks!
 
+<a name="Installation">
 ## Installation
 
-In your `build.sbt` file, first add an additional resovler:
+First, you need to add an additional resolver to your `build.sbt` file:
 
 ```
 resolvers += "emueller-bintray" at "http://dl.bintray.com/emueller/maven"
 ```
 
-Then add the library itself via:
+Then, depending on the Play version you want to use, please continue with the following instructions.
+
+### Play 2.5.x
+ 
+Version 0.7.0 introduced some breaking changes, since the dependency to the Unified Validation library 
+has been removed, i.e. the respective types are not part of the API anymore. This means that 
+`VA` isn't exposed anymore as well as the `toJson` acting on
+`Seq[(JsPath, Seq[ValidationError])]` instead of `Seq[(Path, Seq[ValidationError])]`.
+As a replacement for `VA` we now use  
+[JsResult](https://www.playframework.com/documentation/2.5.x/ScalaJson#Using-validation) 
+to express the result of a schema validation, which is already part of play-json.
+
+Since Play 2.5.x dropped support for Scala 2.10, versions >= 0.7.0 are only available for Scala 2.11.
+
+```
+libraryDependencies ++= Seq(
+ "com.eclipsesource" %% "play-json-schema-validator" % "0.7.0"
+)
+``` 
+
+### Play 2.4.x
+
+For, Play 2.4.x, the current version is 0.6.5. The Play 2.4.x branch of the validator supports Scala 2.10 and 2.11
 
 ```
 libraryDependencies ++= Seq(
@@ -24,7 +47,7 @@ libraryDependencies ++= Seq(
  
 ## Usage
 
-Schemas can be parsed by passing the schema string to `Json.fromJson` like this:
+Schemas can be parsed by passing the schema string to `Json.fromJson`, for instance like this:
 
 ```Scala
   val schema = Json.fromJson[SchemaType](Json.parse(
@@ -43,24 +66,26 @@ With a schema at hand, we can now validate `JsValue`s via the `SchemaValidator`.
 SchemaValidator.validate(schema, json)
 ```
 
-`validate` returns a `VA[JsValue]`. `VA` is part of the [unified validation library](https://github.com/jto/validation) and can either be a `Success` or a `Failure`.
+`validate` returns a `JsResult[A]`. `JsResult` can either be a `JsSuccess` or a `JsError` (*Note*: as mentioned under
+[Installation](#Installation) replace `JsResult` with `VA` for versions < 0.7.x).
 `validate` is also provided with overloaded alternatives where Play's `Reads` or `Writes` instances can be passed additionally. 
 This is useful for mapping `JsValue`s onto case classes and vice versa:
 
 ```Scala
-validate[A](schema: SchemaType, input: => JsValue, reads: Reads[A]) : VA[A]
-validate[A](schema: SchemaType, input: A, writes: Writes[A]): VA[JsValue] 
-validate[A: Format](schema: SchemaType, input: A): VA[A] 
+validate[A](schema: SchemaType, input: => JsValue, reads: Reads[A]) : JsResult[A]
+validate[A](schema: SchemaType, input: A, writes: Writes[A]): JsResult[JsValue] 
+validate[A: Format](schema: SchemaType, input: A): JsResult[A] 
 ```
 
 ## Error Reporting
 
-In case the `validate` method returns an failure, errors can be converted to JSON by calling the `toJson` on the errors (the `toJson` method is available via an implicit class on `Seq[(Path, Seq[ValidationError])]`. Below is given an example taken from the example app:
+In case the `validate` method returns an failure, errors can be converted to JSON by calling the `toJson` method.
+Below is given an example taken from the example app:
 
 ```Scala
 import com.eclipsesource.schema._ // brings toJson into scope
 
-val result: VA[Post] = SchemaValidator.validate(schema, json, Post.reads)
+val result = SchemaValidator.validate(schema, json, Post.reads)
 result.fold(
   invalid = { errors =>  BadRequest(errors.toJson) },
   valid = { post => ... } 
@@ -119,5 +144,5 @@ and we validate the value `1.5`, the `toJson` method returns this error:
 
 ## Example
 
-An online demo of the library can be seen [here](http://play-json-schema-validator.herokuapp.com/).
+An online demo of the library can be looked at [here](http://play-json-schema-validator.herokuapp.com/).
 See the respective [github repo](https://github.com/edgarmueller/schema-validator-web) for the source code.
