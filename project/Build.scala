@@ -8,22 +8,15 @@ object Version {
   val play          = "2.4.2"
   val playTest      = "2.4.2"
   val scalaz        = "7.2.0"
-  val scalaXml      = "1.0.3"
   val specs2        = "3.7.2"
-  val jtoValidationCore = "1.1"
-  val jtoValidationJson = "1.1"
   val guava         = "19.0"
 }
 
 object Library {
   val guava         = "com.google.guava"  % "guava"                   % Version.guava
   val scalaz        = "org.scalaz"        %% "scalaz-core"            % Version.scalaz
-  val play          = "com.typesafe.play" %% "play"                   % Version.play
   val playJson      = "com.typesafe.play" %% "play-json"              % Version.play
   val playWs        = "com.typesafe.play" %% "play-ws"                % Version.play
-  val scalaXml      = "org.scala-lang.modules" %% "scala-xml" % "1.0.3"
-  val jtoValidationCore = "io.github.jto" %% "validation-core"        % Version.jtoValidationCore
-  val jtoValidationJson = "io.github.jto" %% "validation-json"        % Version.jtoValidationJson
   val playTest      = "com.typesafe.play" %% "play-specs2"            % Version.play           % "test"
   val specs2        = "org.specs2"        %% "specs2-core"            % Version.specs2         % "test"
 }
@@ -36,9 +29,7 @@ object Dependencies {
     playJson,
     scalaz,
     specs2,
-    guava,
-    jtoValidationCore,
-    jtoValidationJson
+    guava
   )
 }
 
@@ -50,8 +41,6 @@ object Build extends Build {
     "Typesafe repository"           at "http://repo.typesafe.com/typesafe/releases/",
     "Sonatype OSS Snapshots"        at "https://oss.sonatype.org/content/repositories/snapshots",
     "Sonatype OSS Releases"         at "https://oss.sonatype.org/content/repositories/releases",
-    "Mandubian repository releases" at "https://github.com/mandubian/mandubian-mvn/tree/master/releases",
-    "JTO snapshots"                 at "https://raw.github.com/jto/mvn-repo/master/snapshots",
     "scalaz-bintray"                at "http://dl.bintray.com/scalaz/releases"
   )
 

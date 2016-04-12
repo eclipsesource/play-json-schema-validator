@@ -1,9 +1,11 @@
 package com.eclipsesource.schema.internal.validators
 
 import com.eclipsesource.schema.internal.constraints.Constraints.ArrayConstraints
-import com.eclipsesource.schema.internal.{Context, Results, SchemaUtil}
-import play.api.data.mapping.{Rule, Success, VA}
+import com.eclipsesource.schema.internal.validation.{VA, Rule}
+import com.eclipsesource.schema.internal.{Context, SchemaUtil}
 import play.api.libs.json.{JsArray, JsValue}
+
+import scalaz.Success
 
 trait ArrayConstraintValidator {
 

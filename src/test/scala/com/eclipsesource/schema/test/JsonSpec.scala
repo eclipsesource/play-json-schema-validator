@@ -5,16 +5,15 @@ import java.net.URL
 import com.eclipsesource.schema._
 import org.specs2._
 import execute._
-import matcher._
+import play.api.data.validation.ValidationError
 import specification.core._
-import org.specs2.specification.dsl.mutable.{FragmentBuilder}
-import play.api.data.mapping.{Path, ValidationError}
+import org.specs2.specification.dsl.mutable.FragmentBuilder
 import play.api.libs.json._
 import play.api.libs.functional.syntax._
 
 case class JsonSchemaSpec(description: String, schema: SchemaType, tests: Seq[JsonSchemaTest])
 case class JsonSchemaTest(description: String, data: JsValue, valid: Boolean)
-case class SpecResult(description: String, valid: Boolean, error: Option[Seq[(Path, Seq[ValidationError])]])
+case class SpecResult(description: String, valid: Boolean, error: Option[Seq[(JsPath, Seq[ValidationError])]])
 
 trait JsonSpec extends FragmentBuilder {
 
@@ -54,13 +53,6 @@ trait JsonSpec extends FragmentBuilder {
       case JsArray(specs) => Right(executeSpecs(specs))
       case json =>
         Left(s"URL $url does not contain any specs or has wrong format. See https://github.com/json-schema/JSON-Schema-Test-Suite for correct format")
-    }
-  }
-
-  def fromFile(filePath: String): Either[String, Seq[(String, Seq[SpecResult])]] = {
-    JsonSource.fromFile(filePath).getOrElse(Failure(s"Could not read JSON from $filePath.")) match {
-      case JsArray(specs) => Right(executeSpecs(specs))
-      case json => Left(s"File $filePath does not contain any specs or has wrong format. See https://github.com/json-schema/JSON-Schema-Test-Suite for correct format.")
     }
   }
 

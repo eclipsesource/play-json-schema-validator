@@ -2,8 +2,6 @@ package com.eclipsesource.schema
 
 import com.eclipsesource.schema.internal.{Context, RefResolver}
 import org.specs2.mutable.Specification
-import play.api.data.mapping.Path
-
 
 class ResolveRefSpec extends Specification {
 

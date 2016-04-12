@@ -25,7 +25,7 @@ class MinLengthSpec extends Specification with JsonSpec {
           |"minLength": 3
         }""".stripMargin).get
 
-      SchemaValidator.validate(schema)(JsString("12")).isFailure must beTrue
+      SchemaValidator.validate(schema)(JsString("12")).isError must beTrue
     }
 
   }

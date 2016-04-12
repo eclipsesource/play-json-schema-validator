@@ -2,8 +2,8 @@ package com.eclipsesource.schema
 
 import java.net.URL
 
+import com.eclipsesource.schema.internal.validation.VA
 import controllers.Assets
-import play.api.data.mapping.VA
 import play.api.mvc.Handler
 import play.api.test.{FakeApplication, PlaySpecification, WithServer}
 import play.api.libs.json._
@@ -63,7 +63,7 @@ class SchemaValidatorSpec extends PlaySpecification {
         val invalid = Json.obj("title" -> "Too short")
 
         SchemaValidator.validate(schema, valid).isSuccess must beTrue
-        SchemaValidator.validate(schema, invalid).isFailure must beTrue
+        SchemaValidator.validate(schema, invalid).isError must beTrue
       }
 
     "return unaltered validated array" in {
@@ -90,7 +90,7 @@ class SchemaValidatorSpec extends PlaySpecification {
         val invalid = JsString("Too short")
 
         SchemaValidator.validate(schema, valid).isSuccess must beTrue
-        SchemaValidator.validate(schema, invalid).isFailure must beTrue
+        SchemaValidator.validate(schema, invalid).isError must beTrue
       }
 
     "be validated via file based resource URL" in {
@@ -99,9 +99,9 @@ class SchemaValidatorSpec extends PlaySpecification {
     }
 
     "validate via file base URL and Reads" in {
-      val result = SchemaValidator.validate(resourceUrl, instance, talkReads)
+      val result: JsResult[Talk] = SchemaValidator.validate(resourceUrl, instance, talkReads)
       result.isSuccess must beTrue
-      result.get.location.name must beEqualTo("Munich")
+      result.asOpt must beSome.which(talk => talk.location.name must beEqualTo("Munich"))
     }
 
     "validate via file base URL and Writes" in {
@@ -112,16 +112,16 @@ class SchemaValidatorSpec extends PlaySpecification {
 
     "validate via file base URL and Format" in {
       val talk = Talk(Location("Munich"))
-      val result = SchemaValidator.validate(resourceUrl, talk)
+      val result: JsResult[Talk] = SchemaValidator.validate(resourceUrl, talk)
       result.isSuccess must beTrue
-      result.get.location.name must beEqualTo("Munich")
+      result.asOpt must beSome.which(talk => talk.location.name must beEqualTo("Munich"))
     }
 
     "validate with Reads" in
       new WithServer(app = new FakeApplication(withRoutes = routes), port = 1234) {
       val result = SchemaValidator.validate(schema, instance, talkReads)
       result.isSuccess must beTrue
-      result.get.location.name must beEqualTo("Munich")
+      result.asOpt must beSome.which(talk => talk.location.name must beEqualTo("Munich"))
     }
 
     "validate with Writes" in
@@ -155,7 +155,7 @@ class SchemaValidatorSpec extends PlaySpecification {
         ),
         "title" -> "Some title"
       )
-      val result: VA[Foo] = SchemaValidator.validate(schema, fooInstance, lr)
+      val result: JsResult[Foo] = SchemaValidator.validate(schema, fooInstance, lr)
       result.asEither must beLeft.like { case error =>
         (error.toJson(0).get \ "instancePath") must beEqualTo(JsDefined(JsString("/loc")))
       }

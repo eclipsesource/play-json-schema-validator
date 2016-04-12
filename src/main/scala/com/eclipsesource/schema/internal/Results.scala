@@ -1,8 +1,10 @@
 package com.eclipsesource.schema.internal
 
-import play.api.data.mapping._
+import com.eclipsesource.schema.internal.validation.VA
 import play.api.data.validation.ValidationError
 import play.api.libs.json._
+
+import scalaz.{Failure, Success}
 
 object Results {
 
@@ -10,7 +12,7 @@ object Results {
     (va1, va2) match {
       case (Success(_), f@Failure(err)) => f
       case (f@Failure(_), Success(_)) => f
-      case (f1@Failure(errs1), f2@Failure(errs2)) => Failure(errs1 ++ errs2)
+      case (f1@Failure(errs1), f2@Failure(errs2))    => Failure(errs1 ++ errs2)
       case (s@Success(obj1@JsObject(_)), Success(_)) => s
       case (s@Success(JsArray(values1)), Success(_)) => s
       case (s@Success(json), Success(_)) => s
@@ -31,8 +33,8 @@ object Results {
   }
 
   def failureWithPath(msg: String,
-                      schemaPath: Path,
-                      instancePath: Path,
+                      schemaPath: JsPath,
+                      instancePath: JsPath,
                       instance: JsValue,
                      additionalInfo: JsObject = Json.obj()): VA[JsValue] = {
     // TODO: generalize

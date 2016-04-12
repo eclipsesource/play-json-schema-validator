@@ -1,7 +1,8 @@
 package com.eclipsesource.schema
 
+import com.eclipsesource.schema.internal.validation.VA
 import org.specs2.mutable.Specification
-import play.api.data.mapping.{ValidationError, Path, VA}
+import play.api.data.validation.ValidationError
 import play.api.libs.json._
 
 class ErrorReportingSpec extends Specification {
@@ -18,8 +19,8 @@ class ErrorReportingSpec extends Specification {
           |  "title": { "type": "string", "minLength": 3, "pattern": "^[A-Z].*" }
           |}
           |}""".stripMargin).get
-      val result: VA[JsValue] = SchemaValidator.validate(schema)(Json.obj("title" -> "a"))
-      result.isFailure must beTrue
+      val result: JsResult[JsValue] = SchemaValidator.validate(schema)(Json.obj("title" -> "a"))
+      result.isError must beTrue
       result.asEither must beLeft.like { case error => (error.toJson(0) \ "msgs").get.as[JsArray].value.size == 2 }
     }
 
@@ -33,8 +34,8 @@ class ErrorReportingSpec extends Specification {
           |},
           |"required": ["foo", "bar"]
           |}""".stripMargin).get
-      val result: VA[JsValue] = SchemaValidator.validate(schema)(Json.obj())
-      result.isFailure must beTrue
+      val result: JsResult[JsValue] = SchemaValidator.validate(schema)(Json.obj())
+      result.isError must beTrue
       result.asEither must beLeft.like { case error => error.toJson.as[JsArray].value.size == 2 }
     }
 
@@ -54,10 +55,10 @@ class ErrorReportingSpec extends Specification {
           |},
           |"required": ["foo", "bar"]
           |}""".stripMargin).get
-      val result: VA[JsValue] = SchemaValidator.validate(schema)(Json.obj("bar" -> Json.obj()))
-      result.isFailure must beTrue
+      val result: JsResult[JsValue] = SchemaValidator.validate(schema)(Json.obj("bar" -> Json.obj()))
+      result.isError must beTrue
       result.asEither must beLeft.like { case error =>
-        error.toJson.value.size == 2
+        error.toJson.value must haveLength(2)
       }
     }
   }
@@ -71,12 +72,12 @@ class ErrorReportingSpec extends Specification {
         |  ]
         |}""".stripMargin).get
 
-    val result: VA[JsValue] = SchemaValidator.validate(schema)(JsNumber(1.5))
-    val failure: Seq[(Path, Seq[ValidationError])] = result.asEither.left.get
+    val result: JsResult[JsValue] = SchemaValidator.validate(schema)(JsNumber(1.5))
+    val failure: Seq[(JsPath, Seq[ValidationError])] = result.asEither.left.get
     val failureJson = failure.toJson
     val JsDefined(subErrors) = failureJson(0) \ "errors"
 
-    result.isFailure must beTrue
+    result.isError must beTrue
     failureJson(0) \ "schemaPath" must beEqualTo(JsDefined(JsString("#")))
     subErrors.as[JsObject].keys must haveSize(2)
     (subErrors.as[JsObject] \ "/anyOf/1").as[JsArray].value.head \ "schemaPath" must beEqualTo(
@@ -100,8 +101,8 @@ class ErrorReportingSpec extends Specification {
         |  }
         |}
         |}""".stripMargin).get
-    val result: VA[JsValue] = SchemaValidator.validate(schema)(Json.obj("foo" -> 1.5))
-    result.isFailure must beTrue
+    val result: JsResult[JsValue] = SchemaValidator.validate(schema)(Json.obj("foo" -> 1.5))
+    result.isError must beTrue
     result.asEither must beLeft.like { case error =>
       error.toJson(0) \ "schemaPath" == JsDefined(JsString("#/properties/foo"))
     }
@@ -126,7 +127,7 @@ class ErrorReportingSpec extends Specification {
         |]
         |}""".stripMargin).get
     val result = SchemaValidator.validate(schema)(Json.obj("foo" -> "baz"))
-    result.isFailure must beTrue
+    result.isError must beTrue
     result.asEither must beLeft.like { case error =>
       error.toJson(0) \ "msgs" == JsDefined(JsArray(Seq(JsString("Instance does not match all schemas"))))
     }
@@ -147,8 +148,8 @@ class ErrorReportingSpec extends Specification {
         stripMargin).
       get
 
-    val result: VA[JsValue] = SchemaValidator.validate(schema)(JsNumber(3))
-    result.isFailure must beTrue
+    val result: JsResult[JsValue] = SchemaValidator.validate(schema)(JsNumber(3))
+    result.isError must beTrue
     result.asEither must beLeft.like { case error =>
       error.toJson(0) \ "msgs" == JsDefined(JsArray(Seq(JsString("Instance matches more than one schema"))))
     }
@@ -168,8 +169,8 @@ class ErrorReportingSpec extends Specification {
         |}""".
         stripMargin).get
 
-    val result: VA[JsValue] = SchemaValidator.validate(schema)(JsNumber(1.14))
-    result.isFailure must beTrue
+    val result: JsResult[JsValue] = SchemaValidator.validate(schema)(JsNumber(1.14))
+    result.isError must beTrue
     result.asEither must beLeft.like { case error =>
       val JsDefined(obj) = error.toJson(0)
       obj \ "msgs" == JsDefined(JsArray(Seq(JsString("Instance does not match any schema"))))
@@ -214,8 +215,8 @@ class ErrorReportingSpec extends Specification {
     val schema = JsonSource.schemaFromString(schemaString).get
     val json = Json.parse(instance)
 
-    val result: VA[JsValue] = SchemaValidator.validate(schema, json)
-    result.isFailure must beTrue
+    val result: JsResult[JsValue] = SchemaValidator.validate(schema, json)
+    result.isError must beTrue
     result.asEither must beLeft.like { case error =>
       val firstAnyOf = (error.toJson(0) \ "errors" \ "/anyOf/0").get.as[JsArray]
       (firstAnyOf(0) \ "schemaPath").get must beEqualTo(JsString("#/anyOf/0/definitions/a"))
@@ -228,8 +229,8 @@ class ErrorReportingSpec extends Specification {
         |"minProperties": 2
       }""".stripMargin).get
     val json = Json.obj()
-    val result: VA[JsValue] = SchemaValidator.validate(schema, json)
-    result.isFailure must beTrue
+    val result: JsResult[JsValue] = SchemaValidator.validate(schema, json)
+    result.isError must beTrue
     result.asEither must beLeft.like { case error =>
       val msgs = (error.toJson(0) \ "msgs").get.as[JsArray]
       msgs(0).get must beEqualTo(JsString("Found 0 properties, but at least 2 properties need to be present."))

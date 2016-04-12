@@ -1,13 +1,12 @@
 package com.eclipsesource
 
+import com.eclipsesource.schema.internal.validation.VA
 import com.eclipsesource.schema.internal.validators._
 import com.eclipsesource.schema.internal.{Results, Context, SchemaUtil}
 import com.eclipsesource.schema.internal.serialization.{JSONSchemaReads, JSONSchemaWrites}
-import play.api.data.mapping.{Path, Success, VA}
 import play.api.data.validation.ValidationError
 import play.api.libs.json._
-
-import scalaz.{Failure => _, Success => _}
+import scalaz.Success
 
 package object schema
   extends SchemaOps
@@ -40,7 +39,7 @@ package object schema
     }
   }
 
-  implicit class FailureExtensions(errors: Seq[(Path, Seq[ValidationError])]) {
+  implicit class FailureExtensions(errors: Seq[(JsPath, Seq[ValidationError])]) {
     def toJson: JsArray = SchemaUtil.toJson(errors)
   }
 }

@@ -4,8 +4,7 @@ import java.net.{URI, URL, URLDecoder}
 
 import com.eclipsesource.schema._
 
-import play.api.data.mapping.Path
-import play.api.libs.json.Json
+import play.api.libs.json.{JsPath, Json}
 
 import scala.io.{BufferedSource, Source}
 import scala.util.Try
@@ -140,8 +139,8 @@ object RefResolver {
           resolved <- resolvable.resolvePath(fragment)
           res <- resolveFragments(rest,
             context.copy(
-              schemaPath = context.schemaPath ++ Path(fragment),
-              instancePath = context.instancePath ++ Path(fragment)
+              schemaPath = context.schemaPath.compose(JsPath \ fragment),
+              instancePath = context.instancePath.compose(JsPath \ fragment)
             ),
             resolved
           )

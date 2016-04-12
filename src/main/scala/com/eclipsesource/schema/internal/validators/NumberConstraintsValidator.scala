@@ -1,9 +1,11 @@
 package com.eclipsesource.schema.internal.validators
 
+import com.eclipsesource.schema.internal.validation.Rule
 import com.eclipsesource.schema.internal.{Context, SchemaUtil}
 import com.eclipsesource.schema.internal.constraints.Constraints.{Maximum, Minimum, NumberConstraints}
-import play.api.data.mapping.{Rule, Success}
 import play.api.libs.json.{JsNumber, JsValue}
+
+import scalaz.Success
 
 trait NumberConstraintsValidator {
 

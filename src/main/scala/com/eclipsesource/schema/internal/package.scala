@@ -1,10 +1,11 @@
 package com.eclipsesource.schema
 
-import play.api.data.mapping.{VA}
+import com.eclipsesource.schema.internal.validation.VA
 import play.api.libs.json._
 
-import scala.util.{Try, Success, Failure}
-import scalaz._
+import scalaz.{ReaderWriterState, Semigroup}
+
+
 
 package object internal {
 
