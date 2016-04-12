@@ -66,8 +66,8 @@ trait JSONSchemaReads {
   }
 
   lazy val integerReader: Reads[SchemaInteger] = {
-    ((__ \ Keywords.Number.Min).readNullable[Int] and
-      (__ \ Keywords.Number.Max).readNullable[Int] and
+    ((__ \ Keywords.Number.Min).readNullable[BigDecimal] and
+      (__ \ Keywords.Number.Max).readNullable[BigDecimal] and
       (__ \ Keywords.Number.ExclusiveMin).readNullable[Boolean] and
       (__ \ Keywords.Number.ExclusiveMax).readNullable[Boolean] and
       (__ \ Keywords.Number.MultipleOf).readNullable[BigDecimal] and

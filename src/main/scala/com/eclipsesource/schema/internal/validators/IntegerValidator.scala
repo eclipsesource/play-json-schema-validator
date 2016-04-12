@@ -13,7 +13,7 @@ object IntegerValidator extends SchemaTypeValidator[SchemaInteger] with NumberCo
   val isInt: scalaz.Reader[(NumberConstraints, Context), Rule[JsValue, JsValue]] =
     scalaz.Reader { case (constraint, context) =>
       Rule.fromMapping {
-        case json@JsNumber(number) if number.isValidInt => Success(json)
+        case json@JsNumber(number) if number.isWhole()  => Success(json)
         case other =>
           failure(
             s"Wrong type. Expected integer, was ${SchemaUtil.typeOfAsString(other)}",
