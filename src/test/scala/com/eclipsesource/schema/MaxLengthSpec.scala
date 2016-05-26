@@ -14,7 +14,7 @@ class MaxLengthSpec extends Specification with JsonSpec {
           |"maxLength": 2
         }""".stripMargin).get
       val json = JsString("foo")
-      val result = SchemaValidator.validate(schema)(json)
+      val result = SchemaValidator().validate(schema)(json)
       result.isError must beTrue
       result.asEither must beLeft.like {
         case error => (error.toJson(0) \ "msgs") == JsDefined(JsArray(Seq(JsString("foo violates max length of 2"))))

@@ -17,7 +17,7 @@ class AdditionalItemsSpec extends Specification with JsonSpec {
 
     "no additional items present" in {
       val data = JsArray(Seq(JsNumber(1), JsNumber(2), JsNumber(3)))
-      SchemaValidator.validate(schema, data).isSuccess must beTrue
+      SchemaValidator().validate(schema, data).isSuccess must beTrue
     }
   }
 

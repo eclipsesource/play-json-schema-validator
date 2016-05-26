@@ -5,18 +5,18 @@ import sbtrelease.ReleasePlugin
 import sbtrelease.ReleasePlugin._
 
 object Version {
-  val play          = "2.5.0"
-  val scalaz        = "7.2.0"
-  val specs2        = "3.7.2"
-  val guava         = "19.0"
+  final val play          = "2.5.0"
+  final val scalaz        = "7.2.0"
+  final val specs2        = "3.7.2"
+  final val guava         = "19.0"
 }
 
 object Library {
-  val guava         = "com.google.guava"  % "guava"                   % Version.guava
-  val scalaz        = "org.scalaz"        %% "scalaz-core"            % Version.scalaz
-  val playJson      = "com.typesafe.play" %% "play-json"              % Version.play
-  val playTest      = "com.typesafe.play" %% "play-specs2"            % Version.play           % "test"
-  val specs2        = "org.specs2"        %% "specs2-core"            % Version.specs2         % "test"
+  final val guava         = "com.google.guava"  % "guava"                   % Version.guava
+  final val scalaz        = "org.scalaz"        %% "scalaz-core"            % Version.scalaz
+  final val playJson      = "com.typesafe.play" %% "play-json"              % Version.play
+  final val playTest      = "com.typesafe.play" %% "play-specs2"            % Version.play           % "test"
+  final val specs2        = "org.specs2"        %% "specs2-core"            % Version.specs2         % "test"
 }
 
 object Dependencies {
@@ -50,7 +50,7 @@ object Build extends Build {
       licenses := Seq("Apache-2.0" -> url("http://www.apache.org/licenses/LICENSE-2.0")),
       Keys.fork in Test := false,
       Keys.parallelExecution in Test := false
-    )
+  )
 
   val releaseSettings = ReleasePlugin.releaseSettings ++ Seq(
     publishMavenStyle := true,
@@ -62,14 +62,16 @@ object Build extends Build {
 
   val buildSettings = Defaults.coreDefaultSettings ++ commonSettings
 
+  val testSettings = unmanagedJars in Test += baseDirectory.value / "src/test/resources/simple-schema.jar"
+
   lazy val schemaProject = Project("play-json-schema-validator", file("."))
     .settings(buildSettings)
-    .settings(releaseSettings: _*)
+    .settings(releaseSettings)
+    .settings(testSettings)
     .settings(
       resolvers ++= Repositories,
       retrieveManaged := true,
       libraryDependencies ++= Dependencies.core,
       testFrameworks += new TestFramework("org.scalameter.ScalaMeterFramework")
     )
-
 }

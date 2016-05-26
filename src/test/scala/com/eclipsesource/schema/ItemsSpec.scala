@@ -19,7 +19,7 @@ class ItemsSpec extends Specification with JsonSpec {
 
     val i = Json.arr(2, 3, 4, 1)
 
-    val result = SchemaValidator.validate(s)(i)
+    val result = SchemaValidator().validate(s, i)
     result.isError must beTrue
     result.asEither must beLeft.like { case error =>
       error.toJson.value must haveLength(2)

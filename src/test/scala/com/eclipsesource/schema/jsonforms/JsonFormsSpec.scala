@@ -133,7 +133,7 @@ class JsonFormsSpec extends Specification {
                               |}]
                               |}""".stripMargin)
 
-      val result: JsResult[JsValue] = SchemaValidator.validate(jsonFormSchema, json)
+      val result: JsResult[JsValue] = SchemaValidator().validate(jsonFormSchema, json)
       result.isError must beTrue
       result.asEither must beLeft.like { case error =>
         val JsDefined(subErrors) = error.toJson(0) \ "errors"

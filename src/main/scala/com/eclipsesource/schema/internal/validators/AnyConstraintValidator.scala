@@ -1,31 +1,30 @@
 package com.eclipsesource.schema.internal.validators
 
-import com.eclipsesource.schema.SchemaValidator
 import com.eclipsesource.schema.internal._
 import com.eclipsesource.schema.internal.constraints.Constraints.AnyConstraint
-import com.eclipsesource.schema.internal.validation.{VA, Rule}
+import com.eclipsesource.schema.internal.validation.{Rule, VA}
 import play.api.libs.json._
 
 import scalaz.{Failure, Success}
 
 object AnyConstraintValidator {
 
-  def validate(json: JsValue, any: AnyConstraint, context: Context): VA[JsValue] = {
-    val reader: scalaz.Reader[(AnyConstraint, Context), Rule[JsValue, JsValue]] = for {
+  def validate(json: JsValue, any: AnyConstraint, resolutionContext: ResolutionContext): VA[JsValue] = {
+    val reader: scalaz.Reader[(AnyConstraint, ResolutionContext), Rule[JsValue, JsValue]] = for {
       allOfRule <- validateAllOf
       anyOfRule <- validateAnyOf
       oneOfRule <- validateOneOf
       enumRule <- validateEnum
       notRule <- validateNot
     } yield allOfRule |+| anyOfRule |+| oneOfRule |+| enumRule |+| notRule
-    reader.run((any, context)).repath(_.compose(context.instancePath)).validate(json)
+    reader.run((any, resolutionContext)).repath(_.compose(resolutionContext.instancePath)).validate(json)
   }
 
-  def validateNot: scalaz.Reader[(AnyConstraint, Context), Rule[JsValue, JsValue]] =
+  def validateNot: scalaz.Reader[(AnyConstraint, ResolutionContext), Rule[JsValue, JsValue]] =
     scalaz.Reader { case (any ,context) =>
       Rule.fromMapping { json =>
         any.not.map(schema =>
-          if (SchemaValidator.validate(schema, json).isError) {
+          if (schema.validate(json, context).isFailure) {
             Success(json)
           } else {
             failure(
@@ -64,14 +63,12 @@ object AnyConstraintValidator {
     }
   }
 
-  def validateAllOf: scalaz.Reader[(AnyConstraint, Context), Rule[JsValue, JsValue]] =
+  def validateAllOf: scalaz.Reader[(AnyConstraint, ResolutionContext), Rule[JsValue, JsValue]] =
     scalaz.Reader { case (any, context) =>
       Rule.fromMapping { json =>
         any.allOf.map(
           schemas => {
-            val allValidationResults: Seq[VA[JsValue]] = schemas.map(schema =>
-              SchemaValidator.process(schema, json, context)
-            )
+            val allValidationResults: Seq[VA[JsValue]] = schemas.map(_.validate(json, context))
             val allMatch = allValidationResults.forall(_.isSuccess)
             if (allMatch) {
               Success(json)
@@ -89,14 +86,12 @@ object AnyConstraintValidator {
       }
     }
 
-  def validateAnyOf: scalaz.Reader[(AnyConstraint, Context), Rule[JsValue, JsValue]] =
+  def validateAnyOf: scalaz.Reader[(AnyConstraint, ResolutionContext), Rule[JsValue, JsValue]] =
     scalaz.Reader { case (any, context) =>
       Rule.fromMapping { json =>
         any.anyOf.map(
           schemas => {
-            val allValidationResults: Seq[VA[JsValue]] = schemas.map(schema =>
-              SchemaValidator.process(schema, json, context)
-            )
+            val allValidationResults: Seq[VA[JsValue]] = schemas.map(_.validate(json, context))
             val maybeSuccess = allValidationResults.find(_.isSuccess)
             maybeSuccess.map(success => Success(json)).getOrElse {
               failure(
@@ -112,15 +107,13 @@ object AnyConstraintValidator {
       }
     }
 
-  def validateOneOf: scalaz.Reader[(AnyConstraint, Context), Rule[JsValue, JsValue]] =
+  def validateOneOf: scalaz.Reader[(AnyConstraint, ResolutionContext), Rule[JsValue, JsValue]] =
     scalaz.Reader { case (any, context) =>
       Rule.fromMapping { json =>
         any.oneOf.map(
           schemas => {
 
-            val allValidationResults = schemas.map( schema =>
-              SchemaValidator.process(schema, json, context)
-            )
+            val allValidationResults = schemas.map(_.validate(json, context))
             allValidationResults.count(_.isSuccess) match {
               case 0 =>
                 failure(
@@ -150,7 +143,7 @@ object AnyConstraintValidator {
       }
     }
 
-  def validateEnum: scalaz.Reader[(AnyConstraint, Context), Rule[JsValue, JsValue]] = {
+  def validateEnum: scalaz.Reader[(AnyConstraint, ResolutionContext), Rule[JsValue, JsValue]] = {
     scalaz.Reader { case (any, context) =>
       val enums = any.enum
       Rule.fromMapping { json =>

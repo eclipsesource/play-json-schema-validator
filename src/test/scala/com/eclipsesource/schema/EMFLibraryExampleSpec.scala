@@ -65,7 +65,7 @@ class EMFLibraryExampleSpec extends Specification {
         "category" -> "Mystery",
         "author" -> goethe
       )
-      val result = SchemaValidator.validate(schema)(
+      val result = SchemaValidator().validate(schema)(
         Json.obj(
           "name" -> "Trinity College",
           "writers" -> Json.arr(

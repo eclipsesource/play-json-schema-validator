@@ -9,7 +9,7 @@ import scalaz.{Success, ReaderWriterState}
 
 object ObjectValidator extends SchemaTypeValidator[SchemaObject] {
 
-  override def validate(schema: SchemaObject, json: => JsValue, context: Context): VA[JsValue] = json match {
+  override def validate(schema: SchemaObject, json: => JsValue, context: ResolutionContext): VA[JsValue] = json match {
     case jsObject@JsObject(props) =>
       val validation = for {
         updatedSchema <- validateDependencies(schema, jsObject)
@@ -43,14 +43,17 @@ object ObjectValidator extends SchemaTypeValidator[SchemaObject] {
           } else {
             props
           }
-          case JsDefined(value) => (attr.name -> SchemaValidator.process(
-            attr.schemaType,
-            value,
-            context.copy(
-              schemaPath = context.schemaPath \ "properties" \ attr.name,
-              instancePath = context.instancePath \ attr.name
+          case JsDefined(value) => (attr.name ->
+            attr.schemaType.validate(
+              value,
+              context.updateScope(
+                _.copy(
+                  schemaPath = context.schemaPath \ "properties" \ attr.name,
+                  instancePath = context.instancePath \ attr.name
+                )
+              )
             )
-          )) :: props
+          ) :: props
         }
       )
 
@@ -75,7 +78,7 @@ object ObjectValidator extends SchemaTypeValidator[SchemaObject] {
             matcher.find()
           })
           matchedPatternProperties.map(pp =>
-            prop._1 -> SchemaValidator.process(pp._2, prop._2, context)
+            prop._1 -> pp._2.validate(prop._2, context)
           )
         }
       }
@@ -90,12 +93,15 @@ object ObjectValidator extends SchemaTypeValidator[SchemaObject] {
 
   private def validateAdditionalProps(schema: SchemaObject, unmatchedFields: Props): ValidationStep[Unit] = {
 
-    def validateUnmatched(schemaType: SchemaType, context: Context): VA[JsValue] = {
+    def validateUnmatched(schemaType: SchemaType, context: ResolutionContext): VA[JsValue] = {
       val validated = unmatchedFields.map { attr =>
-        attr._1 -> SchemaValidator.process(
-          schemaType, attr._2, context.copy(
-            schemaPath = context.schemaPath \ attr._1,
-            instancePath = context.instancePath \ attr._1
+        attr._1 -> schemaType.validate(
+          attr._2,
+          context.updateScope(
+            _.copy(
+              schemaPath = context.schemaPath \ attr._1,
+              instancePath = context.instancePath \ attr._1
+            )
           )
         )
       }
@@ -138,7 +144,7 @@ object ObjectValidator extends SchemaTypeValidator[SchemaObject] {
       }
     }
 
-    def validatePropertyDependency(propName: String, dependencies: Seq[String], context: Context): VA[JsValue] = {
+    def validatePropertyDependency(propName: String, dependencies: Seq[String], context: ResolutionContext): VA[JsValue] = {
 
       // check if property is present at all
       val mandatoryProps = obj.fields.find(_._1 == propName)
@@ -176,7 +182,7 @@ object ObjectValidator extends SchemaTypeValidator[SchemaObject] {
     }
   }
 
-  def validateMaxProperties(schema: SchemaObject, json: JsObject): ReaderWriterState[Context, Unit, VA[JsValue], Unit] = {
+  def validateMaxProperties(schema: SchemaObject, json: JsObject): ReaderWriterState[ResolutionContext, Unit, VA[JsValue], Unit] = {
     ReaderWriterState { (context, status) =>
       val size = json.fields.size
       val result: VA[JsValue] = schema.constraints.maxProperties match {
@@ -196,7 +202,7 @@ object ObjectValidator extends SchemaTypeValidator[SchemaObject] {
     }
   }
 
-  def validateMinProperties(schema: SchemaObject, json: JsObject): ReaderWriterState[Context, Unit, VA[JsValue], Unit] = {
+  def validateMinProperties(schema: SchemaObject, json: JsObject): ReaderWriterState[ResolutionContext, Unit, VA[JsValue], Unit] = {
     ReaderWriterState { (context, status) =>
       val size = json.fields.size
       val result: VA[JsValue] = schema.constraints.minProperties match {

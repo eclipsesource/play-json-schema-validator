@@ -1,0 +1,4 @@
+{
+    "location": { "$ref": "classpath:/location.json" }
+}
+

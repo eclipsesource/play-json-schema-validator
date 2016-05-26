@@ -3,14 +3,18 @@ package com.eclipsesource.schema
 import java.net.URL
 
 import com.eclipsesource.schema.internal._
+import com.eclipsesource.schema.internal.url.UrlResolver
 import com.eclipsesource.schema.internal.validation.VA
-import com.eclipsesource.schema.internal.validators.AnyConstraintValidator
 import play.api.data.validation.ValidationError
 import play.api.libs.json._
 
-import scalaz.{Success, Failure}
+import scalaz.{Failure, Success}
 
-trait SchemaValidator {
+trait HasRefResolver {
+  def refResolver: RefResolver
+}
+
+trait CanValidate { self: HasRefResolver =>
 
   implicit class VAExtensions[O](va: VA[O]) {
     def toJsResult: JsResult[O] = va match {
@@ -32,9 +36,11 @@ trait SchemaValidator {
           case container: HasId => container.id
           case _ => None
         }
-        val context = Context(schemaType, id.orElse(Some(schemaUrl.toString)), Some(schemaUrl.toString))
-        process(
-          schemaType,
+        val context = ResolutionContext(
+          refResolver,
+          ResolutionScope(schemaType, id.orElse(Some(schemaUrl.toString)), Some(schemaUrl.toString))
+        )
+        schemaType.validate(
           input,
           context
         )
@@ -72,9 +78,8 @@ trait SchemaValidator {
       case container: HasId => container.id
       case _ => None
     }
-    val context = Context(schema, id, id)
-    process(
-      schema,
+    val context = ResolutionContext(refResolver, ResolutionScope(schema, id, id))
+    schema.validate(
       input,
       context
     ).toJsResult
@@ -137,57 +142,12 @@ trait SchemaValidator {
         )
     }
   }
+}
 
-  private[schema] def process(schema: SchemaType, json: JsValue, context: Context): VA[JsValue] = {
-
-    (json, schema) match {
-      case (_, schemaObject: SchemaObject)
-        if schemaObject.properties.collectFirst { case r@RefAttribute(path, _) if !context.visited.contains(r) => r }.isDefined =>
-          val pointer = schemaObject.properties.collectFirst { case r@RefAttribute(path, _) if !context.visited.contains(r) => path }
-          RefResolver.resolveRefIfAny(context)(schemaObject) match {
-            case None => Results.failureWithPath(
-              s"Could not resolve ref ${pointer.getOrElse("")}",
-              context.schemaPath,
-              context.instancePath,
-              json)
-            case Some(resolved) =>
-              val updatedContext = RefResolver.updateResolutionScope(context, resolved).copy(schemaPath =  JsPath \ pointer.getOrElse("#"))
-              Results.merge(
-                process(resolved,  json, updatedContext),
-                AnyConstraintValidator.validate(json, resolved.constraints.any, updatedContext)
-              )
-          }
-        case (_: JsObject, schemaObject: SchemaObject) if schema.constraints.any.schemaTypeAsString.isDefined =>
-          schemaObject.validate(json, context)
-        case (_, schemaObject: SchemaObject) if schema.constraints.any.schemaTypeAsString.isEmpty =>
-          schemaObject.validate(json, context)
-        case (_, c: CompoundSchemaType) =>
-          c.validate(json, context)
-        case (jsArray: JsArray, schemaArray: SchemaArray) if schemaArray.id.isDefined =>
-          schemaArray.validate(jsArray, RefResolver.updateResolutionScope(context, schemaArray))
-        case (jsArray: JsArray, schemaArray: SchemaArray) =>
-          schemaArray.validate(jsArray, context)
-        case (jsArray: JsArray, schemaTuple: SchemaTuple) =>
-          schemaTuple.validate(jsArray, context)
-        case (jsNumber: JsNumber, schemaNumber: SchemaNumber) =>
-          schemaNumber.validate(jsNumber, context)
-        case (jsNumber: JsNumber, schemaInteger: SchemaInteger) =>
-          schemaInteger.validate(jsNumber, context)
-        case (jsBoolean: JsBoolean, schemaBoolean: SchemaBoolean) =>
-          schemaBoolean.validate(jsBoolean, context)
-        case (jsString: JsString, schemaString: SchemaString) =>
-          schemaString.validate(jsString, context)
-        case (JsNull, schemaNull: SchemaNull) =>
-          schemaNull.validate(json, context)
-        case (_, _) if schema.constraints.any.schemaTypeAsString.isEmpty =>
-          Success(json)
-        case _ =>
-          Results.failureWithPath(s"Wrong type. Expected $schema, was ${SchemaUtil.typeOfAsString(json)}.",
-            context.schemaPath,
-            context.instancePath,
-            json)
-        }
-    }
+case class SchemaValidator() extends CanValidate with HasRefResolver {
+  override val refResolver: RefResolver = new RefResolver {}
+  def addUrlResolver(urlResolver: UrlResolver) = {
+    refResolver.addUrlHandler(urlResolver)
+    this
   }
-
-  object SchemaValidator extends SchemaValidator
+}

@@ -1,22 +1,22 @@
 package com.eclipsesource.schema.internal.validators
 
+import com.eclipsesource.schema.SchemaArray
 import com.eclipsesource.schema.internal.validation.VA
-import com.eclipsesource.schema.internal.{Context, Results, SchemaUtil}
-import com.eclipsesource.schema.{SchemaArray, SchemaValidator}
+import com.eclipsesource.schema.internal.{ResolutionContext, Results, SchemaUtil}
 import play.api.libs.json.{JsArray, JsValue}
 
-import scalaz.{Success, Failure}
+import scalaz.{Failure, Success}
 
 
 object ArrayValidator extends SchemaTypeValidator[SchemaArray] with ArrayConstraintValidator {
 
-  override def validate(schema: SchemaArray, json: => JsValue, context: Context): VA[JsValue] = json match {
+  override def validate(schema: SchemaArray, json: => JsValue, context: ResolutionContext): VA[JsValue] = json match {
     case JsArray(values) =>
       val elements: Seq[VA[JsValue]] = values.zipWithIndex.map { case (jsValue, idx) =>
-        SchemaValidator.process(schema.item, jsValue,
-          context.copy(
-            schemaPath = context.schemaPath,
-            instancePath = context.instancePath \ idx.toString
+        schema.item.validate(
+          jsValue,
+          context.updateScope(
+            _.copy(instancePath = context.instancePath \ idx.toString)
           )
         )
       }

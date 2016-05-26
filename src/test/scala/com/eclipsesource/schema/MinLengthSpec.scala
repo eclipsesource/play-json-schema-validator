@@ -16,7 +16,7 @@ class MinLengthSpec extends Specification with JsonSpec {
           |"minLength": 3
         }""".stripMargin).get
 
-      SchemaValidator.validate(schema)(JsString("123")).isSuccess must beTrue
+      SchemaValidator().validate(schema)(JsString("123")).isSuccess must beTrue
     }
 
     "not validate against numeric strings that are too short" in {
@@ -25,7 +25,7 @@ class MinLengthSpec extends Specification with JsonSpec {
           |"minLength": 3
         }""".stripMargin).get
 
-      SchemaValidator.validate(schema)(JsString("12")).isError must beTrue
+      SchemaValidator().validate(schema)(JsString("12")).isError must beTrue
     }
 
   }

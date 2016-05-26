@@ -1,24 +1,24 @@
 package com.eclipsesource.schema.internal.validators
 
 import com.eclipsesource.schema.internal.constraints.Constraints.ArrayConstraints
-import com.eclipsesource.schema.internal.validation.{VA, Rule}
-import com.eclipsesource.schema.internal.{Context, SchemaUtil}
+import com.eclipsesource.schema.internal.validation.{Rule, VA}
+import com.eclipsesource.schema.internal.{ResolutionContext, SchemaUtil}
 import play.api.libs.json.{JsArray, JsValue}
 
 import scalaz.Success
 
 trait ArrayConstraintValidator {
 
-  def validate(json: JsValue, arrayConstraints: ArrayConstraints, context: Context): VA[JsValue] = {
+  def validate(json: JsValue, arrayConstraints: ArrayConstraints, resolutionContext: ResolutionContext): VA[JsValue] = {
     val reader = for {
       minItemsRule <- validateMinItems
       maxItemsRule <- validateMaxItems
       uniqueRule <- validateUniqueness
     } yield { minItemsRule |+| maxItemsRule |+| uniqueRule }
-    reader.run((arrayConstraints, context)).repath(_.compose(context.instancePath)).validate(json)
+    reader.run((arrayConstraints, resolutionContext)).repath(_.compose(resolutionContext.instancePath)).validate(json)
   }
 
-  def validateMaxItems: scalaz.Reader[(ArrayConstraints, Context), Rule[JsValue, JsValue]] =
+  def validateMaxItems: scalaz.Reader[(ArrayConstraints, ResolutionContext), Rule[JsValue, JsValue]] =
     scalaz.Reader { case (constraints, context) =>
       val maxItems = constraints.maxItems
       Rule.fromMapping {
@@ -39,7 +39,7 @@ trait ArrayConstraintValidator {
       }
     }
 
-  def validateMinItems: scalaz.Reader[(ArrayConstraints, Context), Rule[JsValue, JsValue]] =
+  def validateMinItems: scalaz.Reader[(ArrayConstraints, ResolutionContext), Rule[JsValue, JsValue]] =
     scalaz.Reader { case (constraints, context) =>
       val minItems = constraints.minItems.getOrElse(0)
       Rule.fromMapping {
@@ -58,7 +58,7 @@ trait ArrayConstraintValidator {
       }
     }
 
-  def validateUniqueness: scalaz.Reader[(ArrayConstraints, Context), Rule[JsValue, JsValue]] =
+  def validateUniqueness: scalaz.Reader[(ArrayConstraints, ResolutionContext), Rule[JsValue, JsValue]] =
     scalaz.Reader { case (constraints, context) =>
       val isUnique = constraints.unique.getOrElse(false)
       Rule.fromMapping {
@@ -78,7 +78,7 @@ trait ArrayConstraintValidator {
       }
     }
 
-  private def expectedArray(json: JsValue, context: Context) =
+  private def expectedArray(json: JsValue, context: ResolutionContext) =
     failure(
       s"Wrong type. Expected array, was ${SchemaUtil.typeOfAsString(json)}",
       context.schemaPath,
