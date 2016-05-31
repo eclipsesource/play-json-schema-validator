@@ -3,13 +3,13 @@ package com.eclipsesource.schema.internal
 import java.net.{URI, URL, URLDecoder}
 
 import com.eclipsesource.schema._
-import com.eclipsesource.schema.internal.url.UrlStreamHandlerFactory
+import com.eclipsesource.schema.internal.url.UrlStreamResolverFactory
 import play.api.libs.json.{JsPath, Json}
 
 import scala.io.{BufferedSource, Source}
 import scala.util.{Failure, Success, Try}
 
-trait RefResolver extends UrlStreamHandlerFactory {
+trait RefResolver extends UrlStreamResolverFactory {
 
   private final val WithProtocol = "^([^:\\/?]+):.+"
   private final val ProtocolPattern = WithProtocol.r.pattern

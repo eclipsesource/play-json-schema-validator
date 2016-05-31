@@ -297,7 +297,7 @@ trait JSONSchemaReads {
   }
 
   private def mergeErrors(results: Seq[JsResult[SchemaType]]): JsResult[Seq[SchemaType]] = {
-    results.collect { case err@JsError(_) => err }.reduceLeft { case (e1, e2) => JsError.merge(e1, e2) }
+    results.collect { case err@JsError(_) => err }.reduceLeft[JsError] { case (e1, e2) => JsError.merge(e1, e2) }
   }
 
   private lazy val readJsValueArray: Reads[Seq[SchemaType]] = {

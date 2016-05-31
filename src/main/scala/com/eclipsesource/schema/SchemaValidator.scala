@@ -147,7 +147,7 @@ trait CanValidate { self: HasRefResolver =>
 case class SchemaValidator() extends CanValidate with HasRefResolver {
   override val refResolver: RefResolver = new RefResolver {}
   def addUrlResolver(urlResolver: UrlResolver) = {
-    refResolver.addUrlHandler(urlResolver)
+    refResolver.addUrlResolver(urlResolver)
     this
   }
 }
