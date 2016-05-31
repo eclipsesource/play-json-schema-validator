@@ -182,7 +182,7 @@ trait JSONSchemaReads {
   }
 
   lazy val tupleReader: Reads[SchemaTuple] = {
-    ((__ \ Keywords.Array.Items).lazyReadNullable[Seq[SchemaType]](readSeqOfSchemaTypeInstance) and
+    ((__ \ Keywords.Array.Items).lazyReadNullable[Seq[SchemaType]](readJsValueArray) and
         (__ \ Keywords.Array.AdditionalItems).lazyReadNullable[SchemaType](valueReader) and
         (__ \ Keywords.Array.MinItems).readNullable[Int] and
         (__ \ Keywords.Array.MaxItems).readNullable[Int] and
@@ -273,9 +273,9 @@ trait JSONSchemaReads {
 
   lazy val anyConstraintReader: Reads[AnyConstraint] = {
     ((__ \ Keywords.Any.Type).readNullable[String] and
-      (__ \ Keywords.Any.AllOf).lazyReadNullable[Seq[SchemaType]](readSeqOfSchemaTypeInstance) and
-        (__ \ Keywords.Any.AnyOf).lazyReadNullable[Seq[SchemaType]](readSeqOfSchemaTypeInstance) and
-        (__ \ Keywords.Any.OneOf).lazyReadNullable[Seq[SchemaType]](readSeqOfSchemaTypeInstance) and
+      (__ \ Keywords.Any.AllOf).lazyReadNullable[Seq[SchemaType]](readJsObjectArray) and
+        (__ \ Keywords.Any.AnyOf).lazyReadNullable[Seq[SchemaType]](readJsObjectArray) and
+        (__ \ Keywords.Any.OneOf).lazyReadNullable[Seq[SchemaType]](readJsObjectArray) and
         (__ \ Keywords.Any.Definitions).lazyReadNullable(readsInstance) and
         (__ \ Keywords.Any.Enum).readNullable[Seq[JsValue]] and
         (__ \ Keywords.Any.Not).lazyReadNullable(valueReader)
@@ -296,13 +296,34 @@ trait JSONSchemaReads {
     }
   }
 
-  private lazy val readSeqOfSchemaTypeInstance: Reads[Seq[SchemaType]] = {
+  private def mergeErrors(results: Seq[JsResult[SchemaType]]): JsResult[Seq[SchemaType]] = {
+    results.collect { case err@JsError(_) => err }.reduceLeft { case (e1, e2) => JsError.merge(e1, e2) }
+  }
+
+  private lazy val readJsValueArray: Reads[Seq[SchemaType]] = {
     new Reads[Seq[SchemaType]] {
       override def reads(json: JsValue): JsResult[Seq[SchemaType]] = json match {
         case JsArray(els) =>
           val results = els.map(el => Json.fromJson[SchemaType](el))
           if (results.exists(_.isError)) {
-            JsError("Non-object encountered in object-only array.")
+            mergeErrors(results)
+          } else {
+            JsSuccess(results.collect { case JsSuccess(succ, _) => succ})
+          }
+        case _ => JsError("Expected array")
+      }
+    }
+  }
+
+  private lazy val readJsObjectArray: Reads[Seq[SchemaType]] = {
+    new Reads[Seq[SchemaType]] {
+      override def reads(json: JsValue): JsResult[Seq[SchemaType]] = json match {
+        case JsArray(els) if !els.exists(_.isInstanceOf[JsObject]) =>
+          JsError("Non-object encountered in object-only array.")
+        case JsArray(els) =>
+          val results = els.map(Json.fromJson[SchemaType](_))
+          if (results.exists(_.isError)) {
+            mergeErrors(results)
           } else {
             JsSuccess(results.collect { case JsSuccess(succ, _) => succ})
           }
