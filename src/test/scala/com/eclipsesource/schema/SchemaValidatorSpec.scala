@@ -1,6 +1,6 @@
 package com.eclipsesource.schema
 
-import java.net.URL
+import java.net.{URL, URLConnection, URLStreamHandler}
 
 import com.eclipsesource.schema.internal.url.ClasspathUrlResolver
 import controllers.Assets
@@ -165,13 +165,37 @@ class SchemaValidatorSpec extends PlaySpecification {
       }
     }
 
-  "should resolve references on the classpath " in {
-
+  "should resolve references on the classpath via UrlResolver" in {
     val validator = SchemaValidator().addUrlResolver(new ClasspathUrlResolver)
     // simple.json references location.json within JAR
     val simpleJson = getClass.getResourceAsStream("/simple.json")
     val schema = JsonSource.schemaFromStream(simpleJson)
     val result = validator.validate(schema.get, Json.obj("location" -> Json.obj("name" -> "Munich")))
     result.isSuccess must beTrue
+  }
+
+  "should resolve references on the classpath via UrlHandler" in {
+    val validator = SchemaValidator()
+    validator.refResolver.addUrlHandler("classpath", new URLStreamHandler {
+      override def openConnection(url: URL): URLConnection = {
+        getClass.getResource(url.getPath).openConnection()
+      }
+    })
+    // simple.json references location.json within JAR
+    val simpleJson = getClass.getResourceAsStream("/simple.json")
+    val schema = JsonSource.schemaFromStream(simpleJson)
+    val result = validator.validate(schema.get, Json.obj("location" -> Json.obj("name" -> "Munich")))
+    result.isSuccess must beTrue
+  }
+
+  "should resolve references on the classpath via UrlHandler" in {
+    val schema = JsonSource.schemaFromString(
+      """{ "$ref": "#/does/not/exist" }""".stripMargin).get
+    val instance = JsNumber(42)
+    val result = SchemaValidator().validate(schema, instance)
+    result.isError must beTrue
+    result.asEither must beLeft.which { _.head._2.head.message must beEqualTo(
+      """Could not resolve ref #/does/not/exist"""
+    )}
   }
 }

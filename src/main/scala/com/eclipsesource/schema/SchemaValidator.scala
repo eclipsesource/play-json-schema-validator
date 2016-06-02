@@ -1,6 +1,6 @@
 package com.eclipsesource.schema
 
-import java.net.URL
+import java.net.{URL, URLStreamHandler}
 
 import com.eclipsesource.schema.internal._
 import com.eclipsesource.schema.internal.url.UrlResolver
@@ -145,8 +145,12 @@ trait CanValidate { self: HasRefResolver =>
 }
 
 case class SchemaValidator() extends CanValidate with HasRefResolver {
-  override val refResolver: RefResolver = new RefResolver {}
-  def addUrlResolver(urlResolver: UrlResolver) = {
+  override val refResolver: RefResolver = new RefResolver
+  def addUrlHandler(protocolEntry: (String, URLStreamHandler)): SchemaValidator = {
+    refResolver.addUrlHandler(protocolEntry)
+    this
+  }
+  def addUrlResolver(urlResolver: UrlResolver): SchemaValidator = {
     refResolver.addUrlResolver(urlResolver)
     this
   }

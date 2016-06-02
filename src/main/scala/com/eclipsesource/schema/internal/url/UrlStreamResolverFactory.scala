@@ -15,8 +15,8 @@ trait UrlStreamResolverFactory extends URLStreamHandlerFactory {
     this
   }
 
-  def addUrlHandler(protocol: String, handler: URLStreamHandler): this.type = {
-    protocolHandlers = protocolHandlers + (protocol -> handler)
+  def addUrlHandler(protocolEntry: (String, URLStreamHandler)): this.type = {
+    protocolHandlers = protocolHandlers + protocolEntry
     this
   }
 }

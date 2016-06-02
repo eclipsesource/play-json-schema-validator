@@ -9,7 +9,7 @@ import play.api.libs.json.{JsPath, Json}
 import scala.io.{BufferedSource, Source}
 import scala.util.{Failure, Success, Try}
 
-trait RefResolver extends UrlStreamResolverFactory {
+class RefResolver extends UrlStreamResolverFactory {
 
   private final val WithProtocol = "^([^:\\/?]+):.+"
   private final val ProtocolPattern = WithProtocol.r.pattern
