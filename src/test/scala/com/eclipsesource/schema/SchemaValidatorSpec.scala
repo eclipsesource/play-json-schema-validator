@@ -181,9 +181,9 @@ class SchemaValidatorSpec extends PlaySpecification {
         getClass.getResource(url.getPath).openConnection()
       }
     })
-    // simple.json references location.json within JAR
-    val simpleJson = getClass.getResourceAsStream("/simple.json")
-    val schema = JsonSource.schemaFromStream(simpleJson)
+    // some.json references another JSON within same JAR
+    val someJson = getClass.getResourceAsStream("/some.json")
+    val schema = JsonSource.schemaFromStream(someJson)
     val result = validator.validate(schema.get, Json.obj("location" -> Json.obj("name" -> "Munich")))
     result.isSuccess must beTrue
   }
