@@ -64,7 +64,7 @@ trait JsonSpec extends FragmentBuilder {
   private def executeSpec(spec: JsonSchemaSpec): Seq[SpecResult] = {
     val schema = spec.schema
     spec.tests.map(spec => {
-      val result = SchemaValidator.validate(schema)(spec.data)
+      val result = SchemaValidator().validate(schema)(spec.data)
       SpecResult(spec.description,
         result.isSuccess == spec.valid,
         result.asEither.left.toOption

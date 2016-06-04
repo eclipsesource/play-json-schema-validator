@@ -3,14 +3,14 @@ package com.eclipsesource.schema.internal.validators
 import com.eclipsesource.schema.SchemaInteger
 import com.eclipsesource.schema.internal.constraints.Constraints.NumberConstraints
 import com.eclipsesource.schema.internal.validation.{Rule, VA}
-import com.eclipsesource.schema.internal.{SchemaUtil, Context}
+import com.eclipsesource.schema.internal.{ResolutionContext, SchemaUtil}
 import play.api.libs.json.{JsNumber, JsValue}
 
 import scalaz.Success
 
 object IntegerValidator extends SchemaTypeValidator[SchemaInteger] with NumberConstraintsValidator {
 
-  val isInt: scalaz.Reader[(NumberConstraints, Context), Rule[JsValue, JsValue]] =
+  val isInt: scalaz.Reader[(NumberConstraints, ResolutionContext), Rule[JsValue, JsValue]] =
     scalaz.Reader { case (constraint, context) =>
       Rule.fromMapping {
         case json@JsNumber(number) if number.isWhole()  => Success(json)
@@ -24,7 +24,7 @@ object IntegerValidator extends SchemaTypeValidator[SchemaInteger] with NumberCo
       }
     }
 
-  override def validate(schema: SchemaInteger, json: => JsValue, context: Context): VA[JsValue] = {
+  override def validate(schema: SchemaInteger, json: => JsValue, context: ResolutionContext): VA[JsValue] = {
     val reader = for {
       maxRule <- validateMax
       minRule <- validateMin

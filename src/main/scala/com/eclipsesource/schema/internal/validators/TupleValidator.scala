@@ -2,14 +2,14 @@ package com.eclipsesource.schema.internal.validators
 
 import com.eclipsesource.schema._
 import com.eclipsesource.schema.internal.validation.VA
-import com.eclipsesource.schema.internal.{Context, Results}
-import play.api.libs.json.{JsBoolean, JsArray, JsValue}
+import com.eclipsesource.schema.internal.{ResolutionContext, Results}
+import play.api.libs.json.{JsArray, JsBoolean, JsValue}
 
-import scalaz.{Success, Failure}
+import scalaz.{Failure, Success}
 
 object TupleValidator extends SchemaTypeValidator[SchemaTuple] with ArrayConstraintValidator {
 
-  override def validate(schema: SchemaTuple, json: => JsValue, context: Context): VA[JsValue] = json match {
+  override def validate(schema: SchemaTuple, json: => JsValue, context: ResolutionContext): VA[JsValue] = json match {
     case JsArray(values) =>
       val instanceSize = values.size
       val schemaSize = schema.items.size
@@ -31,20 +31,25 @@ object TupleValidator extends SchemaTypeValidator[SchemaTuple] with ArrayConstra
             values.map(Success(_))
           case items =>
             val instanceValuesValidated: Seq[VA[JsValue]] = schema.items.zipWithIndex.map { case (item, idx) =>
-              SchemaValidator.process(item, values(idx),
-                context.copy(
-                  schemaPath = context.schemaPath \ idx.toString,
-                  instancePath = context.instancePath \ idx.toString
+              item.validate(
+                values(idx),
+                context.updateScope(
+                  _.copy(
+                    schemaPath = context.schemaPath \ idx.toString,
+                    instancePath = context.instancePath \ idx.toString
+                  )
                 )
               )
             }
             val additionalInstanceValuesValidated: Seq[VA[JsValue]] = additionalInstanceValues.zipWithIndex.map {
               case (jsValue, idx) =>
-                val index = idx + schemaSize
-                SchemaValidator.process(items, jsValue,
-                  context.copy(
-                    schemaPath = context.schemaPath \ index.toString,
-                    instancePath = context.instancePath \ index.toString
+                items.validate(
+                  jsValue,
+                  context.updateScope(
+                    _.copy(
+                      schemaPath = context.schemaPath \ idx.toString,
+                      instancePath = context.instancePath \ idx.toString
+                    )
                   )
                 )
             }
@@ -52,10 +57,13 @@ object TupleValidator extends SchemaTypeValidator[SchemaTuple] with ArrayConstra
         }
       } else {
         values.zipWithIndex.map { case (jsValue, idx) =>
-          SchemaValidator.process(schema.items(idx), jsValue,
-            context.copy(
-              schemaPath = context.schemaPath \ idx.toString,
-              instancePath = context.instancePath \ idx.toString
+          schema.items(idx).validate(
+            jsValue,
+            context.updateScope(
+              _.copy(
+                schemaPath = context.schemaPath \ idx.toString,
+                instancePath = context.instancePath \ idx.toString
+              )
             )
           )
         }

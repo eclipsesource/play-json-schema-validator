@@ -13,7 +13,7 @@ class FormatSpec extends Specification with JsonSpec {
       val schema = JsonSource.schemaFromString(
         s"""{"format": "$formatName"}"""
       ).get
-      val result = SchemaValidator.validate(schema)(JsString("some string"))
+      val result = SchemaValidator().validate(schema, JsString("some string"))
       result.asEither must beLeft.like { case error =>
         val JsDefined(obj) = error.toJson(0)
         obj \ "msgs" == JsDefined(JsArray(Seq(JsString(s"Unknown format $formatName"))))

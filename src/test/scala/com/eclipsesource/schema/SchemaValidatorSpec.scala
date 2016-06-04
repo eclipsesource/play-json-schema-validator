@@ -1,13 +1,13 @@
 package com.eclipsesource.schema
 
-import java.net.URL
+import java.net.{URL, URLConnection, URLStreamHandler}
 
-import com.eclipsesource.schema.internal.validation.VA
+import com.eclipsesource.schema.internal.url.ClasspathUrlResolver
 import controllers.Assets
+import play.api.libs.functional.syntax._
+import play.api.libs.json._
 import play.api.mvc.Handler
 import play.api.test.{FakeApplication, PlaySpecification, WithServer}
-import play.api.libs.json._
-import play.api.libs.functional.syntax._
 
 class SchemaValidatorSpec extends PlaySpecification {
 
@@ -62,8 +62,9 @@ class SchemaValidatorSpec extends PlaySpecification {
         val valid = Json.obj("title" -> "This is valid")
         val invalid = Json.obj("title" -> "Too short")
 
-        SchemaValidator.validate(schema, valid).isSuccess must beTrue
-        SchemaValidator.validate(schema, invalid).isError must beTrue
+        val validator = SchemaValidator()
+        validator.validate(schema, valid).isSuccess must beTrue
+        validator.validate(schema, invalid).isError must beTrue
       }
 
     "return unaltered validated array" in {
@@ -72,7 +73,7 @@ class SchemaValidatorSpec extends PlaySpecification {
           |  "type": "array",
           |  "items": { "type": "integer" }
           |}""".stripMargin).get
-      val result = SchemaValidator.validate(schema)(Json.arr(1,2,3))
+      val result = SchemaValidator().validate(schema)(Json.arr(1,2,3))
       result.asOpt must beSome.which {
         case arr@JsArray(seq) => seq must haveLength(3)
       }
@@ -89,46 +90,47 @@ class SchemaValidatorSpec extends PlaySpecification {
         val valid = JsString("Valid instance")
         val invalid = JsString("Too short")
 
-        SchemaValidator.validate(schema, valid).isSuccess must beTrue
-        SchemaValidator.validate(schema, invalid).isError must beTrue
+        val validator = SchemaValidator()
+        validator.validate(schema, valid).isSuccess must beTrue
+        validator.validate(schema, invalid).isError must beTrue
       }
 
     "be validated via file based resource URL" in {
-      val result = SchemaValidator.validate(resourceUrl, instance)
+      val result = SchemaValidator().validate(resourceUrl, instance)
       result.isSuccess must beTrue
     }
 
-    "validate via file base URL and Reads" in {
-      val result: JsResult[Talk] = SchemaValidator.validate(resourceUrl, instance, talkReads)
+    "validate via file based URL and Reads" in {
+      val result: JsResult[Talk] = SchemaValidator().validate(resourceUrl, instance, talkReads)
       result.isSuccess must beTrue
       result.asOpt must beSome.which(talk => talk.location.name must beEqualTo("Munich"))
     }
 
-    "validate via file base URL and Writes" in {
+    "validate via file based URL and Writes" in {
       val talk = Talk(Location("Munich"))
-      val result = SchemaValidator.validate(resourceUrl, talk, talkWrites)
+      val result = SchemaValidator().validate(resourceUrl, talk, talkWrites)
       result.isSuccess must beTrue
     }
 
-    "validate via file base URL and Format" in {
+    "validate via file based URL and Format" in {
       val talk = Talk(Location("Munich"))
-      val result: JsResult[Talk] = SchemaValidator.validate(resourceUrl, talk)
+      val result: JsResult[Talk] = SchemaValidator().validate(resourceUrl, talk)
       result.isSuccess must beTrue
       result.asOpt must beSome.which(talk => talk.location.name must beEqualTo("Munich"))
     }
 
     "validate with Reads" in
       new WithServer(app = new FakeApplication(withRoutes = routes), port = 1234) {
-      val result = SchemaValidator.validate(schema, instance, talkReads)
-      result.isSuccess must beTrue
-      result.asOpt must beSome.which(talk => talk.location.name must beEqualTo("Munich"))
-    }
+        val result = SchemaValidator().validate(schema, instance, talkReads)
+        result.isSuccess must beTrue
+        result.asOpt must beSome.which(talk => talk.location.name must beEqualTo("Munich"))
+      }
 
     "validate with Writes" in
       new WithServer(app = new FakeApplication(withRoutes = routes), port = 1234) {
 
         val talk = Talk(Location("Munich"))
-        val result = SchemaValidator.validate(schema, talk, talkWrites)
+        val result = SchemaValidator().validate(schema, talk, talkWrites)
         result.isSuccess must beTrue
       }
   }
@@ -136,18 +138,20 @@ class SchemaValidatorSpec extends PlaySpecification {
   "Remote ref" should {
     "validate" in new WithServer(app = new FakeApplication(withRoutes = routes), port = 1234) {
       val resourceUrl: URL = new URL("http://localhost:1234/talk.json")
-      val result = SchemaValidator.validate(resourceUrl, instance)
+      val result = SchemaValidator().validate(resourceUrl, instance)
       result.isSuccess must beTrue
     }
   }
 
   "report errors of wrong reads" in
     new WithServer(app = new FakeApplication(withRoutes = routes), port = 1234) {
+
       case class Foo(location: Location, title: String)
+
       val lr: Reads[Foo] = (
         (JsPath \ "loc").read[Location] and
           (JsPath \ "title").read[String]
-        )(Foo.apply _)
+        ) (Foo.apply _)
 
       val fooInstance = Json.obj(
         "location" -> Json.obj(
@@ -155,9 +159,43 @@ class SchemaValidatorSpec extends PlaySpecification {
         ),
         "title" -> "Some title"
       )
-      val result: JsResult[Foo] = SchemaValidator.validate(schema, fooInstance, lr)
+      val result: JsResult[Foo] = SchemaValidator().validate(schema, fooInstance, lr)
       result.asEither must beLeft.like { case error =>
         (error.toJson(0).get \ "instancePath") must beEqualTo(JsDefined(JsString("/loc")))
       }
     }
+
+  "should resolve references on the classpath via UrlResolver" in {
+    val validator = SchemaValidator().addUrlResolver(new ClasspathUrlResolver)
+    // simple.json references location.json within JAR
+    val simpleJson = getClass.getResourceAsStream("/simple.json")
+    val schema = JsonSource.schemaFromStream(simpleJson)
+    val result = validator.validate(schema.get, Json.obj("location" -> Json.obj("name" -> "Munich")))
+    result.isSuccess must beTrue
+  }
+
+  "should resolve references on the classpath via UrlHandler" in {
+    val validator = SchemaValidator()
+    validator.refResolver.addUrlHandler("classpath", new URLStreamHandler {
+      override def openConnection(url: URL): URLConnection = {
+        getClass.getResource(url.getPath).openConnection()
+      }
+    })
+    // simple.json references location.json within JAR
+    val simpleJson = getClass.getResourceAsStream("/simple.json")
+    val schema = JsonSource.schemaFromStream(simpleJson)
+    val result = validator.validate(schema.get, Json.obj("location" -> Json.obj("name" -> "Munich")))
+    result.isSuccess must beTrue
+  }
+
+  "should resolve references on the classpath via UrlHandler" in {
+    val schema = JsonSource.schemaFromString(
+      """{ "$ref": "#/does/not/exist" }""".stripMargin).get
+    val instance = JsNumber(42)
+    val result = SchemaValidator().validate(schema, instance)
+    result.isError must beTrue
+    result.asEither must beLeft.which { _.head._2.head.message must beEqualTo(
+      """Could not resolve ref #/does/not/exist"""
+    )}
+  }
 }

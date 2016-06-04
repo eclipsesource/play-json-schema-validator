@@ -1,7 +1,7 @@
 package com.eclipsesource.schema.internal.validators
 
 import com.eclipsesource.schema.internal.validation.Rule
-import com.eclipsesource.schema.internal.{Context, SchemaUtil}
+import com.eclipsesource.schema.internal.{ResolutionContext, SchemaUtil}
 import com.eclipsesource.schema.internal.constraints.Constraints.{Maximum, Minimum, NumberConstraints}
 import play.api.libs.json.{JsNumber, JsValue}
 
@@ -9,7 +9,7 @@ import scalaz.Success
 
 trait NumberConstraintsValidator {
 
-  val validateMin: scalaz.Reader[(NumberConstraints, Context), Rule[JsValue, JsValue]] = {
+  val validateMin: scalaz.Reader[(NumberConstraints, ResolutionContext), Rule[JsValue, JsValue]] = {
 
     def isValid(n: JsNumber, minConstraint: Minimum) = {
       if (minConstraint.isExclusive.getOrElse(false)) {
@@ -43,7 +43,7 @@ trait NumberConstraintsValidator {
     }
   }
 
-  val validateMax: scalaz.Reader[(NumberConstraints, Context), Rule[JsValue, JsValue]] = {
+  val validateMax: scalaz.Reader[(NumberConstraints, ResolutionContext), Rule[JsValue, JsValue]] = {
 
     def isValid(n: JsNumber, maxConstraint: Maximum) = {
       if (maxConstraint.isExclusive.getOrElse(false)) {
@@ -77,7 +77,7 @@ trait NumberConstraintsValidator {
     }
   }
 
-  val validateMultipleOf: scalaz.Reader[(NumberConstraints, Context), Rule[JsValue, JsValue]] =
+  val validateMultipleOf: scalaz.Reader[(NumberConstraints, ResolutionContext), Rule[JsValue, JsValue]] =
     scalaz.Reader { case (constraints, context) =>
       Rule.fromMapping[JsValue, JsValue] {
         case number@JsNumber(n) => constraints.multipleOf match {
@@ -98,7 +98,7 @@ trait NumberConstraintsValidator {
       }
     }
 
-  private def expectedNumber(json: JsValue, context: Context) =
+  private def expectedNumber(json: JsValue, context: ResolutionContext) =
     failure(
       s"Wrong type. Expected number, was ${SchemaUtil.typeOfAsString(json)}",
       context.schemaPath,

@@ -22,7 +22,7 @@ package object internal {
    * - value
    */
 
-  type ValidationStep[A] = ReaderWriterState[Context, Unit, VA[JsValue], A]
+  type ValidationStep[A] = ReaderWriterState[ResolutionContext, Unit, VA[JsValue], A]
   type Props = Seq[(String, JsValue)]
   type PropertyValidationResult = (String, VA[JsValue])
   type ValidProperties = Seq[(String, JsValue)]

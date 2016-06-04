@@ -19,7 +19,7 @@ object Results {
     }
   }
 
-  def aggregateAsObject(validatedProps: Seq[(String, VA[JsValue])], context: Context): VA[JsValue] = {
+  def aggregateAsObject(validatedProps: Seq[(String, VA[JsValue])], context: ResolutionContext): VA[JsValue] = {
     validatedProps.foldLeft[VA[JsValue]](Success(Json.obj()))((va, result) => (va, result._2) match {
       case (Success(_), f@Failure(err)) => f
       case (f@Failure(_), Success(_)) => f

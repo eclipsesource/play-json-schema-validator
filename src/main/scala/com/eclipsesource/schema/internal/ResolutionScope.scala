@@ -7,8 +7,22 @@ import play.api.libs.json.JsPath
 
 import scala.util.Try
 
+case class ResolutionContext(
+                           refResolver: RefResolver,
+                           scope: ResolutionScope
+                           ) {
+  def schemaPath = scope.schemaPath
+  def instancePath = scope.instancePath
+  def hasBeenVisited = scope.visited.contains _
+  def updateScope(scopeUpdateFn: ResolutionScope => ResolutionScope): ResolutionContext =
+    copy(scope = scopeUpdateFn(scope))
+  def documentRoot = scope.documentRoot
+  def currentId = scope.id
+  def isRootScope = scope.isRootScope
+}
 
-case class Context(
+
+case class ResolutionScope(
                     documentRoot: SchemaType,
                     id: Option[String] = None,     // current resolution scope
                     rootId: Option[String] = None, // base URI
@@ -23,6 +37,10 @@ case class Context(
     } yield scope == rootScope
     isRootScope.getOrElse(false)
   }
+
+  def hasBeenVisited = visited.contains _
+
+  def addVisited(ref: RefAttribute) = copy(visited = visited + ref)
 }
 
 object GlobalContextCache {
