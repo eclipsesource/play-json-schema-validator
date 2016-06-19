@@ -21,7 +21,7 @@ object SchemaRefResolver {
     override def resolve(schema: SchemaType, fragment: String): Either[ValidationError, SchemaType] = schema match {
       case obj@SchemaObject(props, _, _) => fragment match {
         case Keywords.Object.Properties => Right(obj)
-        case other => props.find(_.name == other).map(_.schemaType).fold(
+        case other => props.collectFirst { case SchemaAttribute(name, schemaType) if name == other => schemaType }.fold(
           resolveConstraint(obj, fragment)
         )(Right(_))
       }
@@ -65,12 +65,9 @@ object SchemaRefResolver {
 
     override def findRef(schema: SchemaType): Option[(String, String)] = schema match {
       case SchemaObject(props, _, _) =>
-        props.find(prop => prop.name == "$ref" && (prop.schemaType match {
-          case SchemaValue(JsString(pointer)) => true
-          case _ => false
-        }))
-          // TODO
-          .map(prop => prop.name -> prop.schemaType.asInstanceOf[SchemaValue].value.as[JsString].value)
+        props.collectFirst {
+          case SchemaAttribute("$ref", SchemaValue(JsString(pointer))) => "$ref" -> pointer
+        }
       case _ => None
     }
 

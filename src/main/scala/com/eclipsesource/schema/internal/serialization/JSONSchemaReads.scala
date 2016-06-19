@@ -252,11 +252,11 @@ trait JSONSchemaReads {
 
       val (properties, patternProperties, additionalProperties, required, dependencies, minProperties, maxProperties, ref, id, anyConstraints) = read
 
-      val props: List[Property] = properties.map(tuples2Property).getOrElse(List.empty)
+      val props: List[SchemaAttribute] = properties.map(tuples2Attributes).getOrElse(List.empty)
 
       Reads.pure(
         SchemaObject(
-          props ++ ref.map(path => Seq(RefAttribute(path, path.startsWith("http")))).getOrElse(Seq.empty),
+          props ++ ref.map(path => Seq(SchemaAttribute("$ref", SchemaValue(JsString(path))))).getOrElse(Seq.empty),
           ObjectConstraints(
             additionalProperties,
             dependencies,
@@ -332,7 +332,7 @@ trait JSONSchemaReads {
     }
   }
 
-  private def tuples2Property(props: Iterable[(String, SchemaType)]): List[Property] = {
+  private def tuples2Attributes(props: Iterable[(String, SchemaType)]): List[SchemaAttribute] = {
     props.map(property => SchemaAttribute(property._1, property._2)).toList
   }
 }

@@ -44,7 +44,7 @@ sealed trait SchemaArrayLike extends SchemaType with HasId with Resolvable {
 }
 
 sealed trait SchemaObjectLike extends SchemaType with Resolvable {
-  def properties: Seq[Property]
+  def properties: Seq[SchemaAttribute]
 }
 
 final case class JSONPointer(path: String)
@@ -54,7 +54,7 @@ final case class CompoundSchemaType(alternatives: Seq[SchemaType]) extends Schem
   override def constraints: HasAnyConstraint = NoConstraints()// CompoundConstraints(oneOf.map(s => s.constraints), AnyConstraint())
 }
 
-final case class SchemaObject(properties: Seq[Property] = Seq.empty,
+final case class SchemaObject(properties: Seq[SchemaAttribute] = Seq.empty,
                               constraints: ObjectConstraints = ObjectConstraints(),
                               id: Option[String] = None)
   extends HasId with SchemaObjectLike {
@@ -130,17 +130,6 @@ final case class SchemaNull(constraints: HasAnyConstraint = NoConstraints()) ext
   override def toString: String = "null"
 }
 
-sealed trait Property {
-  def name: String
-  def schemaType: SchemaType
-}
-case class SchemaAttribute(name: String, schemaType: SchemaType) extends Property
-
-
-// TODO: pointer is a JSONSPointer, see http://tools.ietf.org/html/draft-pbryan-zyp-json-pointer-02
-final case class RefAttribute(pointer: String, isRemote: Boolean = false) extends Property {
-  override def name: String = "$ref"
-  override def schemaType: SchemaType = SchemaValue(JsString(pointer))
-}
+case class SchemaAttribute(name: String, schemaType: SchemaType)
 
 

@@ -1,8 +1,6 @@
 package com.eclipsesource.schema.internal.refs
 
 import java.net.URI
-
-import com.eclipsesource.schema.{RefAttribute, SchemaType}
 import play.api.libs.json.JsPath
 
 import scala.util.Try
