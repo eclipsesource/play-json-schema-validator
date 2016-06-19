@@ -295,4 +295,29 @@ class SchemaValidatorSpec extends PlaySpecification {
       )
     ).isError must beTrue
   }
+
+  "merge properties with oneOf sub-schemas (#54)" in {
+    val schema = JsonSource.schemaFromString(
+      """
+        |{
+        |    "type" : "object",
+        |    "properties" : {
+        |        "name" : { "type": "string"},
+        |        "name2": { "type": "string"}
+        |    },
+        |    "oneOf" : [
+        |        {
+        |            "required": ["name"]
+        |        },
+        |        {
+        |            "required": ["name2"]
+        |        }
+        |    ]
+        |}
+      """.stripMargin).get
+    val result = SchemaValidator().validate(schema)(Json.obj())
+    result must beLike {
+      case JsError(errors) => errors.head._2.head.message must beEqualTo(s"Instance does not match any schema")
+    }
+  }
 }

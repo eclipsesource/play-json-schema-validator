@@ -50,7 +50,7 @@ package object schema
               val updatedContext  = resolutionContext.updateScope(_.copy(schemaPath =  JsPath \ refValue.getOrElse("#")))
               Results.merge(
                 resolved.validate(json, updatedContext),
-                AnyConstraintValidator.validate(json, resolved.constraints.any, updatedContext)
+                AnyConstraintValidator.validate(json, resolved, updatedContext)
               )
           }
 
@@ -104,7 +104,7 @@ package object schema
     def validateConstraints(json: => JsValue, resolutionContext: SchemaResolutionContext)(implicit validator: SchemaTypeValidator[S]): VA[JsValue] = {
       Results.merge(
         validator.validate(schemaType, json, resolutionContext),
-        AnyConstraintValidator.validate(json, schemaType.constraints.any, resolutionContext)
+        AnyConstraintValidator.validate(json, schemaType, resolutionContext)
       )
     }
   }

@@ -1,8 +1,8 @@
 package com.eclipsesource.schema.internal.validators
 
+import com.eclipsesource.schema.{SchemaObject, SchemaType}
 import com.eclipsesource.schema.internal.SchemaRefResolver.SchemaResolutionContext
 import com.eclipsesource.schema.internal._
-import com.eclipsesource.schema.internal.constraints.Constraints.AnyConstraint
 import com.eclipsesource.schema.internal.validation.{Rule, VA}
 import play.api.libs.json._
 
@@ -10,21 +10,21 @@ import scalaz.{Failure, Success}
 
 object AnyConstraintValidator {
 
-  def validate(json: JsValue, any: AnyConstraint, resolutionContext: SchemaResolutionContext): VA[JsValue] = {
-    val reader: scalaz.Reader[(AnyConstraint, SchemaResolutionContext), Rule[JsValue, JsValue]] = for {
+  def validate(json: JsValue, schema: SchemaType, resolutionContext: SchemaResolutionContext): VA[JsValue] = {
+    val reader: scalaz.Reader[(SchemaType, SchemaResolutionContext), Rule[JsValue, JsValue]] = for {
       allOfRule <- validateAllOf
       anyOfRule <- validateAnyOf
       oneOfRule <- validateOneOf
       enumRule  <- validateEnum
       notRule   <- validateNot
     } yield allOfRule |+| anyOfRule |+| oneOfRule |+| enumRule |+| notRule
-    reader.run((any, resolutionContext)).repath(_.compose(resolutionContext.instancePath)).validate(json)
+    reader.run((schema, resolutionContext)).repath(_.compose(resolutionContext.instancePath)).validate(json)
   }
 
-  def validateNot: scalaz.Reader[(AnyConstraint, SchemaResolutionContext), Rule[JsValue, JsValue]] =
-    scalaz.Reader { case (any ,context) =>
+  def validateNot: scalaz.Reader[(SchemaType, SchemaResolutionContext), Rule[JsValue, JsValue]] =
+    scalaz.Reader { case (schema ,context) =>
       Rule.fromMapping { json =>
-        any.not.map(schema =>
+        schema.constraints.any.not.map(schema =>
           if (schema.validate(json, context).isFailure) {
             Success(json)
           } else {
@@ -39,37 +39,14 @@ object AnyConstraintValidator {
       }
     }
 
-  private def collectFailures(results: Seq[VA[JsValue]], prefix: String): JsObject = {
 
-    def repath(prefix: String)(obj: JsObject): JsObject = {
-      val fields = obj.fields.map {
-        case ("schemaPath", JsString(schemaPath)) if schemaPath.startsWith("#") => ("schemaPath", JsString(s"#$prefix${schemaPath.drop(1)}"))
-        case ("schemaPath", JsString(schemaPath)) => ("schemaPath", JsString(s"$prefix$schemaPath"))
-        case field => field
-      }
-      JsObject(fields)
-    }
-
-    results.zipWithIndex.foldLeft(Json.obj()) {
-      case (obj, (Failure(errors), idx)) =>
-        // TODO: why distinct?
-        obj ++ Json.obj(s"$prefix/$idx" ->
-          JsArray(
-            SchemaUtil.toJson(errors.distinct).value.map {
-              case obj: JsObject => repath(s"$prefix/$idx")(obj)
-              case js => js
-            }
-          ))
-      case (obj, _) => obj
-    }
-  }
-
-  def validateAllOf: scalaz.Reader[(AnyConstraint, SchemaResolutionContext), Rule[JsValue, JsValue]] =
-    scalaz.Reader { case (any, context) =>
+  def validateAllOf: scalaz.Reader[(SchemaType, SchemaResolutionContext), Rule[JsValue, JsValue]] =
+    scalaz.Reader { case (schema, context) =>
       Rule.fromMapping { json =>
-        any.allOf.map(
+        schema.constraints.any.allOf.map(
           schemas => {
-            val allValidationResults: Seq[VA[JsValue]] = schemas.map(_.validate(json, context))
+            val mergedSchemas = mergeSchemas(schema, schemas)
+            val allValidationResults: Seq[VA[JsValue]] = mergedSchemas.map(_.validate(json, context))
             val allMatch = allValidationResults.forall(_.isSuccess)
             if (allMatch) {
               Success(json)
@@ -87,12 +64,13 @@ object AnyConstraintValidator {
       }
     }
 
-  def validateAnyOf: scalaz.Reader[(AnyConstraint, SchemaResolutionContext), Rule[JsValue, JsValue]] =
-    scalaz.Reader { case (any, context) =>
+  def validateAnyOf: scalaz.Reader[(SchemaType, SchemaResolutionContext), Rule[JsValue, JsValue]] =
+    scalaz.Reader { case (schema, context) =>
       Rule.fromMapping { json =>
-        any.anyOf.map(
+        schema.constraints.any.anyOf.map(
           schemas => {
-            val allValidationResults: Seq[VA[JsValue]] = schemas.map(_.validate(json, context))
+            val mergedSchemas = mergeSchemas(schema, schemas)
+            val allValidationResults: Seq[VA[JsValue]] = mergedSchemas.map(_.validate(json, context))
             val maybeSuccess = allValidationResults.find(_.isSuccess)
             maybeSuccess.map(success => Success(json)).getOrElse {
               failure(
@@ -108,13 +86,14 @@ object AnyConstraintValidator {
       }
     }
 
-  def validateOneOf: scalaz.Reader[(AnyConstraint, SchemaResolutionContext), Rule[JsValue, JsValue]] =
-    scalaz.Reader { case (any, context) =>
-      Rule.fromMapping { json =>
-        any.oneOf.map(
-          schemas => {
 
-            val allValidationResults = schemas.map(_.validate(json, context))
+  def validateOneOf: scalaz.Reader[(SchemaType, SchemaResolutionContext), Rule[JsValue, JsValue]] =
+    scalaz.Reader { case (schema, context) =>
+      Rule.fromMapping { json =>
+        schema.constraints.any.oneOf.map(
+          schemas => {
+            val mergedSchemas = mergeSchemas(schema, schemas)
+            val allValidationResults = mergedSchemas.map(_.validate(json, context))
             allValidationResults.count(_.isSuccess) match {
               case 0 =>
                 failure(
@@ -144,9 +123,9 @@ object AnyConstraintValidator {
       }
     }
 
-  def validateEnum: scalaz.Reader[(AnyConstraint, SchemaResolutionContext), Rule[JsValue, JsValue]] = {
-    scalaz.Reader { case (any, context) =>
-      val enums = any.enum
+  def validateEnum: scalaz.Reader[(SchemaType, SchemaResolutionContext), Rule[JsValue, JsValue]] = {
+    scalaz.Reader { case (schema, context) =>
+      val enums = schema.constraints.any.enum
       Rule.fromMapping { json =>
         enums match {
           case Some(values) if values.contains(json) => Success(json)
@@ -164,5 +143,42 @@ object AnyConstraintValidator {
         }
       }
     }
+  }
+
+
+  private def collectFailures(results: Seq[VA[JsValue]], prefix: String): JsObject = {
+
+    def repath(prefix: String)(obj: JsObject): JsObject = {
+      val fields = obj.fields.map {
+        case ("schemaPath", JsString(schemaPath)) if schemaPath.startsWith("#") => ("schemaPath", JsString(s"#$prefix${schemaPath.drop(1)}"))
+        case ("schemaPath", JsString(schemaPath)) => ("schemaPath", JsString(s"$prefix$schemaPath"))
+        case field => field
+      }
+      JsObject(fields)
+    }
+
+    results.zipWithIndex.foldLeft(Json.obj()) {
+      case (obj, (Failure(errors), idx)) =>
+        // TODO: why distinct?
+        obj ++ Json.obj(s"$prefix/$idx" ->
+          JsArray(
+            SchemaUtil.toJson(errors.distinct).value.map {
+              case obj: JsObject => repath(s"$prefix/$idx")(obj)
+              case js => js
+            }
+          ))
+      case (obj, _) => obj
+    }
+  }
+
+  private def mergeSchemas(schema: SchemaType, subSchemas: Seq[SchemaType]): Seq[SchemaType]  = schema match {
+    case obj: SchemaObject =>
+      subSchemas.map {
+        _ match {
+          case otherObj: SchemaObject => otherObj.copy(properties = obj.properties ++ otherObj.properties)
+          case other => other
+        }
+      }
+    case _ => subSchemas
   }
 }
