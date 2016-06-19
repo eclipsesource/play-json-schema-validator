@@ -1,15 +1,16 @@
 package com.eclipsesource.schema.internal.validators
 
 import com.eclipsesource.schema._
+import com.eclipsesource.schema.internal.Results
+import com.eclipsesource.schema.internal.SchemaRefResolver._
 import com.eclipsesource.schema.internal.validation.VA
-import com.eclipsesource.schema.internal.{ResolutionContext, Results}
 import play.api.libs.json.{JsArray, JsBoolean, JsValue}
 
 import scalaz.{Failure, Success}
 
 object TupleValidator extends SchemaTypeValidator[SchemaTuple] with ArrayConstraintValidator {
 
-  override def validate(schema: SchemaTuple, json: => JsValue, context: ResolutionContext): VA[JsValue] = json match {
+  override def validate(schema: SchemaTuple, json: => JsValue, context: SchemaResolutionContext): VA[JsValue] = json match {
     case JsArray(values) =>
       val instanceSize = values.size
       val schemaSize = schema.items.size

@@ -4,7 +4,7 @@ import java.text.BreakIterator
 import java.util.regex.Pattern
 
 import com.eclipsesource.schema.SchemaString
-import com.eclipsesource.schema.internal.ResolutionContext
+import com.eclipsesource.schema.internal.SchemaRefResolver._
 import com.eclipsesource.schema.internal.constraints.Constraints.StringConstraints
 import com.eclipsesource.schema.internal.validation.{Rule, VA}
 import play.api.libs.json.{JsString, JsValue}
@@ -13,7 +13,7 @@ import scalaz.Success
 
 object StringValidator extends SchemaTypeValidator[SchemaString] {
 
-  def validate(schema: SchemaString, json: => JsValue, context: ResolutionContext): VA[JsValue] = {
+  def validate(schema: SchemaString, json: => JsValue, context: SchemaResolutionContext): VA[JsValue] = {
     val reader = for {
       minLength <- validateMinLength
       maxLength <- validateMaxLength
@@ -25,7 +25,7 @@ object StringValidator extends SchemaTypeValidator[SchemaString] {
       .validate(json)
   }
 
-  val validatePattern: scalaz.Reader[(StringConstraints, ResolutionContext), Rule[JsValue, JsValue]] =
+  val validatePattern: scalaz.Reader[(StringConstraints, SchemaResolutionContext), Rule[JsValue, JsValue]] =
     scalaz.Reader { case (constraints, context) =>
       val format: Option[String] = constraints.pattern
       Rule.fromMapping {
@@ -48,7 +48,7 @@ object StringValidator extends SchemaTypeValidator[SchemaString] {
       }
     }
 
-  val validateMinLength: scalaz.Reader[(StringConstraints, ResolutionContext), Rule[JsValue, JsValue]] =
+  val validateMinLength: scalaz.Reader[(StringConstraints, SchemaResolutionContext), Rule[JsValue, JsValue]] =
     scalaz.Reader { case (constraints, context) =>
       val minLength = constraints.minLength.getOrElse(0)
       Rule.fromMapping {
@@ -66,7 +66,7 @@ object StringValidator extends SchemaTypeValidator[SchemaString] {
       }
     }
 
-  val validateMaxLength: scalaz.Reader[(StringConstraints, ResolutionContext), Rule[JsValue, JsValue]] =
+  val validateMaxLength: scalaz.Reader[(StringConstraints, SchemaResolutionContext), Rule[JsValue, JsValue]] =
     scalaz.Reader { case (constraints, context) =>
       val maxLength = constraints.maxLength
       Rule.fromMapping {
@@ -88,7 +88,7 @@ object StringValidator extends SchemaTypeValidator[SchemaString] {
     }
 
 
-  val validateFormat: scalaz.Reader[(StringConstraints, ResolutionContext), Rule[JsValue, JsValue]] =
+  val validateFormat: scalaz.Reader[(StringConstraints, SchemaResolutionContext), Rule[JsValue, JsValue]] =
     scalaz.Reader { case (constraints, context) =>
 
       val format = for {
@@ -118,7 +118,7 @@ object StringValidator extends SchemaTypeValidator[SchemaString] {
       }
     }
 
-  private def unknownFormat(json: JsValue, context: ResolutionContext, format: String) =
+  private def unknownFormat(json: JsValue, context: SchemaResolutionContext, format: String) =
     failure(
       s"Unknown format $format",
       context.schemaPath,
