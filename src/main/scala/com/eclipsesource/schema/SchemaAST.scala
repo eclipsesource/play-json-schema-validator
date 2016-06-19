@@ -1,10 +1,7 @@
 package com.eclipsesource.schema
 
-import com.eclipsesource.schema.internal.Keywords
 import com.eclipsesource.schema.internal.constraints.Constraints._
 import play.api.libs.json._
-
-import scala.util.Try
 
 
 trait Resolvable {
@@ -19,31 +16,19 @@ sealed trait HasId {
   def id: Option[String]
 }
 
-sealed trait PrimitiveSchemaType extends SchemaType with Resolvable {
+sealed trait PrimitiveSchemaType extends SchemaType {
   def resolvePath(path: String): Option[SchemaType] = constraints.resolvePath(path)
 }
 
-final case class SchemaValue(value: JsValue) extends SchemaType with Resolvable {
+final case class SchemaValue(value: JsValue) extends SchemaType {
   override def constraints: HasAnyConstraint = NoConstraints()
-
-  override def resolvePath(path: String): Option[SchemaType] = (value, path) match {
-    case (arr: JsArray, index) if Try { index.toInt }.isSuccess =>
-      val idx = index.toInt
-      if (idx > 0 && idx < arr.value.size){
-        Some(SchemaValue(arr.value(idx)))
-      } else {
-        None
-      }
-    case other => None
-  }
 }
 
-sealed trait SchemaArrayLike extends SchemaType with HasId with Resolvable {
-  //  def schemaTypes: Seq[SchemaType]
+sealed trait SchemaArrayLike extends SchemaType with HasId {
   def items: Seq[SchemaType]
 }
 
-sealed trait SchemaObjectLike extends SchemaType with Resolvable {
+sealed trait SchemaObjectLike extends SchemaType {
   def properties: Seq[SchemaAttribute]
 }
 
@@ -60,54 +45,19 @@ final case class SchemaObject(properties: Seq[SchemaAttribute] = Seq.empty,
   extends HasId with SchemaObjectLike {
 
   override def toString: String = "object"
-
-  override def resolvePath(attributeName: String): Option[SchemaType] = {
-    attributeName match {
-      case Keywords.Object.Properties => Some(this)
-      case other => properties.find(_.name == other).map(_.schemaType).fold(
-        constraints.resolvePath(attributeName)
-      )(Some(_))
-    }
-  }
 }
 
 final case class SchemaTuple(items: Seq[SchemaType],
                              constraints: ArrayConstraints = ArrayConstraints(),
-                             id: Option[String] = None)
-  extends SchemaArrayLike {
-
+                             id: Option[String] = None) extends SchemaArrayLike {
   override def toString: String = "tuple"
-
-  override def resolvePath(index: String): Option[SchemaType] = {
-
-    def isValidIndex(idx: String) = {
-      Try {
-        val n = idx.toInt
-        n <= items.size && n >= 0
-      }.toOption.getOrElse(false)
-    }
-
-    index match {
-      case Keywords.Array.Items => Some(this)
-      case idx if isValidIndex(idx) => Some(items(idx.toInt))
-      case other => constraints.resolvePath(other)
-    }
-  }
 }
 
 final case class SchemaArray(item:  SchemaType,
                              constraints: ArrayConstraints = ArrayConstraints(),
-                             id: Option[String] = None)
-  extends SchemaArrayLike {
-
+                             id: Option[String] = None) extends SchemaArrayLike {
   override def toString: String = "array"
-
   def items = Seq(item)
-
-  def resolvePath(path: String): Option[SchemaType] = path match {
-    case Keywords.Array.Items => Some(item)
-    case other => constraints.resolvePath(other)
-  }
 }
 
 final case class SchemaString(constraints: StringConstraints = StringConstraints()) extends PrimitiveSchemaType {
