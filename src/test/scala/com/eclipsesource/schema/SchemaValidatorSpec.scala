@@ -305,6 +305,10 @@ class SchemaValidatorSpec extends PlaySpecification {
         |        "name" : { "type": "string"},
         |        "name2": { "type": "string"}
         |    },
+        |    "enum": [
+        |        { "name":  "foo" },
+        |        { "name2": "bar" }
+        |    ],
         |    "oneOf" : [
         |        {
         |            "required": ["name"]
@@ -315,9 +319,26 @@ class SchemaValidatorSpec extends PlaySpecification {
         |    ]
         |}
       """.stripMargin).get
-    val result = SchemaValidator().validate(schema)(Json.obj())
-    result must beLike {
+    val validator = SchemaValidator()
+
+    // invalid since empty object matches no schema
+    validator.validate(schema)(Json.obj()) must beLike {
       case JsError(errors) => errors.head._2.head.message must beEqualTo(s"Instance does not match any schema")
     }
+
+    // invalid since object with both fields matches both schemas
+    validator.validate(schema)(Json.obj("name" -> "foo", "name2" -> "bar")) must beLike {
+      case JsError(errors) => errors.head._2.head.message must beEqualTo(s"Instance matches more than one schema")
+    }
+
+    // valid with name field
+    validator.validate(schema)(Json.obj("name" -> "foo")).isSuccess must beTrue
+
+    // valid with name2 field
+    validator.validate(schema)(Json.obj("name2" -> "bar")).isSuccess must beTrue
+
+    // invalid because not listed in enum
+    val result = validator.validate(schema)(Json.obj("name" -> "quux"))
+    result.isError must beTrue
   }
 }
