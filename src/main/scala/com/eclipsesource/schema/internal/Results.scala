@@ -1,5 +1,6 @@
 package com.eclipsesource.schema.internal
 
+import com.eclipsesource.schema.internal.SchemaRefResolver.SchemaResolutionContext
 import com.eclipsesource.schema.internal.validation.VA
 import play.api.data.validation.ValidationError
 import play.api.libs.json._
@@ -19,7 +20,7 @@ object Results {
     }
   }
 
-  def aggregateAsObject(validatedProps: Seq[(String, VA[JsValue])], context: ResolutionContext): VA[JsValue] = {
+  def aggregateAsObject(validatedProps: Seq[(String, VA[JsValue])], context: SchemaResolutionContext): VA[JsValue] = {
     validatedProps.foldLeft[VA[JsValue]](Success(Json.obj()))((va, result) => (va, result._2) match {
       case (Success(_), f@Failure(err)) => f
       case (f@Failure(_), Success(_)) => f
@@ -28,9 +29,7 @@ object Results {
     })
   }
 
-  def success(prop: (String, JsValue)): PropertyValidationResult = {
-    prop._1 -> Success(prop._2)
-  }
+  def success(prop: (String, JsValue)): PropertyValidationResult = prop._1 -> Success(prop._2)
 
   def failureWithPath(msg: String,
                       schemaPath: JsPath,

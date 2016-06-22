@@ -1,15 +1,18 @@
 package com.eclipsesource.schema.internal.validators
 
 import java.util.regex.Pattern
+
 import com.eclipsesource.schema._
+import com.eclipsesource.schema.internal.SchemaRefResolver._
 import com.eclipsesource.schema.internal._
 import com.eclipsesource.schema.internal.validation.VA
 import play.api.libs.json._
-import scalaz.{Success, ReaderWriterState}
+
+import scalaz.{ReaderWriterState, Success}
 
 object ObjectValidator extends SchemaTypeValidator[SchemaObject] {
 
-  override def validate(schema: SchemaObject, json: => JsValue, context: ResolutionContext): VA[JsValue] = json match {
+  override def validate(schema: SchemaObject, json: => JsValue, context: SchemaResolutionContext): VA[JsValue] = json match {
     case jsObject@JsObject(props) =>
       val validation = for {
         updatedSchema <- validateDependencies(schema, jsObject)
@@ -93,7 +96,7 @@ object ObjectValidator extends SchemaTypeValidator[SchemaObject] {
 
   private def validateAdditionalProps(schema: SchemaObject, unmatchedFields: Props): ValidationStep[Unit] = {
 
-    def validateUnmatched(schemaType: SchemaType, context: ResolutionContext): VA[JsValue] = {
+    def validateUnmatched(schemaType: SchemaType, context: SchemaResolutionContext): VA[JsValue] = {
       val validated = unmatchedFields.map { attr =>
         attr._1 -> schemaType.validate(
           attr._2,
@@ -144,7 +147,7 @@ object ObjectValidator extends SchemaTypeValidator[SchemaObject] {
       }
     }
 
-    def validatePropertyDependency(propName: String, dependencies: Seq[String], context: ResolutionContext): VA[JsValue] = {
+    def validatePropertyDependency(propName: String, dependencies: Seq[String], context: SchemaResolutionContext): VA[JsValue] = {
 
       // check if property is present at all
       val mandatoryProps = obj.fields.find(_._1 == propName)
@@ -182,7 +185,7 @@ object ObjectValidator extends SchemaTypeValidator[SchemaObject] {
     }
   }
 
-  def validateMaxProperties(schema: SchemaObject, json: JsObject): ReaderWriterState[ResolutionContext, Unit, VA[JsValue], Unit] = {
+  def validateMaxProperties(schema: SchemaObject, json: JsObject): ReaderWriterState[SchemaResolutionContext, Unit, VA[JsValue], Unit] = {
     ReaderWriterState { (context, status) =>
       val size = json.fields.size
       val result: VA[JsValue] = schema.constraints.maxProperties match {
@@ -202,7 +205,7 @@ object ObjectValidator extends SchemaTypeValidator[SchemaObject] {
     }
   }
 
-  def validateMinProperties(schema: SchemaObject, json: JsObject): ReaderWriterState[ResolutionContext, Unit, VA[JsValue], Unit] = {
+  def validateMinProperties(schema: SchemaObject, json: JsObject): ReaderWriterState[SchemaResolutionContext, Unit, VA[JsValue], Unit] = {
     ReaderWriterState { (context, status) =>
       val size = json.fields.size
       val result: VA[JsValue] = schema.constraints.minProperties match {

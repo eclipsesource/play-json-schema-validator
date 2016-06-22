@@ -198,4 +198,147 @@ class SchemaValidatorSpec extends PlaySpecification {
       """Could not resolve ref #/does/not/exist"""
     )}
   }
+
+  "validate object with arbitrary properties of type string" in {
+    val schema = JsonSource.schemaFromString(
+      """{
+        |  "properties": {
+        |    "parameters": {
+        |      "patternProperties": {
+        |        ".*": {"type": "string"}
+        |      }
+        |    }
+        | }
+        |}""".stripMargin).get
+    val validator = SchemaValidator()
+
+    validator.validate(schema,
+      Json.obj(
+        "parameters" -> Json.obj(
+          "param1" -> "bar",
+          "param2" -> "foo"
+        )
+      )
+    ).isSuccess must beTrue
+
+    validator.validate(schema,
+      Json.obj(
+        "parameters" -> Json.obj(
+          "param1" -> 3,
+          "param2" -> "foo"
+        )
+      )
+    ).isError must beTrue
+  }
+
+  "validate object with edges property where each entry must be an object with a single property" +
+    "of type string array" in {
+    val schema = JsonSource.schemaFromString(
+      """{
+        |  "properties": {
+        |    "edges": {
+        |      "items": {
+        |        "patternProperties": {
+        |          ".*": {
+        |            "type": "array",
+        |            "items": { "type": "string" }
+        |          }
+        |        },
+        |        "maxProperties": 1
+        |      }
+        |    }
+        |  }
+        |}""".stripMargin).get
+    val validator = SchemaValidator()
+
+    val res1 = validator.validate(schema,
+      Json.obj(
+        "edges" ->
+          Json.arr(
+            Json.obj("A" -> Json.arr("B")),
+            Json.obj("B" -> Json.arr("C", "D", "E")),
+            Json.obj("D" -> Json.arr("F", "E"))
+          )
+      )
+    )
+
+    res1.isSuccess must beTrue
+
+    val res2 = validator.validate(schema,
+      Json.obj(
+        "edges" ->
+          Json.arr(
+            Json.obj("A" -> Json.arr(3)),
+            Json.obj("B" -> Json.arr("C", "D", "E"))
+          )
+      )
+    )
+
+    res2.isError must beTrue
+
+    validator.validate(schema,
+      Json.obj(
+        "edges" ->
+          Json.arr(
+            Json.obj(
+              "A" -> Json.arr("C", "D", "E"),
+              "B" -> 3
+            )
+          )
+      )
+    ).isError must beTrue
+
+    validator.validate(schema,
+      Json.obj(
+        "edges" ->
+          Json.arr(Json.obj("B" -> 3))
+      )
+    ).isError must beTrue
+  }
+
+  "merge properties with oneOf sub-schemas (#54)" in {
+    val schema = JsonSource.schemaFromString(
+      """
+        |{
+        |    "type" : "object",
+        |    "properties" : {
+        |        "name" : { "type": "string"},
+        |        "name2": { "type": "string"}
+        |    },
+        |    "enum": [
+        |        { "name":  "foo" },
+        |        { "name2": "bar" }
+        |    ],
+        |    "oneOf" : [
+        |        {
+        |            "required": ["name"]
+        |        },
+        |        {
+        |            "required": ["name2"]
+        |        }
+        |    ]
+        |}
+      """.stripMargin).get
+    val validator = SchemaValidator()
+
+    // invalid since empty object matches no schema
+    validator.validate(schema)(Json.obj()) must beLike {
+      case JsError(errors) => errors.head._2.head.message must beEqualTo(s"Instance does not match any schema")
+    }
+
+    // invalid since object with both fields matches both schemas
+    validator.validate(schema)(Json.obj("name" -> "foo", "name2" -> "bar")) must beLike {
+      case JsError(errors) => errors.head._2.head.message must beEqualTo(s"Instance matches more than one schema")
+    }
+
+    // valid with name field
+    validator.validate(schema)(Json.obj("name" -> "foo")).isSuccess must beTrue
+
+    // valid with name2 field
+    validator.validate(schema)(Json.obj("name2" -> "bar")).isSuccess must beTrue
+
+    // invalid because not listed in enum
+    val result = validator.validate(schema)(Json.obj("name" -> "quux"))
+    result.isError must beTrue
+  }
 }

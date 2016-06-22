@@ -2,26 +2,19 @@ package com.eclipsesource.schema
 
 import java.net.{URL, URLStreamHandler}
 
-import com.eclipsesource.schema.internal._
+import com.eclipsesource.schema.internal.SchemaRefResolver._
 import com.eclipsesource.schema.internal.url.UrlResolver
 import com.eclipsesource.schema.internal.validation.VA
 import play.api.data.validation.ValidationError
 import play.api.libs.json._
 
-import scalaz.{Failure, Success}
+import scalaz.Failure
 
 trait HasRefResolver {
-  def refResolver: RefResolver
+  def refResolver: SchemaRefResolver
 }
 
 trait CanValidate { self: HasRefResolver =>
-
-  implicit class VAExtensions[O](va: VA[O]) {
-    def toJsResult: JsResult[O] = va match {
-      case Success(s) => JsSuccess(s)
-      case Failure(errors) => JsError(errors)
-    }
-  }
 
   def validate(schemaUrl: URL, input: => JsValue): JsResult[JsValue] = {
     val schema = for {
@@ -36,14 +29,8 @@ trait CanValidate { self: HasRefResolver =>
           case container: HasId => container.id
           case _ => None
         }
-        val context = ResolutionContext(
-          refResolver,
-          ResolutionScope(schemaType, id.orElse(Some(schemaUrl.toString)), Some(schemaUrl.toString))
-        )
-        schemaType.validate(
-          input,
-          context
-        )
+        val context = new SchemaResolutionContext(refResolver, new SchemaResolutionScope(schemaType, id.orElse(Some(schemaUrl.toString)), Some(schemaUrl.toString)))
+        schemaType.validate(input, context)
     }
     result.toJsResult
   }
@@ -78,7 +65,7 @@ trait CanValidate { self: HasRefResolver =>
       case container: HasId => container.id
       case _ => None
     }
-    val context = ResolutionContext(refResolver, ResolutionScope(schema, id, id))
+    val context = new SchemaResolutionContext(refResolver, new SchemaResolutionScope(schema, id, id))
     schema.validate(
       input,
       context
@@ -145,7 +132,7 @@ trait CanValidate { self: HasRefResolver =>
 }
 
 case class SchemaValidator() extends CanValidate with HasRefResolver {
-  override val refResolver: RefResolver = new RefResolver
+  override val refResolver: SchemaRefResolver = new SchemaRefResolver
   def addUrlHandler(protocolEntry: (String, URLStreamHandler)): SchemaValidator = {
     refResolver.addUrlHandler(protocolEntry)
     this

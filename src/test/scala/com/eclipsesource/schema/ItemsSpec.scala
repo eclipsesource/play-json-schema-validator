@@ -1,6 +1,6 @@
 package com.eclipsesource.schema
 
-import com.eclipsesource.schema.internal.{RefResolver, ResolutionContext, ResolutionScope}
+import com.eclipsesource.schema.internal.SchemaRefResolver._
 import com.eclipsesource.schema.internal.validators.ArrayValidator
 import com.eclipsesource.schema.test.JsonSpec
 import org.specs2.mutable.Specification
@@ -35,7 +35,7 @@ class ItemsSpec extends Specification with JsonSpec {
         |    "minimum": 3
         |  }
         |}""".stripMargin).get.asInstanceOf[SchemaArray]
-    val context = new ResolutionContext(new RefResolver, new ResolutionScope(schema))
+    val context = new SchemaResolutionContext(new SchemaRefResolver, new SchemaResolutionScope(schema))
     val result = ArrayValidator.validate(schema, JsNumber(2), context)
     result.isFailure must beTrue
   }

@@ -1,17 +1,29 @@
 package com.eclipsesource.schema
 
+import com.eclipsesource.schema.internal.SchemaRefResolver.SchemaResolutionContext
 import com.eclipsesource.schema.internal.validation.VA
+import play.api.data.validation.ValidationError
 import play.api.libs.json._
 
+import scala.util.{Failure, Success, Try}
 import scalaz.{ReaderWriterState, Semigroup}
-
-
 
 package object internal {
 
   // provide semigroup for unit for use with ReaderWriterState
   implicit def UnitSemigroup: Semigroup[Unit] = new Semigroup[Unit] {
     override def append(f1: Unit, f2: => Unit): Unit = ()
+  }
+
+  implicit class TryExtensions[A](t: Try[A]) {
+    def toEither: Either[ValidationError, A] =  t match {
+      case Success(result) => Right(result)
+      case Failure(throwable) => Left(ValidationError(throwable.getMessage))
+    }
+  }
+
+  implicit class EitherExtensions[A, B](either: Either[A, B]) {
+    def toOption: Option[B] = either.fold[Option[B]](_ => None, Some(_))
   }
 
   /**
@@ -22,7 +34,7 @@ package object internal {
    * - value
    */
 
-  type ValidationStep[A] = ReaderWriterState[ResolutionContext, Unit, VA[JsValue], A]
+  type ValidationStep[A] = ReaderWriterState[SchemaResolutionContext, Unit, VA[JsValue], A]
   type Props = Seq[(String, JsValue)]
   type PropertyValidationResult = (String, VA[JsValue])
   type ValidProperties = Seq[(String, JsValue)]

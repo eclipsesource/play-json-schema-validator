@@ -1,15 +1,16 @@
 package com.eclipsesource.schema.internal.validators
 
-import com.eclipsesource.schema.internal.validation.Rule
-import com.eclipsesource.schema.internal.{ResolutionContext, SchemaUtil}
+import com.eclipsesource.schema.internal.SchemaRefResolver.SchemaResolutionContext
+import com.eclipsesource.schema.internal.SchemaUtil
 import com.eclipsesource.schema.internal.constraints.Constraints.{Maximum, Minimum, NumberConstraints}
+import com.eclipsesource.schema.internal.validation.Rule
 import play.api.libs.json.{JsNumber, JsValue}
 
 import scalaz.Success
 
 trait NumberConstraintsValidator {
 
-  val validateMin: scalaz.Reader[(NumberConstraints, ResolutionContext), Rule[JsValue, JsValue]] = {
+  val validateMin: scalaz.Reader[(NumberConstraints, SchemaResolutionContext), Rule[JsValue, JsValue]] = {
 
     def isValid(n: JsNumber, minConstraint: Minimum) = {
       if (minConstraint.isExclusive.getOrElse(false)) {
@@ -43,7 +44,7 @@ trait NumberConstraintsValidator {
     }
   }
 
-  val validateMax: scalaz.Reader[(NumberConstraints, ResolutionContext), Rule[JsValue, JsValue]] = {
+  val validateMax: scalaz.Reader[(NumberConstraints, SchemaResolutionContext), Rule[JsValue, JsValue]] = {
 
     def isValid(n: JsNumber, maxConstraint: Maximum) = {
       if (maxConstraint.isExclusive.getOrElse(false)) {
@@ -77,7 +78,7 @@ trait NumberConstraintsValidator {
     }
   }
 
-  val validateMultipleOf: scalaz.Reader[(NumberConstraints, ResolutionContext), Rule[JsValue, JsValue]] =
+  val validateMultipleOf: scalaz.Reader[(NumberConstraints, SchemaResolutionContext), Rule[JsValue, JsValue]] =
     scalaz.Reader { case (constraints, context) =>
       Rule.fromMapping[JsValue, JsValue] {
         case number@JsNumber(n) => constraints.multipleOf match {
@@ -98,7 +99,7 @@ trait NumberConstraintsValidator {
       }
     }
 
-  private def expectedNumber(json: JsValue, context: ResolutionContext) =
+  private def expectedNumber(json: JsValue, context: SchemaResolutionContext) =
     failure(
       s"Wrong type. Expected number, was ${SchemaUtil.typeOfAsString(json)}",
       context.schemaPath,
