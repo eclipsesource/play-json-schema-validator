@@ -7,9 +7,6 @@ import scala.reflect.ClassTag
 
 /**
  * Contains all schema operations.
- *
- * Generally, schema operations fail with an exception if an error occurs, since reasonable
- * error handling in most cases isn't possible.
  */
 trait SchemaOps extends BaseSchemaOps { self =>
 

@@ -166,7 +166,7 @@ class SchemaValidatorSpec extends PlaySpecification {
     }
 
   "should resolve references on the classpath via UrlResolver" in {
-    val validator = SchemaValidator().addUrlResolver(new ClasspathUrlResolver)
+    val validator = SchemaValidator().addUrlResolver(ClasspathUrlResolver())
     // some.json references location.json within JAR
     val someJson = getClass.getResourceAsStream("/some.json")
     val schema = JsonSource.schemaFromStream(someJson)
@@ -175,8 +175,7 @@ class SchemaValidatorSpec extends PlaySpecification {
   }
 
   "should resolve references on the classpath via UrlHandler" in {
-    val validator = SchemaValidator()
-    validator.refResolver.addUrlHandler("classpath", new URLStreamHandler {
+    val validator = SchemaValidator().addUrlHandler("classpath", new URLStreamHandler {
       override def openConnection(url: URL): URLConnection = {
         getClass.getResource(url.getPath).openConnection()
       }
@@ -337,8 +336,10 @@ class SchemaValidatorSpec extends PlaySpecification {
     // valid with name2 field
     validator.validate(schema)(Json.obj("name2" -> "bar")).isSuccess must beTrue
 
+
+
     // invalid because not listed in enum
-    val result = validator.validate(schema)(Json.obj("name" -> "quux"))
+    val result = SchemaValidator().validate(schema)(Json.obj("name" -> "quux"))
     result.isError must beTrue
   }
 }
