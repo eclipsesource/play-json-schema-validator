@@ -76,14 +76,6 @@ object SchemaRefResolver {
       case SchemaArray(_, _, id) => id
       case _ => None
     }
-
-    override def isResolvable(schema: SchemaType): Boolean = schema match {
-      case _: SchemaObjectLike => true
-      case _: SchemaArrayLike => true
-      case _: SchemaValue => true
-      case _: PrimitiveSchemaType => true
-      case _ => false
-    }
   }
 
   type SchemaResolutionContext = GenResolutionContext[SchemaType]

@@ -41,7 +41,7 @@ case class GenResolutionScope[A : CanHaveRef](
   def addVisited(ref: String) = copy(visited = visited + ref)
 }
 
-class GenGlobalContextCache[A : CanHaveRef] {
+case class GenGlobalContextCache[A : CanHaveRef]() {
 
   private var cache: Map[String, A] = Map()
 

@@ -5,13 +5,9 @@ import play.api.libs.json._
 
 import scala.util.Try
 
-object JsonRefResolver {
+object JsValueRefResolver {
+
   implicit val jsValueRefInstance = new CanHaveRef[JsValue] {
-    def isResolvable(json: JsValue): Boolean = json match {
-      case _: JsObject => true
-      case _: JsArray => true
-      case _ => false
-    }
     def findScopeRefinement(json: JsValue) = None
     def findRef(json: JsValue) = None
 
@@ -29,4 +25,10 @@ object JsonRefResolver {
   type JsValueResolutionContext = GenResolutionContext[JsValue]
   type JsValueResolutionScope =  GenResolutionScope[JsValue]
   type JsValueRefResolver = GenRefResolver[JsValue]
+  type Errors = ValidationError
+
+  def resolve(path: String, root: JsValue): Either[Errors, JsValue] = {
+    val resolver = new JsValueRefResolver
+    resolver.resolve(path, new JsValueResolutionScope(root))
+  }
 }

@@ -4,11 +4,8 @@ import java.net.{URL, URLStreamHandler}
 
 import com.eclipsesource.schema.internal.SchemaRefResolver._
 import com.eclipsesource.schema.internal.url.UrlResolver
-import com.eclipsesource.schema.internal.validation.VA
 import play.api.data.validation.ValidationError
 import play.api.libs.json._
-
-import scalaz.Failure
 
 trait HasRefResolver {
   def refResolver: SchemaRefResolver
@@ -16,25 +13,39 @@ trait HasRefResolver {
 
 trait CanValidate { self: HasRefResolver =>
 
+  /**
+    * Validate the given JsValue against the schema located at the given URL.
+    *
+    * @param schemaUrl an URL pointing to a schema
+    * @param input the value to be validated
+    * @return a JsResult holding the validation result
+    */
   def validate(schemaUrl: URL, input: => JsValue): JsResult[JsValue] = {
-    val schema = for {
-      schemaJson <- JsonSource.fromURL(schemaUrl).toOption
-      schema <- Json.fromJson[SchemaType](schemaJson).asOpt
-    } yield schema
 
-    val result: VA[JsValue] = schema match {
-      case None => Failure(Seq(JsPath -> Seq(ValidationError("Schema can not be parsed."))))
-      case Some(schemaType) =>
-        val id = schemaType match {
-          case container: HasId => container.id
-          case _ => None
-        }
-        val context = new SchemaResolutionContext(refResolver, new SchemaResolutionScope(schemaType, id.orElse(Some(schemaUrl.toString)), Some(schemaUrl.toString)))
-        schemaType.validate(input, context)
+    def buildContext(schema: SchemaType): SchemaResolutionContext = {
+      val id = schema match {
+        case container: HasId => container.id
+        case _ => None
+      }
+      new SchemaResolutionContext(refResolver,
+        new SchemaResolutionScope(schema, id.orElse(Some(schemaUrl.toString)), Some(schemaUrl.toString)))
     }
-    result.toJsResult
+
+    for {
+      schema <- JsonSource.schemaFromUrl(schemaUrl)
+      result <- schema.validate(input, buildContext(schema)).toJsResult
+    } yield result
   }
 
+  /**
+    * Validate the given JsValue against the schema located at the given URL
+    * and convert the result via the specified Reads instance in case
+    * it has been successful.
+    *
+    * @param schemaUrl an URL pointing to a schema
+    * @param input the value to be validated
+    * @return a JsResult holding the validation result
+    */
   def validate[A](schemaUrl: URL, input: => JsValue, reads: Reads[A]) : JsResult[A] = {
     validate(schemaUrl, input).fold(
       valid = readAndValidate(reads),
@@ -42,11 +53,27 @@ trait CanValidate { self: HasRefResolver =>
     )
   }
 
+  /**
+    * Convert the given value via the specified Writes instance to a JsValue
+    * and validate it against the schema located at the given URL.
+    *
+    * @param schemaUrl an URL pointing to a schema
+    * @param input the value to be validated
+    * @return a JsResult holding the valid result
+    */
   def validate[A](schemaUrl: URL, input: A, writes: Writes[A]): JsResult[JsValue] = {
     val inputJs = writes.writes(input)
     validate(schemaUrl, inputJs)
   }
 
+  /**
+    * Convert the given value via the specified Format instance to a JsValue,
+    * validate it against the schema at the given URL, and convert it back.
+    *
+    * @param schemaUrl an URL pointing to a schema
+    * @param input the value to be validated
+    * @return a JsResult holding the valid result
+    */
   def validate[A: Format](schemaUrl: URL, input: A): JsResult[A] = {
     val writes = implicitly[Writes[A]]
     val reads = implicitly[Reads[A]]
@@ -60,6 +87,13 @@ trait CanValidate { self: HasRefResolver =>
   // --
   //
 
+  /**
+    * Validate the given JsValue against the given schema.
+    *
+    * @param schema the schema to validate against
+    * @param input the value to be validated
+    * @return a JsResult holding the valid result
+    */
   def validate(schema: SchemaType)(input: => JsValue): JsResult[JsValue] = {
     val id = schema match {
       case container: HasId => container.id
@@ -72,6 +106,14 @@ trait CanValidate { self: HasRefResolver =>
     ).toJsResult
   }
 
+  /**
+    * Validate the given JsValue against the schema and convert the result
+    * via the specified Reads instance in case it has been successful.
+    *
+    * @param schema the schema to validate against
+    * @param input the value to be validated
+    * @return a JsResult holding the validation result
+    */
   def validate[A](schema: SchemaType, input: => JsValue, reads: Reads[A]) : JsResult[A] = {
     val result = validate(schema)(input)
     result.fold(
@@ -80,11 +122,27 @@ trait CanValidate { self: HasRefResolver =>
     )
   }
 
+  /**
+    * Convert the given value via the specified Writes instance to a JsValue
+    * and validate it against the schema.
+    *
+    * @param schema the schema to validate against
+    * @param input the value to be validated
+    * @return a JsResult holding the valid result
+    */
   def validate[A](schema: SchemaType, input: A, writes: Writes[A]): JsResult[JsValue] = {
     val inputJs = writes.writes(input)
     validate(schema)(inputJs)
   }
 
+  /**
+    * Convert the given value via the specified Format instance to a JsValue,
+    * validate it against the schema at the given URL, and convert it back.
+    *
+    * @param schema the schema to validate against
+    * @param input the value to be validated
+    * @return a JsResult holding the valid result
+    */
   def validate[A: Format](schema: SchemaType, input: A): JsResult[A] = {
     val writes = implicitly[Writes[A]]
     val reads = implicitly[Reads[A]]
@@ -131,14 +189,35 @@ trait CanValidate { self: HasRefResolver =>
   }
 }
 
-case class SchemaValidator() extends CanValidate with HasRefResolver {
-  override val refResolver: SchemaRefResolver = new SchemaRefResolver
-  def addUrlHandler(protocolEntry: (String, URLStreamHandler)): SchemaValidator = {
-    refResolver.addUrlHandler(protocolEntry)
-    this
-  }
-  def addUrlResolver(urlResolver: UrlResolver): SchemaValidator = {
-    refResolver.addUrlResolver(urlResolver)
-    this
-  }
+/**
+  * The schema validator.
+  *
+  * @param refResolver the reference resolver
+  */
+case class SchemaValidator(val refResolver: SchemaRefResolver = new SchemaRefResolver)
+  extends CanValidate with HasRefResolver {
+
+
+  /**
+    * Add a URL stream handler that is capable of handling the specified protocol.
+    *
+    * @param protocolEntry a tuple mapping the protocol type to the respective handler
+    * @return a new validator instance
+    */
+  def addUrlHandler(protocolEntry: (String, URLStreamHandler)): SchemaValidator =
+    copy(refResolver =
+      refResolver.copy(resolverFactory =
+        refResolver.resolverFactory.addUrlHandler(protocolEntry)))
+
+  /**
+    * Add a URL resolver (which is just convenience wrapper around an URLStreamHandler)
+    * that is capable of handling the specified protocol.
+    *
+    * @param urlResolver the UrlResolver to be added
+    * @return a new validator instance
+    */
+  def addUrlResolver(urlResolver: UrlResolver): SchemaValidator =
+    copy(refResolver =
+      refResolver.copy(resolverFactory =
+        refResolver.resolverFactory.addUrlResolver(urlResolver)))
 }

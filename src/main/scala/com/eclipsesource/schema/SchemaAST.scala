@@ -16,9 +16,7 @@ sealed trait HasId {
   def id: Option[String]
 }
 
-sealed trait PrimitiveSchemaType extends SchemaType {
-  def resolvePath(path: String): Option[SchemaType] = constraints.resolvePath(path)
-}
+sealed trait PrimitiveSchemaType extends SchemaType
 
 final case class SchemaValue(value: JsValue) extends SchemaType {
   override def constraints: HasAnyConstraint = NoConstraints()

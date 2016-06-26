@@ -28,14 +28,6 @@ trait CanHaveRef[A] {
   def resolve(a: A, fragment: String): Either[ValidationError, A]
 
   /**
-    * Whether the given value can contain references.
-    *
-    * @param a the value
-    * @return true, if the value can contain references, false otherwise
-    */
-  def isResolvable(a: A): Boolean
-
-  /**
     * Whether the given value has an id field which can alter resolution scope.
  *
     * @param a the instance to be checked
@@ -65,10 +57,10 @@ trait CanHaveRef[A] {
   *
   * @tparam A the type that is ought to contain references
   */
-class GenRefResolver[A : CanHaveRef : Reads] extends UrlStreamResolverFactory {
+case class GenRefResolver[A : CanHaveRef : Reads](resolverFactory: UrlStreamResolverFactory = UrlStreamResolverFactory()) {
 
+  val contextCache: GenGlobalContextCache[A] = GenGlobalContextCache[A]()
   val refTypeClass = implicitly[CanHaveRef[A]]
-  val contextCache = new GenGlobalContextCache[A]
 
   private final val WithProtocol = "^([^:\\/?]+):.+"
   private final val ProtocolPattern = WithProtocol.r.pattern
@@ -172,7 +164,7 @@ class GenRefResolver[A : CanHaveRef : Reads] extends UrlStreamResolverFactory {
     matcher.find()
     val protocol = Try { matcher.group(1).replaceAll("[^A-Za-z]+", "") }
     val triedUrl = Try(protocol match {
-      case Success(p) => new URL(null, pointer, createURLStreamHandler(p))
+      case Success(p) => new URL(null, pointer, resolverFactory.createURLStreamHandler(p))
       case Failure(_) => new URL(pointer)
     })
     triedUrl match {
@@ -207,12 +199,12 @@ class GenRefResolver[A : CanHaveRef : Reads] extends UrlStreamResolverFactory {
           result <- resolveWithUpdatedRoot(resolved).right
         } yield result
 
-      case (schema,"#") => Right(scope.documentRoot)
+      case (schema, "#") => Right(scope.documentRoot)
 
       case (schema, ref) if ref.startsWith("#") =>
         resolve(scope.documentRoot, ref.substring(math.min(2, ref.length)), scope)
 
-      case (container, fragments) if refTypeClass.isResolvable(container) =>
+      case (container, fragments) =>
         val resolved: Either[ValidationError, A] = resolveFragments(toFragments(fragments), scope, container)
         resolved.fold(_ => resolveRelative(fragments, scope), Right(_))
       case (_, _) => Right(current)
@@ -230,7 +222,7 @@ class GenRefResolver[A : CanHaveRef : Reads] extends UrlStreamResolverFactory {
   private def resolveFragments(fragments: List[String], scope: GenResolutionScope[A], a: A): Either[ValidationError, A] = {
     (fragments, a) match {
       case (Nil, result) => Right(result)
-      case (fragment :: rest, resolvable) if refTypeClass.isResolvable(resolvable) =>
+      case (fragment :: rest, resolvable) =>
         for {
           resolved <- refTypeClass.resolve(resolvable, fragment).right
           res <- resolveFragments(rest,

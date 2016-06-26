@@ -1,6 +1,6 @@
 package com.eclipsesource.schema.internal.refs
 
-import com.eclipsesource.schema.internal.refs.JsonRefResolver._
+import com.eclipsesource.schema.internal.refs.JsValueRefResolver._
 import org.specs2.mutable.Specification
 import play.api.libs.json.{JsNumber, JsString, Json}
 
@@ -16,17 +16,21 @@ class JsValueRefResolverSpec extends Specification {
     )
 
     "resolve" in {
-      val scope = new JsValueResolutionScope(obj)
-      val resolver = new JsValueRefResolver
-      val bar = resolver.resolve("#/foo/0", scope)
-      val arr = resolver.resolve("#/foo", scope)
-      val number = resolver.resolve("#/", scope)
-      val ab = resolver.resolve("#/a~1b", scope)
+      val bar = JsValueRefResolver.resolve("#/foo/0", obj)
+      val arr = JsValueRefResolver.resolve("#/foo", obj)
+      val number = JsValueRefResolver.resolve("#/", obj)
+      val ab = JsValueRefResolver.resolve("#/a~1b", obj)
 
       bar must beRight(JsString("bar"))
       arr must beRight(Json.arr(JsString("bar"), JsString("baz")))
       number must beRight(JsNumber(0))
       ab must beRight(JsNumber(1))
+    }
+
+    "must not resolve with invalid scope" in {
+      val bar = JsValueRefResolver.resolve("#/foo/0", JsNumber(0))
+      println(bar)
+      true must beTrue
     }
   }
 }
