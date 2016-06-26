@@ -9,42 +9,24 @@ If you experience any issues or have feature requests etc., please don't hesitat
 <a name="Installation">
 ## Installation
 
-First, you need to add an additional resolver to your `build.sbt` file:
+Add an additional resolver to your `build.sbt` file:
 
 ```
 resolvers += "emueller-bintray" at "http://dl.bintray.com/emueller/maven"
 ```
 
-Then, depending on the Play version you want to use, please continue with the following instructions.
+Then add the dependency:
 
-### Play 2.5.x
+```
+libraryDependencies ++= Seq(
+ "com.eclipsesource" %% "play-json-schema-validator" % "0.8.0"
+)
+```
  
-Version 0.7.0 introduced some breaking changes, since the dependency to the Unified Validation library 
-has been removed, i.e. the respective types are not part of the API anymore. This means that 
-`VA` isn't exposed anymore as well as the `toJson` acting on
-`Seq[(JsPath, Seq[ValidationError])]` instead of `Seq[(Path, Seq[ValidationError])]`.
-As a replacement for `VA` we now use [JsResult](https://www.playframework.com/documentation/2.5.x/ScalaJson#Using-validation) 
-to express the result of a schema validation, which is already part of play-json.
-
-Play 2.5.x dropped support for Scala 2.10, hence versions >= 0.7.0 are only available for Scala 2.11.
-
-```
-libraryDependencies ++= Seq(
- "com.eclipsesource" %% "play-json-schema-validator" % "0.7.0"
-)
-``` 
-
-### Play 2.4.x
-
-For, Play 2.4.x, the current version is 0.6.5, which supports Scala 2.10 and 2.11
-
-```
-libraryDependencies ++= Seq(
- "com.eclipsesource" %% "play-json-schema-validator" % "0.6.5"
-)
-``` 
  
 ## Usage
+
+*Note*: For usage instructions prior to 0.8.0, please see the wiki.
 
 Schemas can be parsed by passing the schema string to `Json.fromJson`, for instance like this:
 
@@ -59,14 +41,14 @@ Schemas can be parsed by passing the schema string to `Json.fromJson`, for insta
     }""".stripMargin)).get
 ```
 
-With a schema at hand, we can now validate `JsValue`s via the `SchemaValidator`.
+With a schema at hand, we can now validate `JsValue`s via the `SchemaValidator` (note that since 0.8.0 the validator
+is a class and not an object anymore):
 
 ```Scala 
-SchemaValidator.validate(schema, json)
+SchemaValidator().validate(schema, json)
 ```
 
-`validate` returns a `JsResult[A]`. `JsResult` can either be a `JsSuccess` or a `JsError` (*Note*: as mentioned under
-[Installation](#Installation) replace `JsResult` with `VA` for versions < 0.7.x).
+`validate` returns a `JsResult[A]`. `JsResult` can either be a `JsSuccess` or a `JsError`.
 `validate` is also provided with overloaded alternatives where Play's `Reads` or `Writes` instances can be passed additionally. 
 This is useful for mapping `JsValue`s onto case classes and vice versa:
 
@@ -91,7 +73,7 @@ result.fold(
 )
 ```
 
-Erros feature a `schemaPath`, an `instancePath`, a `value` and a `msgs` property. While `schemaPath` and `instancePath` should be self explanatory, `value` holds the validated value and `msgs` holds all errors related to the validated value. The value of the `msgs` property is always an array. Below is an example, again taken from the example app.
+Errors feature a `schemaPath`, an `instancePath`, a `value` and a `msgs` property. While `schemaPath` and `instancePath` should be self explanatory, `value` holds the validated value and `msgs` holds all errors related to the validated value. The value of the `msgs` property is always an array. Below is an example, again taken from the example app.
 
 ```Javascript
 {
