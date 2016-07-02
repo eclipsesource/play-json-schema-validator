@@ -93,7 +93,7 @@ object StringValidator extends SchemaTypeValidator[SchemaString] {
 
       val format = for {
         formatName <- constraints.format
-        f <- Formats.get(formatName)
+        f <- context.formats.get(formatName)
       } yield f
 
       Rule.fromMapping {

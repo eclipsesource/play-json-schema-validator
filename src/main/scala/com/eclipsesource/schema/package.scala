@@ -95,13 +95,14 @@ package object schema
       }
     }
 
-    def hasUnvisitedRef(schemaObject: SchemaObject, resolutionContext: SchemaResolutionContext): Boolean = {
+    private def hasUnvisitedRef(schemaObject: SchemaObject, resolutionContext: SchemaResolutionContext): Boolean = {
       resolutionContext.refResolver.refTypeClass.findRef(schemaObject)
         .map { case (_, ref) => !resolutionContext.hasBeenVisited(ref) }
         .isDefined
     }
 
-    def validateConstraints(json: => JsValue, resolutionContext: SchemaResolutionContext)(implicit validator: SchemaTypeValidator[S]): VA[JsValue] = {
+    private[schema] def validateConstraints(json: => JsValue, resolutionContext: SchemaResolutionContext)
+                                   (implicit validator: SchemaTypeValidator[S]): VA[JsValue] = {
       Results.merge(
         validator.validate(schemaType, json, resolutionContext),
         AnyConstraintValidator.validate(json, schemaType, resolutionContext)

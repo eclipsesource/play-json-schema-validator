@@ -1,13 +1,11 @@
 package com.eclipsesource.schema.internal.refs
 
-import com.eclipsesource.schema.internal.refs.JsValueRefResolver._
 import org.specs2.mutable.Specification
 import play.api.libs.json.{JsNumber, JsString, Json}
 
 class JsValueRefResolverSpec extends Specification {
 
   "JsValueRefResolver" should {
-
 
     val obj = Json.obj(
       "foo" -> Json.arr("bar", "baz"),
@@ -28,9 +26,20 @@ class JsValueRefResolverSpec extends Specification {
     }
 
     "must not resolve with invalid scope" in {
-      val bar = JsValueRefResolver.resolve("#/foo/0", JsNumber(0))
-      println(bar)
-      true must beTrue
+      JsValueRefResolver.resolve("#/foo/0", JsNumber(0)) must beLeft
     }
+
+//    "must resolve relative refs" in {
+//      val sample = Json.obj(
+//        "foo" -> Json.arr("bar", "baz"),
+//        "highly" -> Json.obj(
+//          "nested" -> Json.obj(
+//            "objects" -> "true"
+//          )
+//        )
+//      )
+//
+//      JsValueRefResolver.resolveRelative("0", "#/foo/1", sample) must beRight(JsString("baz"))
+//    }
   }
 }
