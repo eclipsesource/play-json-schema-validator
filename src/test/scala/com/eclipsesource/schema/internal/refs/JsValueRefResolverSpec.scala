@@ -27,10 +27,5 @@ class JsValueRefResolverSpec extends Specification {
       ab must beRight(JsNumber(1))
     }
 
-    "must not resolve with invalid scope" in {
-      val bar = JsValueRefResolver.resolve("#/foo/0", JsNumber(0))
-      println(bar)
-      true must beTrue
-    }
   }
 }
