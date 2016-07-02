@@ -2,8 +2,9 @@ package com.eclipsesource.schema.internal
 
 import com.eclipsesource.schema._
 import com.eclipsesource.schema.internal.refs.{GenResolutionScope, GenResolutionContext, CanHaveRef, GenRefResolver}
+import com.eclipsesource.schema.internal.validators.DefaultFormats
 import play.api.data.validation.ValidationError
-import play.api.libs.json._
+import play.api.libs.json.{JsString, JsArray}
 
 import scala.util.Try
 
@@ -78,7 +79,13 @@ object SchemaRefResolver {
     }
   }
 
-  type SchemaResolutionContext = GenResolutionContext[SchemaType]
+  case class SchemaResolutionContext(val refResolver: SchemaRefResolver,
+                                     val scope: SchemaResolutionScope,
+                                     formats: Map[String, SchemaStringFormat] = DefaultFormats.formats) extends GenResolutionContext[SchemaType] {
+    def updateScope(scopeUpdateFn: SchemaResolutionScope => SchemaResolutionScope): SchemaResolutionContext =
+      copy(scope = scopeUpdateFn(scope))
+    def updateResolutionScope(schema: SchemaType) = copy(scope = refResolver.updateResolutionScope(scope, schema))
+  }
   type SchemaResolutionScope = GenResolutionScope[SchemaType]
   type SchemaRefResolver = GenRefResolver[SchemaType]
 }

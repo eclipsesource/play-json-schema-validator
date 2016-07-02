@@ -5,16 +5,12 @@ import play.api.libs.json.JsPath
 
 import scala.util.Try
 
-case class GenResolutionContext[A : CanHaveRef](
-                                                 refResolver: GenRefResolver[A],
-                                                 scope: GenResolutionScope[A]
-                           ) {
+trait GenResolutionContext[A] {
+  def refResolver: GenRefResolver[A]
+  def scope: GenResolutionScope[A]
   def schemaPath = scope.schemaPath
   def instancePath = scope.instancePath
-  def hasBeenVisited = scope.visited.contains _
-  def updateScope(scopeUpdateFn: GenResolutionScope[A] => GenResolutionScope[A]): GenResolutionContext[A] =
-    copy(scope = scopeUpdateFn(scope))
-  def updateResolutionScope(a: A) = copy(scope = refResolver.updateResolutionScope(scope, a))
+  val hasBeenVisited = scope.visited.contains _
   def documentRoot = scope.documentRoot
   def currentId = scope.id
   def isRootScope = scope.isRootScope

@@ -3,15 +3,20 @@ package com.eclipsesource.schema
 import java.net.{URL, URLStreamHandler}
 
 import com.eclipsesource.schema.internal.SchemaRefResolver._
-import com.eclipsesource.schema.internal.url.UrlResolver
+import com.eclipsesource.schema.internal.validators.DefaultFormats
 import play.api.data.validation.ValidationError
 import play.api.libs.json._
 
-trait HasRefResolver {
+/**
+  * Allows customizations of the validation process.
+  */
+trait Customizations {
   def refResolver: SchemaRefResolver
+  def formats: Map[String, SchemaStringFormat]
 }
 
-trait CanValidate { self: HasRefResolver =>
+trait CanValidate {
+  self: Customizations =>
 
   /**
     * Validate the given JsValue against the schema located at the given URL.
@@ -28,7 +33,9 @@ trait CanValidate { self: HasRefResolver =>
         case _ => None
       }
       new SchemaResolutionContext(refResolver,
-        new SchemaResolutionScope(schema, id.orElse(Some(schemaUrl.toString)), Some(schemaUrl.toString)))
+        new SchemaResolutionScope(schema, id.orElse(Some(schemaUrl.toString)), Some(schemaUrl.toString)),
+        formats = formats
+      )
     }
 
     for {
@@ -74,7 +81,7 @@ trait CanValidate { self: HasRefResolver =>
     * @param input the value to be validated
     * @return a JsResult holding the valid result
     */
-  def validate[A: Format](schemaUrl: URL, input: A): JsResult[A] = {
+  def validate[A : Format](schemaUrl: URL, input: A): JsResult[A] = {
     val writes = implicitly[Writes[A]]
     val reads = implicitly[Reads[A]]
     validate(schemaUrl, input, writes).fold(
@@ -99,7 +106,11 @@ trait CanValidate { self: HasRefResolver =>
       case container: HasId => container.id
       case _ => None
     }
-    val context = new SchemaResolutionContext(refResolver, new SchemaResolutionScope(schema, id, id))
+    val context = new SchemaResolutionContext(
+      refResolver,
+      new SchemaResolutionScope(schema, id, id),
+      formats = formats
+    )
     schema.validate(
       input,
       context
@@ -194,8 +205,9 @@ trait CanValidate { self: HasRefResolver =>
   *
   * @param refResolver the reference resolver
   */
-case class SchemaValidator(val refResolver: SchemaRefResolver = new SchemaRefResolver)
-  extends CanValidate with HasRefResolver {
+case class SchemaValidator(refResolver: SchemaRefResolver = new SchemaRefResolver,
+                           formats: Map[String, SchemaStringFormat] = DefaultFormats.formats)
+  extends CanValidate with Customizations {
 
 
   /**
@@ -220,4 +232,8 @@ case class SchemaValidator(val refResolver: SchemaRefResolver = new SchemaRefRes
     copy(refResolver =
       refResolver.copy(resolverFactory =
         refResolver.resolverFactory.addUrlResolver(urlResolver)))
+
+  def addFormat(format: SchemaStringFormat): SchemaValidator = {
+    copy(formats = formats + (format.name -> format))
+  }
 }

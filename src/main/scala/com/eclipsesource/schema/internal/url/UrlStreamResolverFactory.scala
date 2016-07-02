@@ -2,6 +2,8 @@ package com.eclipsesource.schema.internal.url
 
 import java.net.{URLStreamHandler, URLStreamHandlerFactory}
 
+import com.eclipsesource.schema.UrlResolver
+
 case class UrlStreamResolverFactory(protocolHandlers: Map[String, URLStreamHandler] =
                                     Map.empty[String, URLStreamHandler]) extends URLStreamHandlerFactory {
 

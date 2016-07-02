@@ -2,27 +2,24 @@ package com.eclipsesource.schema.internal.validators
 
 import java.util.regex.Pattern
 
+import com.eclipsesource.schema.SchemaStringFormat
 import com.google.common.net.InetAddresses
 
-object Formats {
+object DefaultFormats {
 
-  trait Format {
-    def name: String
-    def validate(s: String): Boolean
-  }
-
-  private val formats: Map[String, Format] = Map(
+  val formats: Map[String, SchemaStringFormat] = Map(
     UrlFormat.name      -> UrlFormat,
     HostnameFormat.name -> HostnameFormat,
     EmailFormat.name    -> EmailFormat,
     IPv4Format.name     -> IPv4Format,
     IPv6Format.name     -> IPv6Format,
-    DatetimeFormat.name -> DatetimeFormat
+    DatetimeFormat.name -> DatetimeFormat,
+    UuidFormat.name     -> UuidFormat
   )
 
-  def get(format: String): Option[Format] = formats.get(format)
+  def get(format: String): Option[SchemaStringFormat] = formats.get(format)
 
-  object DatetimeFormat extends Format {
+  object DatetimeFormat extends SchemaStringFormat {
     private val CompiledDatetimePattern = Pattern.compile(
       "^([0-9]{4})-([0-9]{2})-([0-9]{2})([Tt]([0-9]{2}):([0-9]{2}):([0-9]{2})(\\.[0-9]+)?)?(([Zz]|([+-])([0-9]{2}):([0-9]{2})))?"
     )
@@ -32,17 +29,17 @@ object Formats {
     override def validate(dateTime: String): Boolean = CompiledDatetimePattern.matcher(dateTime).find
   }
 
-  object IPv4Format extends Format {
+  object IPv4Format extends SchemaStringFormat {
     override def name: String = "ipv4"
     override def validate(ipv4: String): Boolean = InetAddresses.isInetAddress(ipv4)
   }
 
-  object IPv6Format extends Format {
+  object IPv6Format extends SchemaStringFormat {
     override def name: String = "ipv6"
     override def validate(ipv6: String): Boolean = InetAddresses.isInetAddress(ipv6)
   }
 
-  object UrlFormat extends Format {
+  object UrlFormat extends SchemaStringFormat {
 
     // modified version of
     // http://codereview.stackexchange.com/questions/78768/regex-to-parse-uris-for-their-correctness-according-to-rfc-3986
@@ -62,7 +59,7 @@ object Formats {
     override def validate(uri: String): Boolean = CompiledPattern.matcher(uri).find()
   }
 
-  object HostnameFormat extends Format {
+  object HostnameFormat extends SchemaStringFormat {
 
     // modified version of http://stackoverflow.com/questions/106179/regular-expression-to-match-dns-hostname-or-ip-address
     // http://stackoverflow.com/questions/106179/regular-expression-to-match-dns-hostname-or-ip-address
@@ -75,7 +72,7 @@ object Formats {
       CompiledHostnamePattern.matcher(host).find || InetAddresses.isInetAddress(host)
   }
 
-  object EmailFormat extends Format {
+  object EmailFormat extends SchemaStringFormat {
 
     // http://stackoverflow.com/questions/201323/using-a-regular-expression-to-validate-an-email-address
     private val CompiledEmailPattern = Pattern.compile("^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\\.[a-zA-Z0-9-.]+$")
@@ -84,4 +81,9 @@ object Formats {
     override def validate(email: String): Boolean = CompiledEmailPattern.matcher(email).find
   }
 
+  object UuidFormat extends SchemaStringFormat {
+    val UuidPattern = Pattern.compile("[0-9a-f]{8}-([0-9a-f]{4}-){3}[0-9a-f]{12}")
+    override def name: String = "uuid"
+    override def validate(uuid: String): Boolean = UuidPattern.matcher(uuid).find
+  }
 }
