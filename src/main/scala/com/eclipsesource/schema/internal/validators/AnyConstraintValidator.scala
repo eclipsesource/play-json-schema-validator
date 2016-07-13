@@ -6,6 +6,8 @@ import com.eclipsesource.schema.internal._
 import com.eclipsesource.schema.internal.validation.{Rule, VA}
 import play.api.libs.json._
 
+import scala.annotation.tailrec
+
 import scalaz.{Failure, Success}
 
 object AnyConstraintValidator {
@@ -64,28 +66,41 @@ object AnyConstraintValidator {
       }
     }
 
-  def validateAnyOf: scalaz.Reader[(SchemaType, SchemaResolutionContext), Rule[JsValue, JsValue]] =
-    scalaz.Reader { case (schema, context) =>
-      Rule.fromMapping { json =>
-        schema.constraints.any.anyOf.map(
-          schemas => {
-            val mergedSchemas = mergeSchemas(schema, schemas)
-            val allValidationResults: Seq[VA[JsValue]] = mergedSchemas.map(_.validate(json, context))
-            val maybeSuccess = allValidationResults.find(_.isSuccess)
-            maybeSuccess.map(success => Success(json)).getOrElse {
-              failure(
-                "Instance does not match any of the schemas",
-                context.schemaPath,
-                context.instancePath,
-                json,
-                collectFailures(allValidationResults, "/anyOf")
-              )
-            }
-          }
-        ).getOrElse(Success(json))
-      }
+  def validateAnyOf: scalaz.Reader[(SchemaType, SchemaResolutionContext), Rule[JsValue, JsValue]] = {
+
+    @tailrec
+    def untilFirstSuccess(json: JsValue, baseSchema: SchemaType, context: SchemaResolutionContext,
+                          schemas: List[SchemaType], results: List[VA[JsValue]]): List[VA[JsValue]] = schemas match {
+      case s::ss =>
+        val mergedSchema = mergeSchema(s, baseSchema)
+        mergedSchema.validate(json, context) match {
+          case Success(_e) => Nil
+          case failure@Failure(errors) => untilFirstSuccess(json, baseSchema, context, ss, failure :: results)
+        }
+      case Nil => results.reverse
     }
 
+    scalaz.Reader { case (schema, context) =>
+      Rule.fromMapping {
+        json => {
+          schema.constraints.any.anyOf match {
+            case Some(schemas) =>
+              untilFirstSuccess(json, schema, context, schemas.toList, List.empty) match {
+                case Nil => Success(json)
+                case errors => failure(
+                  "Instance does not match any of the schemas",
+                  context.schemaPath,
+                  context.instancePath,
+                  json,
+                  collectFailures(errors, "/anyOf")
+                )
+              }
+            case None => Success(json)
+          }
+        }
+      }
+    }
+  }
 
   def validateOneOf: scalaz.Reader[(SchemaType, SchemaResolutionContext), Rule[JsValue, JsValue]] =
     scalaz.Reader { case (schema, context) =>
@@ -145,7 +160,6 @@ object AnyConstraintValidator {
     }
   }
 
-
   private def collectFailures(results: Seq[VA[JsValue]], prefix: String): JsObject = {
 
     def repath(prefix: String)(obj: JsObject): JsObject = {
@@ -171,13 +185,16 @@ object AnyConstraintValidator {
     }
   }
 
+  private def mergeSchema(schema: SchemaType, otherSchema: SchemaType): SchemaType = (schema, otherSchema) match {
+    case (s1: SchemaObject, s2: SchemaObject) => s1.copy(properties = s1.properties ++ s2.properties)
+    case _ => schema
+  }
+
   private def mergeSchemas(schema: SchemaType, subSchemas: Seq[SchemaType]): Seq[SchemaType]  = schema match {
     case obj: SchemaObject =>
       subSchemas.map {
-        _ match {
-          case otherObj: SchemaObject => otherObj.copy(properties = obj.properties ++ otherObj.properties)
-          case other => other
-        }
+        case otherObj: SchemaObject => otherObj.copy(properties = obj.properties ++ otherObj.properties)
+        case other => other
       }
     case _ => subSchemas
   }
