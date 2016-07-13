@@ -19,7 +19,7 @@ Then add the dependency:
 
 ```
 libraryDependencies ++= Seq(
- "com.eclipsesource" %% "play-json-schema-validator" % "0.8.0"
+ "com.eclipsesource" %% "play-json-schema-validator" % "0.8.1"
 )
 ```
  
@@ -41,8 +41,7 @@ Schemas can be parsed by passing the schema string to `Json.fromJson`, for insta
     }""".stripMargin)).get
 ```
 
-With a schema at hand, we can now validate `JsValue`s via the `SchemaValidator` (note that since 0.8.0 the validator
-is a class and not an object anymore):
+With a schema at hand, we can now validate `JsValue`s via the `SchemaValidator` (note that since 0.8.0 the validator is a class and not an object anymore):
 
 ```Scala 
 SchemaValidator().validate(schema, json)
