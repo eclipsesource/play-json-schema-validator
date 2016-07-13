@@ -8,16 +8,13 @@ resolvers += "Sonatype snapshots" at "http://oss.sonatype.org/content/repositori
 
 resolvers += Classpaths.sbtPluginReleases
 
-// Use the Play sbt plugin for Play projects
-addSbtPlugin("com.typesafe.play" % "sbt-plugin" % "2.3.3")
-
 addSbtPlugin("me.lessis" % "bintray-sbt" % "0.3.0")
 
-addSbtPlugin("org.scoverage" % "sbt-scoverage" % "1.0.4")
+addSbtPlugin("org.scoverage" % "sbt-scoverage" % "1.3.5")
 
-addSbtPlugin("org.scoverage" % "sbt-coveralls" % "1.0.0.BETA1")
+addSbtPlugin("org.scoverage" % "sbt-coveralls" % "1.1.0")
 
-addSbtPlugin("com.github.gseitz" % "sbt-release" % "0.8.4")
+addSbtPlugin("com.github.gseitz" % "sbt-release" % "0.8.5")
 
 addSbtPlugin("net.virtual-void" % "sbt-dependency-graph" % "0.7.4")
 

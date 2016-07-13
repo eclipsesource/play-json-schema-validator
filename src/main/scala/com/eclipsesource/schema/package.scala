@@ -57,7 +57,7 @@ package object schema
         case (_: JsObject, schemaObject: SchemaObject) => //if schemaType.constraints.any.typeStringGiven =>
           schemaObject.validateConstraints(json, resolutionContext)
 
-        case (_, schemaObject: SchemaObject) if !schemaType.constraints.any.typeStringGiven =>
+        case (_, schemaObject: SchemaObject) if !schemaType.constraints.any.typeGiven =>
           schemaObject.validateConstraints(json,  resolutionContext)
 
         case (_, c: CompoundSchemaType) =>

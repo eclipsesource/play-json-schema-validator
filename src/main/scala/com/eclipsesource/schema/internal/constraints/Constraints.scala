@@ -29,7 +29,7 @@ object Constraints {
                            not: Option[SchemaType] = None)
     extends Constraint with Resolvable {
 
-    def typeStringGiven = schemaTypeAsString.isDefined
+    def typeGiven = schemaTypeAsString.isDefined
 
     override def resolvePath(path: String): Option[SchemaType] = path match {
       case Keywords.Any.AllOf => allOf.map(types => SchemaTuple(types))
