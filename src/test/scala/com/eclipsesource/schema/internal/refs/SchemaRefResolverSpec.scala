@@ -4,6 +4,7 @@ import com.eclipsesource.schema.internal.SchemaRefResolver._
 import com.eclipsesource.schema._
 import controllers.Assets
 import org.specs2.mutable.Specification
+import play.api.data.validation.ValidationError
 import play.api.inject.guice.GuiceApplicationBuilder
 import play.api.libs.json._
 import play.api.mvc.Handler
@@ -43,14 +44,14 @@ class SchemaRefResolverSpec extends Specification {
       )
 
       val scope = new SchemaResolutionScope(schema)
-      resolver.resolve("#/foo/0", scope) must beRight(SchemaValue(JsString("bar")))
-      resolver.resolve("#/", scope)      must beRight(SchemaValue(JsNumber(0)))
-      resolver.resolve("#/a~1b", scope)  must beRight(SchemaValue(JsNumber(1)))
+      resolver.resolveSchema("#/foo/0", scope) must beRight(SchemaValue(JsString("bar")))
+      resolver.resolveSchema("#/", scope)      must beRight(SchemaValue(JsNumber(0)))
+      resolver.resolveSchema("#/a~1b", scope)  must beRight(SchemaValue(JsNumber(1)))
       // TODO: fails
-      //      resolver.resolve("#/c%d", scope)   must beRight(SchemaValue(JsNumber(2)))
-      resolver.resolve("#/e^f", scope)   must beRight(SchemaValue(JsNumber(3)))
-      resolver.resolve("#/g|h", scope)   must beRight(SchemaValue(JsNumber(4)))
-      resolver.resolve("#/i\\j", scope)  must beRight(SchemaValue(JsNumber(5)))
+      //      resolver.resolveValue("#/c%d", scope)   must beRight(SchemaValue(JsNumber(2)))
+      resolver.resolveSchema("#/e^f", scope)   must beRight(SchemaValue(JsNumber(3)))
+      resolver.resolveSchema("#/g|h", scope)   must beRight(SchemaValue(JsNumber(4)))
+      resolver.resolveSchema("#/i\\j", scope)  must beRight(SchemaValue(JsNumber(5)))
     }
   }
 
@@ -84,10 +85,10 @@ class SchemaRefResolverSpec extends Specification {
         |  "uniqueItems": false
         |}""".stripMargin).get
     val scope = new SchemaResolutionScope(schema)
-    resolver.resolve("#/minItems", scope) must beRight(SchemaValue(JsNumber(42)))
-    resolver.resolve("#/maxItems", scope) must beRight(SchemaValue(JsNumber(99)))
-    resolver.resolve("#/additionalItems", scope) must beRight(SchemaValue(JsBoolean(false)))
-    resolver.resolve("#/uniqueItems", scope) must beRight(SchemaValue(JsBoolean(false)))
+    resolver.resolveSchema("#/minItems", scope) must beRight(SchemaValue(JsNumber(42)))
+    resolver.resolveSchema("#/maxItems", scope) must beRight(SchemaValue(JsNumber(99)))
+    resolver.resolveSchema("#/additionalItems", scope) must beRight(SchemaValue(JsBoolean(false)))
+    resolver.resolveSchema("#/uniqueItems", scope) must beRight(SchemaValue(JsBoolean(false)))
   }
 
   "resolve number constraints" in {
@@ -99,9 +100,9 @@ class SchemaRefResolverSpec extends Specification {
         |  "multipleOf": 2
         |}""".stripMargin).get
     val scope = new SchemaResolutionScope(schema)
-    resolver.resolve("#/minimum", scope) must beRight(SchemaValue(JsNumber(0)))
-    resolver.resolve("#/maximum", scope) must beRight(SchemaValue(JsNumber(10)))
-    resolver.resolve("#/multipleOf", scope) must beRight(SchemaValue(JsNumber(2)))
+    resolver.resolveSchema("#/minimum", scope) must beRight(SchemaValue(JsNumber(0)))
+    resolver.resolveSchema("#/maximum", scope) must beRight(SchemaValue(JsNumber(10)))
+    resolver.resolveSchema("#/multipleOf", scope) must beRight(SchemaValue(JsNumber(2)))
   }
 
   "resolve string constraints" in {
@@ -113,9 +114,9 @@ class SchemaRefResolverSpec extends Specification {
         |  "pattern": "^(\\([0-9]{3}\\))?[0-9]{3}-[0-9]{4}$"
         |}""".stripMargin).get
     val scope = new SchemaResolutionScope(schema)
-    resolver.resolve("#/minLength", scope) must beRight(SchemaValue(JsNumber(1)))
-    resolver.resolve("#/maxLength", scope) must beRight(SchemaValue(JsNumber(10)))
-    resolver.resolve("#/pattern", scope) must beRight(SchemaValue(JsString("^(\\([0-9]{3}\\))?[0-9]{3}-[0-9]{4}$")))
+    resolver.resolveSchema("#/minLength", scope) must beRight(SchemaValue(JsNumber(1)))
+    resolver.resolveSchema("#/maxLength", scope) must beRight(SchemaValue(JsNumber(10)))
+    resolver.resolveSchema("#/pattern", scope) must beRight(SchemaValue(JsString("^(\\([0-9]{3}\\))?[0-9]{3}-[0-9]{4}$")))
   }
 
   "resolve anyOf constraint" in
@@ -126,7 +127,7 @@ class SchemaRefResolverSpec extends Specification {
           |"anyOf": [{ "$ref": "http://localhost:1234/talk.json#/properties/title" }]
           |}""".stripMargin).get
 
-      val resolved = resolver.resolve("#/anyOf/0", new SchemaResolutionScope(schema))
+      val resolved = resolver.resolveSchema("#/anyOf/0", new SchemaResolutionScope(schema))
       Json.toJson(resolved.right.get) must beEqualTo(
         Json.obj(
           "type" -> "string",
@@ -143,7 +144,7 @@ class SchemaRefResolverSpec extends Specification {
           |  "oneOf": [{ "$ref": "http://localhost:1234/talk.json#/properties/title" }]
           |}""".stripMargin).get
 
-      val resolved = resolver.resolve("#/oneOf/0", new SchemaResolutionScope(schema))
+      val resolved = resolver.resolveSchema("#/oneOf/0", new SchemaResolutionScope(schema))
       Json.toJson(resolved.right.get) must beEqualTo(
         Json.obj(
           "type" -> "string",
@@ -160,7 +161,7 @@ class SchemaRefResolverSpec extends Specification {
           |"allOf": [{ "$ref": "http://localhost:1234/talk.json#/properties/title" }]
           |}""".
           stripMargin).get
-      val resolved = resolver.resolve("#/allOf/0", new SchemaResolutionScope(schema))
+      val resolved = resolver.resolveSchema("#/allOf/0", new SchemaResolutionScope(schema))
       Json.toJson(resolved.right.get) must beEqualTo(
         Json.obj(
           "type" ->
@@ -180,7 +181,7 @@ class SchemaRefResolverSpec extends Specification {
         |    "foo": { "type": "string" }
         |  }
         |}""".stripMargin).get
-    val resolved = resolver.resolve("#/definitions/foo", new SchemaResolutionScope(schema))
+    val resolved = resolver.resolveSchema("#/definitions/foo", new SchemaResolutionScope(schema))
     Json.toJson(resolved.right.get) must beEqualTo(
       Json.obj("type" -> "string")
     )
@@ -195,7 +196,7 @@ class SchemaRefResolverSpec extends Specification {
           |    "foo": { "type": "string" }
           |  }]
           |}""".stripMargin).get
-      val resolved = resolver.resolve("#/oneOf/0/foo", new SchemaResolutionScope(schema))
+      val resolved = resolver.resolveSchema("#/oneOf/0/foo", new SchemaResolutionScope(schema))
       Json.toJson(resolved.right.get) must beEqualTo(
         Json.obj("type" -> "string")
       )
@@ -210,7 +211,7 @@ class SchemaRefResolverSpec extends Specification {
           |    "c": ["d", "e"]
           |  }
           |}""".stripMargin).get
-      val resolved = resolver.resolve("#/dependencies/c/1", new SchemaResolutionScope(schema))
+      val resolved = resolver.resolveSchema("#/dependencies/c/1", new SchemaResolutionScope(schema))
       Json.toJson(resolved.right.get) must beEqualTo(JsString("e"))
     }
 
@@ -222,7 +223,7 @@ class SchemaRefResolverSpec extends Specification {
           |        "^(/[^/]+)+$": {}
           |}
           |}""".stripMargin).get
-      val resolved = resolver.resolve("#/patternProperties", new SchemaResolutionScope(schema))
+      val resolved = resolver.resolveSchema("#/patternProperties", new SchemaResolutionScope(schema))
       Json.toJson(resolved.right.get) must beAnInstanceOf[JsObject]
     }
 
@@ -233,7 +234,7 @@ class SchemaRefResolverSpec extends Specification {
           |"additionalProperties": false
           |}""".stripMargin).get
 
-      val resolved = resolver.resolve("#/additionalProperties", new SchemaResolutionScope(schema))
+      val resolved = resolver.resolveSchema("#/additionalProperties", new SchemaResolutionScope(schema))
       Json.toJson(resolved.right.get) must beEqualTo(JsBoolean(false))
     }
 
@@ -247,7 +248,7 @@ class SchemaRefResolverSpec extends Specification {
           |}
           |}""".stripMargin).get
 
-      val resolved = resolver.resolve("#/definitions/foo", GenResolutionScope(schema))
+      val resolved = resolver.resolveSchema("#/definitions/foo", GenResolutionScope(schema))
       Json.toJson(resolved.right.get) must beEqualTo(Json.obj("type" -> "string", "minLength" -> 10, "maxLength" -> 20))
     }
 
@@ -288,9 +289,9 @@ class SchemaRefResolverSpec extends Specification {
 
     val context = new SchemaResolutionScope(schema)
     val resolver = new SchemaRefResolver
-    val arrayDef = resolver.resolve("#/definitions/schemaArray", context)
-    val anyOf = resolver.resolve("#/properties/anyOf", context)
-    arrayDef must beRight.which(_.isInstanceOf[SchemaArray])
+    val arrayDef: Either[ValidationError, SchemaType] = resolver.resolveSchema("#/definitions/schemaArray", context)
+    val anyOf = resolver.resolveSchema("#/properties/anyOf", context)
     anyOf must beRight.which(_.isInstanceOf[SchemaArray])
+    arrayDef must beRight.which(_.isInstanceOf[SchemaArray])
   }
 }

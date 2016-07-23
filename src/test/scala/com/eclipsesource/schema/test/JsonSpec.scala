@@ -20,15 +20,24 @@ trait JsonSpec extends FragmentBuilder {
   val spec = new org.specs2.mutable.Specification {}
   import spec._
 
-  def validate(name: String): Fragments =
-    try addFragments(validateFragments(name))
+  def validate(name: String, folder: String = "draft4"): Fragments =
+    try addFragments(validateFragments(name, folder))
     catch { case e: Exception =>
       addFragments(Fragments(br, Fragment(Text(s"Could not create examples for $name"), Execution.executed(Skipped(e.getMessage)))))
     }
 
-  def validateFragments(name: String): Fragments =
+  def validateMultiple(names: Seq[String], folder: String): Fragments = {
+    try {
+      val frags = names.map(frag => validateFragments(frag, folder))
+      frags.reduceLeft[Fragments] { _ append _ }
+    } catch { case e: Exception =>
+      addFragments(Fragments(br, Fragment(Text(s"Could not create examples for $names"), Execution.executed(Skipped(e.getMessage)))))
+    }
+  }
+
+  def validateFragments(name: String, folder: String): Fragments =
     s2"""|$name should be ok $p
-         |${examplesFromUrl(getClass.getResource(s"/draft4/$name.json"))}""".stripMargin
+         |${examplesFromUrl(getClass.getResource(s"/$folder/$name.json"))}""".stripMargin
 
   def examplesFromUrl(url: URL): Fragments = {
     val results: Either[String, Fragments] = fromUrl(url).right.map { specs =>
