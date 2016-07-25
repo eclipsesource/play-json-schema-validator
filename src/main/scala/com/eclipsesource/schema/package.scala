@@ -1,6 +1,7 @@
 package com.eclipsesource
 
 import com.eclipsesource.schema.internal.SchemaRefResolver._
+import com.eclipsesource.schema.internal.refs.ResolvedResult
 import com.eclipsesource.schema.internal.serialization.{JSONSchemaReads, JSONSchemaWrites}
 import com.eclipsesource.schema.internal.validation.VA
 import com.eclipsesource.schema.internal.validators._
@@ -40,21 +41,21 @@ package object schema
         case (_, schemaObject: SchemaObject) if hasUnvisitedRef(schemaObject, resolutionContext) =>
           val refValue  = resolutionContext.refResolver.refTypeClass.findRef(schemaObject).map(_._2)
 
-          resolutionContext.refResolver.resolvePointerIfAny(resolutionContext.scope)(schemaObject) match {
+          resolutionContext.refResolver.resolve(refValue.get, resolutionContext.scope) match {
             case Left(ValidationError(msgs, errors @ _*)) => Results.failureWithPath(
               s"Could not resolve ref ${refValue.orElse(msgs.headOption).getOrElse("")}",
               resolutionContext.schemaPath,
               resolutionContext.instancePath,
               json)
-            case Right(resolved) =>
-              val updatedContext  = resolutionContext.updateScope(_.copy(schemaPath =  JsPath \ refValue.getOrElse("#")))
+            case Right(ResolvedResult(resolved, scope)) =>
+              val updatedContext  = resolutionContext.updateScope(_ => scope)
               Results.merge(
                 resolved.validate(json, updatedContext),
                 AnyConstraintValidator.validate(json, resolved, updatedContext)
               )
           }
 
-        case (_: JsObject, schemaObject: SchemaObject) => //if schemaType.constraints.any.typeStringGiven =>
+        case (_: JsObject, schemaObject: SchemaObject) =>
           schemaObject.validateConstraints(json, resolutionContext)
 
         case (_, schemaObject: SchemaObject) if !schemaType.constraints.any.typeGiven =>

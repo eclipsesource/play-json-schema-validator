@@ -22,7 +22,7 @@ case class GenResolutionScope[A : CanHaveRef](
                     rootId: Option[String] = None, // base URI
                     schemaPath: JsPath = JsPath \ "#",
                     instancePath: JsPath = JsPath,
-                    visited: Set[String] = Set.empty // tracks all visited refs
+                    visited: Set[String] = Set.empty[String] // tracks all visited refs
 ) {
   def isRootScope = {
     val isRootScope = for {
@@ -37,7 +37,7 @@ case class GenResolutionScope[A : CanHaveRef](
   def addVisited(ref: String) = copy(visited = visited + ref)
 }
 
-case class GenGlobalContextCache[A : CanHaveRef]() {
+case class UrlToSchemaCache[A : CanHaveRef]() {
 
   private var cache: Map[String, A] = Map()
 
@@ -51,8 +51,5 @@ case class GenGlobalContextCache[A : CanHaveRef]() {
     }
   }
 
-  def get(url: String): Option[A] = {
-    val cached = cache.get(url)
-    cached
-  }
+  def get(url: String): Option[A] = cache.get(url)
 }
