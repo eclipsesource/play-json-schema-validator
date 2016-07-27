@@ -1,10 +1,10 @@
 package com.eclipsesource.schema.internal
 
 import com.eclipsesource.schema._
-import com.eclipsesource.schema.internal.refs.{GenResolutionScope, GenResolutionContext, CanHaveRef, GenRefResolver}
+import com.eclipsesource.schema.internal.refs.{CanHaveRef, GenRefResolver, GenResolutionContext, GenResolutionScope}
 import com.eclipsesource.schema.internal.validators.DefaultFormats
 import play.api.data.validation.ValidationError
-import play.api.libs.json.{JsString, JsArray}
+import play.api.libs.json.{JsArray, JsString}
 
 import scala.util.Try
 
@@ -72,15 +72,18 @@ object SchemaRefResolver {
       case _ => None
     }
 
-    override def findScopeRefinement(schema: SchemaType): Option[String] = schema match {
-      case SchemaObject(_, _, id) => id
-      case SchemaArray(_, _, id) => id
-      case _ => None
+    override def findScopeRefinement(schema: SchemaType): Option[Pointer] = {
+      schema match {
+        case SchemaObject(_, _, id) => id.map(Pointer)
+        case SchemaArray(_, _, id) => id.map(Pointer)
+        case SchemaTuple(_, _, id) => id.map(Pointer)
+        case _ => None
+      }
     }
   }
 
-  case class SchemaResolutionContext(val refResolver: SchemaRefResolver,
-                                     val scope: SchemaResolutionScope,
+  case class SchemaResolutionContext(refResolver: SchemaRefResolver,
+                                     scope: SchemaResolutionScope,
                                      formats: Map[String, SchemaStringFormat] = DefaultFormats.formats) extends GenResolutionContext[SchemaType] {
     def updateScope(scopeUpdateFn: SchemaResolutionScope => SchemaResolutionScope): SchemaResolutionContext =
       copy(scope = scopeUpdateFn(scope))

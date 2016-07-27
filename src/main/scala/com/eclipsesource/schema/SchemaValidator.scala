@@ -29,11 +29,11 @@ trait CanValidate {
 
     def buildContext(schema: SchemaType): SchemaResolutionContext = {
       val id = schema match {
-        case container: HasId => container.id
+        case container: HasId => container.id.map(Pointer)
         case _ => None
       }
       new SchemaResolutionContext(refResolver,
-        new SchemaResolutionScope(schema, id.orElse(Some(schemaUrl.toString)), Some(schemaUrl.toString)),
+        new SchemaResolutionScope(schema, id.orElse(Some(Pointer(schemaUrl.toString)))),
         formats = formats
       )
     }
@@ -108,7 +108,7 @@ trait CanValidate {
     }
     val context = new SchemaResolutionContext(
       refResolver,
-      new SchemaResolutionScope(schema, id, id),
+      new SchemaResolutionScope(schema, id.map(Pointer)),
       formats = formats
     )
     schema.validate(

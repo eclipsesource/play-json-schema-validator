@@ -1,5 +1,6 @@
 package com.eclipsesource.schema.internal.refs
 
+import com.eclipsesource.schema.Pointer
 import play.api.data.validation.ValidationError
 import play.api.libs.json._
 
@@ -29,9 +30,8 @@ object JsValueRefResolver {
 
   def resolve(path: String, root: JsValue): Either[Errors, JsValue] = {
     val resolver = new JsValueRefResolver
-    resolver.resolve(path, new JsValueResolutionScope(root)).right.map(_.resolved)
+    resolver.resolve(Pointer(path), new JsValueResolutionScope(root)).right.map(_.resolved)
   }
-
 
   private[schema] def normalizeRelativeRef(relativeRef: String, resolveFrom: String): Either[Errors, String] = {
 

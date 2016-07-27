@@ -36,19 +36,28 @@ package object schema
 
     def validate(json: JsValue, resolutionContext: SchemaResolutionContext): VA[JsValue] = {
 
+      // refine resolution scope
+      val updatedScope = resolutionContext.refResolver.updateResolutionScope(resolutionContext.scope, schemaType)
+      val context = resolutionContext.updateScope(_ => updatedScope)
+
       (json, schemaType) match {
 
-        case (_, schemaObject: SchemaObject) if hasUnvisitedRef(schemaObject, resolutionContext) =>
-          val refValue  = resolutionContext.refResolver.refTypeClass.findRef(schemaObject).map(_._2)
+        case (_, schemaObject: SchemaObject) if hasUnvisitedRef(schemaObject, context) =>
+          val refValue  = context.refResolver.refTypeClass.findRef(schemaObject).map(_._2)
+          val fromRoot = refValue.map(Pointer).exists(p => p.isAbsolute || p.isFragment)
+          val resolutionRoot =
+            if (fromRoot) context.scope.documentRoot
+            else schemaObject
 
-          resolutionContext.refResolver.resolve(refValue.get, resolutionContext.scope) match {
-            case Left(ValidationError(msgs, errors @ _*)) => Results.failureWithPath(
-              s"Could not resolve ref ${refValue.orElse(msgs.headOption).getOrElse("")}",
-              resolutionContext.schemaPath,
-              resolutionContext.instancePath,
-              json)
+          context.refResolver.resolve(resolutionRoot, Pointer(refValue.get), context.scope) match {
+            case Left(ValidationError(msgs, errors @ _*)) =>
+              Results.failureWithPath(
+                s"Could not resolve ref ${refValue.orElse(msgs.headOption).getOrElse("")}",
+                context.schemaPath,
+                context.instancePath,
+                json)
             case Right(ResolvedResult(resolved, scope)) =>
-              val updatedContext  = resolutionContext.updateScope(_ => scope)
+              val updatedContext  = context.updateScope(_ => scope)
               Results.merge(
                 resolved.validate(json, updatedContext),
                 AnyConstraintValidator.validate(json, resolved, updatedContext)
@@ -56,49 +65,50 @@ package object schema
           }
 
         case (_: JsObject, schemaObject: SchemaObject) =>
-          schemaObject.validateConstraints(json, resolutionContext)
+          schemaObject.validateConstraints(json, context)
 
         case (_, schemaObject: SchemaObject) if !schemaType.constraints.any.typeGiven =>
-          schemaObject.validateConstraints(json,  resolutionContext)
+          schemaObject.validateConstraints(json,  context)
 
         case (_, c: CompoundSchemaType) =>
-          c.validateConstraints(json, resolutionContext)
+          c.validateConstraints(json, context)
 
         case (jsArray: JsArray, schemaArray: SchemaArray) =>
-          schemaArray.validateConstraints(jsArray, resolutionContext.updateResolutionScope(schemaArray))
+          schemaArray.validateConstraints(jsArray, context)
 
         case (jsArray: JsArray, schemaTuple: SchemaTuple) =>
-          schemaTuple.validateConstraints(jsArray, resolutionContext)
+          schemaTuple.validateConstraints(jsArray, context)
 
         case (jsNumber: JsNumber, schemaNumber: SchemaNumber) =>
-          schemaNumber.validateConstraints(jsNumber, resolutionContext)
+          schemaNumber.validateConstraints(jsNumber, context)
 
         case (jsNumber: JsNumber, schemaInteger: SchemaInteger) =>
-          schemaInteger.validateConstraints(jsNumber, resolutionContext)
+          schemaInteger.validateConstraints(jsNumber, context)
 
         case (jsBoolean: JsBoolean, schemaBoolean: SchemaBoolean) =>
-          schemaBoolean.validateConstraints(jsBoolean, resolutionContext)
+          schemaBoolean.validateConstraints(jsBoolean, context)
 
         case (jsString: JsString, schemaString: SchemaString) =>
-          schemaString.validateConstraints(jsString, resolutionContext)
+          schemaString.validateConstraints(jsString, context)
 
         case (JsNull, schemaNull: SchemaNull) =>
-          schemaNull.validateConstraints(json, resolutionContext)
+          schemaNull.validateConstraints(json, context)
 
         case (_, _) if schemaType.constraints.any.schemaTypeAsString.isEmpty =>
           Success(json)
 
         case _ =>
           Results.failureWithPath(s"Wrong type. Expected $schemaType, was ${SchemaUtil.typeOfAsString(json)}.",
-            resolutionContext.schemaPath,
-            resolutionContext.instancePath,
+            context.schemaPath,
+            context.instancePath,
             json)
       }
     }
 
     private def hasUnvisitedRef(schemaObject: SchemaObject, resolutionContext: SchemaResolutionContext): Boolean = {
       resolutionContext.refResolver.refTypeClass.findRef(schemaObject)
-        .map { case (_, ref) => !resolutionContext.hasBeenVisited(ref) }
+        .map { case (_, ref) =>
+          !resolutionContext.hasBeenVisited(ref) }
         .isDefined
     }
 

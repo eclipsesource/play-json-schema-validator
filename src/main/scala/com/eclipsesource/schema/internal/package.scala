@@ -24,6 +24,10 @@ package object internal {
 
   implicit class EitherExtensions[A, B](either: Either[A, B]) {
     def toOption: Option[B] = either.fold[Option[B]](_ => None, Some(_))
+    def orElse(e: => Either[A, B]): Either[A, B] = either match {
+      case r@Right(_) => r
+      case l@Left(_)  => e
+    }
   }
 
   /**
