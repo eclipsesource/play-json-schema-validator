@@ -58,7 +58,7 @@ trait JSONSchemaWrites {
     Json.obj(
       "type" -> "array",
       "items" -> Json.toJson(arr.item)
-    ) ++ arrayConstraintWriter.writes(arr.constraints)
+    ) ++ arr.id.fold(emptyObject)(i => Json.obj("id" -> i)) ++ arrayConstraintWriter.writes(arr.constraints)
 
   }
 
@@ -66,7 +66,7 @@ trait JSONSchemaWrites {
     Json.obj(
       "type" -> "array",
       "items" -> Json.toJson(arr.items)
-    ) ++ arrayConstraintWriter.writes(arr.constraints)
+    ) ++ arr.id.fold(emptyObject)(i => Json.obj("id" -> i)) ++ arrayConstraintWriter.writes(arr.constraints)
   }
 
   implicit val objectWriter: Writes[SchemaObject] = OWrites[SchemaObject] {
