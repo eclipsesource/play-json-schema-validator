@@ -20,6 +20,8 @@ class AjvSpecs extends PlaySpecification with JsonSpec with Online with AfterAll
 
   def afterAll = { server.stop; Thread.sleep(1000) }
 
+  def validateAjv(testName: String) = validate(testName, "ajv_tests")
+
   sequential
 
   "Validation from remote resources is possible" >> {
@@ -39,10 +41,11 @@ class AjvSpecs extends PlaySpecification with JsonSpec with Online with AfterAll
     }
   }
 
-  validate("1_ids_in_refs", "ajv_tests")
-  validate("19_required_many_properties", "ajv_tests")
-  validate("27_recursive_reference", "ajv_tests")
-  validate("28_escaping_pattern_error", "ajv_tests")
-  validate("94_dependencies_fail", "ajv_tests")
+  validateAjv("1_ids_in_refs")
+  validateAjv("19_required_many_properties")
+  validateAjv("27_recursive_reference")
+  validateAjv("28_escaping_pattern_error")
+  validateAjv("87_$_property")
+  validateAjv("94_dependencies_fail")
 
 }
