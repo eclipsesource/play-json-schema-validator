@@ -1,7 +1,7 @@
 package com.eclipsesource.schema.internal
 
 import com.eclipsesource.schema._
-import com.eclipsesource.schema.internal.refs.{CanHaveRef, GenRefResolver, GenResolutionContext, GenResolutionScope}
+import com.eclipsesource.schema.internal.refs._
 import com.eclipsesource.schema.internal.validators.DefaultFormats
 import play.api.data.validation.ValidationError
 import play.api.libs.json.{JsArray, JsString}
@@ -19,6 +19,9 @@ object SchemaRefResolver {
       )(schema => Right(schema))
     }
 
+    private def findAttribute(maybeObj: Option[SchemaObject], prop: String): Option[SchemaType] =
+      maybeObj.flatMap(_.properties.collectFirst { case attr if attr.name == prop => attr.schemaType})
+
     override def resolve(schema: SchemaType, fragment: String): Either[ValidationError, SchemaType] = schema match {
       case obj@SchemaObject(props, _, _) => fragment match {
         case Keywords.Object.Properties => Right(obj)
@@ -27,9 +30,12 @@ object SchemaRefResolver {
         )(Right(_))
       }
 
-      case arr@SchemaArray(items, _, _) => fragment match {
+      case arr@SchemaArray(items, _, _, maybeObject) => fragment match {
         case Keywords.Array.Items => Right(items)
-        case other => resolveConstraint(arr, fragment)
+        case other =>
+          findAttribute(maybeObject, other)
+            .map(Right(_))
+            .getOrElse(resolveConstraint(arr, fragment))
       }
 
       case tuple@SchemaTuple(items, _, _) =>
@@ -75,7 +81,7 @@ object SchemaRefResolver {
     override def findScopeRefinement(schema: SchemaType): Option[Pointer] = {
       schema match {
         case SchemaObject(_, _, id) => id.map(Pointer)
-        case SchemaArray(_, _, id) => id.map(Pointer)
+        case SchemaArray(_, _, id, _) => id.map(Pointer)
         case SchemaTuple(_, _, id) => id.map(Pointer)
         case _ => None
       }

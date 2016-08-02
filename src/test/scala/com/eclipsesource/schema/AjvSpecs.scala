@@ -10,6 +10,18 @@ import play.api.test.{PlaySpecification, TestServer}
 
 class AjvSpecs extends PlaySpecification with JsonSpec with Online with AfterAll {
 
+  override val validator = {
+    SchemaValidator().addSchema(
+      "http://localhost:1234/scope_foo.json",
+      JsonSource.schemaFromString(
+        """{
+          |  "definitions": {
+          |    "bar": { "type": "string" }
+          |  }
+          |}""".stripMargin).get
+    )
+  }
+
   val routes: PartialFunction[(String, String), Handler] = {
     case (_, path) => Assets.versioned("/remotes", path)
   }
@@ -23,18 +35,15 @@ class AjvSpecs extends PlaySpecification with JsonSpec with Online with AfterAll
   def validateAjv(testName: String) = validate(testName, "ajv_tests")
 
   sequential
-
+//
   "Validation from remote resources is possible" >> {
-    {
-      {
-        server.start; Thread.sleep(1000)
-      } must not(throwAn[Exception])
-    } continueWith {
+      { server.start; Thread.sleep(1000) } must not(throwAn[Exception]) continueWith {
       validateMultiple(
         Seq(
           "5_recursive_references",
           "12_restoring_root_after_resolve",
-          "13_root_ref_in_ref_in_remote_ref"
+          "13_root_ref_in_ref_in_remote_ref",
+          "62_resolution_scope_change"
         ),
         "ajv_tests"
       )

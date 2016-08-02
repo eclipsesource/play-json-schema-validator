@@ -3,6 +3,7 @@ package com.eclipsesource.schema
 import java.net.{URL, URLStreamHandler}
 
 import com.eclipsesource.schema.internal.SchemaRefResolver._
+import com.eclipsesource.schema.internal.refs.Pointer
 import com.eclipsesource.schema.internal.validators.DefaultFormats
 import play.api.data.validation.ValidationError
 import play.api.libs.json._
@@ -233,7 +234,24 @@ case class SchemaValidator(refResolver: SchemaRefResolver = new SchemaRefResolve
       refResolver.copy(resolverFactory =
         refResolver.resolverFactory.addUrlResolver(urlResolver)))
 
-  def addFormat(format: SchemaStringFormat): SchemaValidator = {
+  /**
+    * Add a custom format
+    *
+    * @param format the custom format
+    * @return a new validator instance containing the custom format
+    */
+  def addFormat(format: SchemaStringFormat): SchemaValidator =
     copy(formats = formats + (format.name -> format))
+
+  /**
+    * Add a schema.
+    * @param id the id of the schema
+    * @param schema the schema
+    */
+  def addSchema(id: String, schema: SchemaType): SchemaValidator = {
+    copy(refResolver =
+      refResolver.copy(cache =
+        refResolver.cache.addId(Pointer(id))(schema))
+    )
   }
 }

@@ -1,6 +1,6 @@
-package com.eclipsesource.schema
+package com.eclipsesource.schema.internal.refs
 
-import java.net.{URI, URL}
+import java.net.URI
 
 import scala.util.Try
 
@@ -14,13 +14,14 @@ case class Pointer(value: String) {
   private final val WithProtocol = "^([^:\\/?]+):.+"
   private final val ProtocolPattern = WithProtocol.r.pattern
 
+  def isSegment = value.endsWith("/")
+
   /**
     * Whether the pointer contains any #.
     * @return true, if the pointer contains a # character
     */
   def hasFragment = value.contains("#")
-  def isSegment = value.endsWith("/")
-
+  def hasSegment = value.contains("/")
   /**
     * Whether the pointer is a fragment, i.e. whether it starts with a # character.
     * @return
@@ -29,6 +30,7 @@ case class Pointer(value: String) {
 
   def isAbsolute = Try { new URI(value) }.map(_.isAbsolute).getOrElse(false)
 
+  // TODO
   def fragments: Option[Pointer] = {
     if (hasFragment) Some(Pointer(value.substring(value.indexOf("#"))))
     else None
@@ -39,22 +41,18 @@ case class Pointer(value: String) {
     if (hasFragment) Pointer(value.substring(0, hashIdx)) else this
   }
 
-  def hasProtocol: Boolean = value.matches(WithProtocol)
-
   def protocol: Option[String] = {
     val matcher = ProtocolPattern.matcher(value)
     matcher.find()
     Try { matcher.group(1).replaceAll("[^A-Za-z]+", "") }.toOption
   }
 
-  def drop(n: Int): Pointer = Pointer(value.drop(n))
-
   def dropHashAtBeginning =
     if (value.startsWith("#/")) Pointer(value.substring(math.min(2, value.length)))
     else if (isFragment) Pointer(value.substring(math.min(1, value.length)))
     else this
 
-  def dropHashAtEnd: Pointer = {
+  def dropRightHashIfAny: Pointer = {
     if (value.endsWith("#")) Pointer(value.dropRight(1)) else Pointer(value)
   }
 

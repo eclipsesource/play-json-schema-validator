@@ -1,7 +1,7 @@
 package com.eclipsesource
 
 import com.eclipsesource.schema.internal.SchemaRefResolver._
-import com.eclipsesource.schema.internal.refs.ResolvedResult
+import com.eclipsesource.schema.internal.refs.{Pointer, ResolvedResult}
 import com.eclipsesource.schema.internal.serialization.{JSONSchemaReads, JSONSchemaWrites}
 import com.eclipsesource.schema.internal.validation.VA
 import com.eclipsesource.schema.internal.validators._

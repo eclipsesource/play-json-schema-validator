@@ -17,6 +17,8 @@ case class SpecResult(description: String, valid: Boolean, error: Option[Seq[(Js
 
 trait JsonSpec extends FragmentBuilder {
 
+  def validator = SchemaValidator()
+
   val spec = new org.specs2.mutable.Specification {}
   import spec._
 
@@ -73,7 +75,7 @@ trait JsonSpec extends FragmentBuilder {
   private def executeSpec(spec: JsonSchemaSpec): Seq[SpecResult] = {
     val schema = spec.schema
     spec.tests.map(spec => {
-      val result = SchemaValidator().validate(schema)(spec.data)
+      val result = validator.validate(schema)(spec.data)
       SpecResult(spec.description,
         result.isSuccess == spec.valid,
         result.asEither.left.toOption

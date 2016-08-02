@@ -53,7 +53,8 @@ final case class SchemaTuple(items: Seq[SchemaType],
 
 final case class SchemaArray(item:  SchemaType,
                              constraints: ArrayConstraints = ArrayConstraints(),
-                             id: Option[String] = None) extends SchemaArrayLike {
+                             id: Option[String] = None,
+                             otherProps: Option[SchemaObject] = None) extends SchemaArrayLike {
   override def toString: String = "array"
   def items = Seq(item)
 }

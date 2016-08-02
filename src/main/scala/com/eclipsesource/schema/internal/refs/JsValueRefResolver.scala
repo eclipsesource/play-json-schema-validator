@@ -1,6 +1,5 @@
 package com.eclipsesource.schema.internal.refs
 
-import com.eclipsesource.schema.Pointer
 import play.api.data.validation.ValidationError
 import play.api.libs.json._
 
@@ -33,6 +32,8 @@ object JsValueRefResolver {
     resolver.resolve(Pointer(path), new JsValueResolutionScope(root)).right.map(_.resolved)
   }
 
+  // WIP: some code to resolve relative refs within JSON instance
+  /*
   private[schema] def normalizeRelativeRef(relativeRef: String, resolveFrom: String): Either[Errors, String] = {
 
     def longestContinuousSeq: Either[Errors, (Int, String)] = {
@@ -86,5 +87,5 @@ object JsValueRefResolver {
       case Right(ref) =>
         resolve(ref, obj)
     }
-  }
+  }*/
 }

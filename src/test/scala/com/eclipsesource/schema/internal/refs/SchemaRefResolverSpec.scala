@@ -57,7 +57,7 @@ class SchemaRefResolverSpec extends Specification {
 
   "normalize path with remote document root" in {
     val someSchema = SchemaNull()
-    val root = "http://x.y.z/rootschema.json#"
+    val root  = "http://x.y.z/rootschema.json#"
     val other = "http://x.y.z/otherschema.json#"
 
     resolver.normalize(Pointer("#foo"),
@@ -296,7 +296,7 @@ class SchemaRefResolverSpec extends Specification {
     arrayDef must beRight.which(_.isInstanceOf[SchemaArray])
   }
 
-  "A" in {
+  "resolve type keyword" in {
     val schema = JsonSource.schemaFromString(
       """{
         |  "id": "http://x.y.z/rootschema.json#",
@@ -310,10 +310,10 @@ class SchemaRefResolverSpec extends Specification {
         |}""".
         stripMargin).get
 
-    val
-
-    context = new SchemaResolutionScope(schema)
-    val result = resolver.resolve(Pointer("#/properties/schema1"), context)
+    val context = new SchemaResolutionScope(schema)
+    val failedResult = resolver.resolve(Pointer("#/properties/schema1/notthere"), context)
+    failedResult must beLeft.which(err => err.message === "Could not resolve ref http://x.y.z/rootschema.json#/properties/schema1/notthere")
+    val result =resolver.resolve(Pointer("#/properties/schema1/type"), context)
     result must beRight.which(r => r.scope.id === Some(Pointer("http://x.y.z/rootschema.json#foo")))
   }
 }
