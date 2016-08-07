@@ -69,4 +69,18 @@ object Keywords {
     Keywords.Any.OneOf,
     Keywords.Any.Type
   )
+
+  val ofArray = List(
+    Keywords.Id,
+
+    Keywords.Array.AdditionalItems,
+    Keywords.Array.Items,
+    Keywords.Array.MaxItems,
+    Keywords.Array.MinItems,
+    Keywords.Array.UniqueItems,
+    Keywords.Any.AllOf,
+    Keywords.Any.AnyOf,
+    Keywords.Any.OneOf,
+    Keywords.Any.Type
+  )
 }

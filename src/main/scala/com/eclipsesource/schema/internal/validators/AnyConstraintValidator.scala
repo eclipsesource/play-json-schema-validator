@@ -74,7 +74,7 @@ object AnyConstraintValidator {
       case s::ss =>
         val mergedSchema = mergeSchema(s, baseSchema)
         mergedSchema.validate(json, context) match {
-          case Success(_e) => Nil
+          case Success(e) => Nil
           case failure@Failure(errors) => untilFirstSuccess(json, baseSchema, context, ss, failure :: results)
         }
       case Nil => results.reverse

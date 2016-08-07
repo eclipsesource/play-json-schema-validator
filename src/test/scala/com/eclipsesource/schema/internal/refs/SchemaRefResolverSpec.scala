@@ -57,20 +57,21 @@ class SchemaRefResolverSpec extends Specification {
 
   "normalize path with remote document root" in {
     val someSchema = SchemaNull()
-    val root = "http://x.y.z/rootschema.json#"
+    val root  = "http://x.y.z/rootschema.json#"
     val other = "http://x.y.z/otherschema.json#"
 
-    resolver.normalize("#foo",
-      new SchemaResolutionScope(someSchema,  Some(root), Some(root))) must beEqualTo("http://x.y.z/rootschema.json#foo")
+    resolver.normalize(Pointer("#foo"),
+      new SchemaResolutionScope(someSchema,  Some(Pointer(root)))) must beEqualTo(Pointer("http://x.y.z/rootschema.json#foo"))
 
-    resolver.normalize("otherschema.json",
-      new SchemaResolutionScope(someSchema, Some(other), Some(other))) must beEqualTo("http://x.y.z/otherschema.json#")
+    // TODO meh
+    resolver.normalize(Pointer("otherschema.json"),
+      new SchemaResolutionScope(someSchema, Some(Pointer(other)))) must beEqualTo(Pointer("http://x.y.z/otherschema.json#"))
 
-    resolver.normalize("#bar",
-      new SchemaResolutionScope(someSchema, Some(other), Some(other))) must beEqualTo("http://x.y.z/otherschema.json#bar")
+    resolver.normalize(Pointer("#bar"),
+      new SchemaResolutionScope(someSchema, Some(Pointer(other)))) must beEqualTo(Pointer("http://x.y.z/otherschema.json#bar"))
 
-    resolver.normalize("t/inner.json#a",
-      new SchemaResolutionScope(someSchema, Some(other), Some(other))) must beEqualTo("http://x.y.z/t/inner.json#a")
+    resolver.normalize(Pointer("t/inner.json#a"),
+      new SchemaResolutionScope(someSchema, Some(Pointer(other)))) must beEqualTo(Pointer("http://x.y.z/t/inner.json#a"))
   }
 
   "resolve array constraints" in {
@@ -294,4 +295,26 @@ class SchemaRefResolverSpec extends Specification {
     anyOf must beRight.which(_.isInstanceOf[SchemaArray])
     arrayDef must beRight.which(_.isInstanceOf[SchemaArray])
   }
+
+  "resolve type keyword" in {
+    val schema = JsonSource.schemaFromString(
+      """{
+        |  "id": "http://x.y.z/rootschema.json#",
+        |  "type": "object",
+        |  "properties": {
+        |    "schema1": {
+        |      "type": "object",
+        |      "id": "#foo"
+        |    }
+        |  }
+        |}""".
+        stripMargin).get
+
+    val context = new SchemaResolutionScope(schema)
+    val failedResult = resolver.resolve(Pointer("#/properties/schema1/notthere"), context)
+    failedResult must beLeft.which(err => err.message === "Could not resolve ref http://x.y.z/rootschema.json#/properties/schema1/notthere")
+    val result =resolver.resolve(Pointer("#/properties/schema1/type"), context)
+    result must beRight.which(r => r.scope.id === Some(Pointer("http://x.y.z/rootschema.json#foo")))
+  }
 }
+

@@ -3,6 +3,7 @@ package com.eclipsesource.schema
 import java.net.{URL, URLStreamHandler}
 
 import com.eclipsesource.schema.internal.SchemaRefResolver._
+import com.eclipsesource.schema.internal.refs.Pointer
 import com.eclipsesource.schema.internal.validators.DefaultFormats
 import play.api.data.validation.ValidationError
 import play.api.libs.json._
@@ -29,11 +30,11 @@ trait CanValidate {
 
     def buildContext(schema: SchemaType): SchemaResolutionContext = {
       val id = schema match {
-        case container: HasId => container.id
+        case container: HasId => container.id.map(Pointer)
         case _ => None
       }
       new SchemaResolutionContext(refResolver,
-        new SchemaResolutionScope(schema, id.orElse(Some(schemaUrl.toString)), Some(schemaUrl.toString)),
+        new SchemaResolutionScope(schema, id.orElse(Some(Pointer(schemaUrl.toString)))),
         formats = formats
       )
     }
@@ -108,7 +109,7 @@ trait CanValidate {
     }
     val context = new SchemaResolutionContext(
       refResolver,
-      new SchemaResolutionScope(schema, id, id),
+      new SchemaResolutionScope(schema, id.map(Pointer)),
       formats = formats
     )
     schema.validate(
@@ -233,7 +234,24 @@ case class SchemaValidator(refResolver: SchemaRefResolver = new SchemaRefResolve
       refResolver.copy(resolverFactory =
         refResolver.resolverFactory.addUrlResolver(urlResolver)))
 
-  def addFormat(format: SchemaStringFormat): SchemaValidator = {
+  /**
+    * Add a custom format
+    *
+    * @param format the custom format
+    * @return a new validator instance containing the custom format
+    */
+  def addFormat(format: SchemaStringFormat): SchemaValidator =
     copy(formats = formats + (format.name -> format))
+
+  /**
+    * Add a schema.
+    * @param id the id of the schema
+    * @param schema the schema
+    */
+  def addSchema(id: String, schema: SchemaType): SchemaValidator = {
+    copy(refResolver =
+      refResolver.copy(cache =
+        refResolver.cache.addId(Pointer(id))(schema))
+    )
   }
 }

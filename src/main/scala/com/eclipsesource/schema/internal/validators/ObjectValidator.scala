@@ -12,20 +12,22 @@ import scalaz.{ReaderWriterState, Success}
 
 object ObjectValidator extends SchemaTypeValidator[SchemaObject] {
 
-  override def validate(schema: SchemaObject, json: => JsValue, context: SchemaResolutionContext): VA[JsValue] = json match {
-    case jsObject@JsObject(props) =>
-      val validation = for {
-        updatedSchema <- validateDependencies(schema, jsObject)
-        remaining <- validateProps(updatedSchema, jsObject)
-        unmatched <- validatePatternProps(updatedSchema, jsObject.fields)
-        _ <- validateAdditionalProps(updatedSchema, unmatched.intersect(remaining))
-        _ <- validateMinProperties(updatedSchema, jsObject)
-        _ <- validateMaxProperties(updatedSchema, jsObject)
-      } yield updatedSchema
+  override def validate(schema: SchemaObject, json: => JsValue, context: SchemaResolutionContext): VA[JsValue] = {
+    json match {
+      case jsObject@JsObject(props) =>
+        val validation = for {
+          updatedSchema <- validateDependencies(schema, jsObject)
+          remaining <- validateProps(updatedSchema, jsObject)
+          unmatched <- validatePatternProps(updatedSchema, jsObject.fields)
+          _ <- validateAdditionalProps(updatedSchema, unmatched.intersect(remaining))
+          _ <- validateMinProperties(updatedSchema, jsObject)
+          _ <- validateMaxProperties(updatedSchema, jsObject)
+        } yield updatedSchema
 
-      val (_, _, result) = validation.run(context, Success(json))
-      result
-    case _ => Success(json)
+        val (_, _, result) = validation.run(context, Success(json))
+        result
+      case _ => Success(json)
+    }
   }
 
   private def validateProps(schema: SchemaObject, json: => JsObject): ValidationStep[Props] =
@@ -55,19 +57,35 @@ object ObjectValidator extends SchemaTypeValidator[SchemaObject] {
                   instancePath = context.instancePath \ attr.name
                 )
               )
-            )
-          ) :: props
+            )) :: props
         }
       )
 
-      val validatedProperties = validated.map(_._1)
+      val missing = required.filterNot(req => validated.exists(_._1 == req))
+        .foldLeft(List.empty[(String, VA[JsValue])]) { (acc, req) =>
+          json \ req match {
+            case _: JsUndefined =>
+              val result = req ->
+                Results.failureWithPath(
+                  s"Property $req missing",
+                  context.schemaPath,
+                  context.instancePath,
+                  json
+                )
+              result :: acc
+            case _ => acc
+          }
+        }
+
+      val result = validated ++ missing
+
+      val validatedProperties = result.map(_._1)
       val unvalidatedProps: Props = json.fields.filterNot(field =>
         validatedProperties.contains(field._1)
       )
 
-      ((), unvalidatedProps, Results.merge(status, Results.aggregateAsObject(validated, context)))
+      ((), unvalidatedProps, Results.merge(status, Results.aggregateAsObject(result, context)))
     }
-
 
   private def validatePatternProps(schema: SchemaObject, props: Props): ValidationStep[Props] =
     ReaderWriterState { (context, status) =>

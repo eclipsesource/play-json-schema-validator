@@ -32,6 +32,7 @@ object Constraints {
     def typeGiven = schemaTypeAsString.isDefined
 
     override def resolvePath(path: String): Option[SchemaType] = path match {
+      case Keywords.Any.Type  => schemaTypeAsString.map(t => SchemaValue(JsString(t)))
       case Keywords.Any.AllOf => allOf.map(types => SchemaTuple(types))
       case Keywords.Any.AnyOf => anyOf.map(types => SchemaTuple(types))
       case Keywords.Any.OneOf => oneOf.map(types => SchemaTuple(types))

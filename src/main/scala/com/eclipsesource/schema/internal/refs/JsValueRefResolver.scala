@@ -29,10 +29,11 @@ object JsValueRefResolver {
 
   def resolve(path: String, root: JsValue): Either[Errors, JsValue] = {
     val resolver = new JsValueRefResolver
-    resolver.resolve(path, new JsValueResolutionScope(root)).right.map(_.resolved)
+    resolver.resolve(Pointer(path), new JsValueResolutionScope(root)).right.map(_.resolved)
   }
 
-
+  // WIP: some code to resolve relative refs within JSON instance
+  /*
   private[schema] def normalizeRelativeRef(relativeRef: String, resolveFrom: String): Either[Errors, String] = {
 
     def longestContinuousSeq: Either[Errors, (Int, String)] = {
@@ -86,5 +87,5 @@ object JsValueRefResolver {
       case Right(ref) =>
         resolve(ref, obj)
     }
-  }
+  }*/
 }

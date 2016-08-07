@@ -17,6 +17,8 @@ case class SpecResult(description: String, valid: Boolean, error: Option[Seq[(Js
 
 trait JsonSpec extends FragmentBuilder {
 
+  def validator = SchemaValidator()
+
   val spec = new org.specs2.mutable.Specification {}
   import spec._
 
@@ -26,9 +28,11 @@ trait JsonSpec extends FragmentBuilder {
       addFragments(Fragments(br, Fragment(Text(s"Could not create examples for $name"), Execution.executed(Skipped(e.getMessage)))))
     }
 
-  def validateMultiple(names: Seq[String], folder: String): Fragments = {
+  def validateMultiple(names: (String, Seq[String])*): Fragments = {
     try {
-      val frags = names.map(frag => validateFragments(frag, folder))
+      val frags = names.flatMap { case (folder, tests) =>
+        tests.map(test => validateFragments(test, folder))
+      }
       frags.reduceLeft[Fragments] { _ append _ }
     } catch { case e: Exception =>
       addFragments(Fragments(br, Fragment(Text(s"Could not create examples for $names"), Execution.executed(Skipped(e.getMessage)))))
@@ -73,7 +77,7 @@ trait JsonSpec extends FragmentBuilder {
   private def executeSpec(spec: JsonSchemaSpec): Seq[SpecResult] = {
     val schema = spec.schema
     spec.tests.map(spec => {
-      val result = SchemaValidator().validate(schema)(spec.data)
+      val result = validator.validate(schema)(spec.data)
       SpecResult(spec.description,
         result.isSuccess == spec.valid,
         result.asEither.left.toOption

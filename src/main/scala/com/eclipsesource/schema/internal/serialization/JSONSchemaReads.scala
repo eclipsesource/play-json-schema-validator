@@ -16,7 +16,7 @@ trait JSONSchemaReads {
     case "string"  => stringReader.map(s => s : SchemaType)
     case "integer" => integerReader.map(s => s : SchemaType)
     case "number"  => numberReader.map(s => s : SchemaType)
-    case "array"   => arrayReader.map(s => s : SchemaType).orElse(tupleReader.map(s => s : SchemaType))
+    case "array"   => delegatingArrayReader.map(s => s : SchemaType).orElse(tupleReader.map(s => s : SchemaType))
     case "object"  => delegatingObjectReader.map(s => s : SchemaType)
     case "null"    => nullReader.map(s => s : SchemaType)
   }.or {
@@ -151,6 +151,20 @@ trait JSONSchemaReads {
     }
   }
 
+  lazy val delegatingArrayReader: Reads[SchemaArray] = {
+    new Reads[SchemaArray] {
+      override def reads(json: JsValue): JsResult[SchemaArray] = {
+        json match {
+          case JsObject(props) =>
+            arrayReader.reads(json).map(schemaArray =>
+              addRemainingProps(schemaArray, props.toList)
+            )
+          case err => JsError(s"Expected object. Got $err")
+        }
+      }
+    }
+  }
+
   lazy val arrayReader: Reads[SchemaArray] = {
     ((__ \ Keywords.Array.Items).lazyReadNullable[SchemaType](valueReader) and
       (__ \ Keywords.Array.AdditionalItems).lazyReadNullable[SchemaType](valueReader) and
@@ -218,6 +232,16 @@ trait JSONSchemaReads {
         SchemaObject(Seq(SchemaAttribute(prop._1, value)))
       )
     )
+  }
+
+  def addRemainingProps(initArray: SchemaArray, props: Iterable[(String, JsValue)]) = {
+    val remainingProps: Iterable[(String, JsValue)] = props.filterNot(prop => Keywords.ofArray.contains(prop._1))
+    val schemaObject = remainingProps.foldLeft(SchemaObject()) { (obj, prop) =>
+      obj ++ valueReader.reads(prop._2).asOpt.fold[SchemaObject](SchemaObject())(value =>
+        SchemaObject(Seq(SchemaAttribute(prop._1, value)))
+      )
+    }
+    initArray.copy(otherProps = Some(schemaObject))
   }
 
   lazy val delegatingObjectReader: Reads[SchemaObject] = {
