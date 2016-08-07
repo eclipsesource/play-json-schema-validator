@@ -2,22 +2,24 @@ package com.eclipsesource.schema.internal.constraints
 
 import play.api.libs.json._
 
-
 object Constraints {
   import com.eclipsesource.schema._
   import com.eclipsesource.schema.internal.Keywords
 
-  trait HasAnyConstraint extends Constraint{
+  trait HasAnyConstraint extends Constraint {
     def any: AnyConstraint
   }
 
   trait Constraint extends Resolvable {
-
+    type A
+    def merge(otherConstraints: Constraint): A
   }
 
   case class NoConstraints(any: AnyConstraint = AnyConstraint(None, None, None, None))
-    extends Constraint with HasAnyConstraint {
+    extends HasAnyConstraint {
+    type A = NoConstraints
     override def resolvePath(path: String): Option[SchemaType] = any.resolvePath(path)
+    override def merge(otherConstraints: Constraint): NoConstraints = this
   }
 
   case class AnyConstraint(schemaTypeAsString: Option[String] = None,
@@ -29,6 +31,8 @@ object Constraints {
                            not: Option[SchemaType] = None)
     extends Constraint with Resolvable {
 
+    type A = AnyConstraint
+
     def typeGiven = schemaTypeAsString.isDefined
 
     override def resolvePath(path: String): Option[SchemaType] = path match {
@@ -38,7 +42,23 @@ object Constraints {
       case Keywords.Any.OneOf => oneOf.map(types => SchemaTuple(types))
       case Keywords.Any.Definitions => definitions.map(entries => SchemaObject(entries.toSeq.map(e => SchemaAttribute(e._1, e._2))))
       case Keywords.Any.Enum => enum.map(e => SchemaValue(JsArray(e)))
+      case Keywords.Any.Not => not
       case _ => None
+    }
+
+    override def merge(otherConstraints: Constraint): AnyConstraint = otherConstraints match {
+      case otherAny: AnyConstraint =>
+        AnyConstraint(
+          schemaTypeAsString orElse otherAny.schemaTypeAsString,
+          (allOf ++ otherAny.allOf).reduceOption(_ ++ _),
+          (anyOf ++ otherAny.anyOf).reduceOption(_ ++ _),
+          (oneOf ++ otherAny.oneOf).reduceOption(_ ++ _),
+          (definitions ++ otherAny.definitions).reduceOption(_ ++ _),
+          (enum ++ otherAny.enum).reduceOption(_ ++ _),
+          // TODO: could be improved by merging both schemas
+          not orElse otherAny.not
+        )
+      case other => this
     }
   }
 
@@ -49,17 +69,35 @@ object Constraints {
                                minProperties: Option[Int] = None,
                                maxProperties: Option[Int] = None,
                                any: AnyConstraint = AnyConstraint(None, None, None, None))
-    extends Constraint with HasAnyConstraint with Resolvable {
+    extends HasAnyConstraint with Resolvable {
 
-    def additionalPropertiesOrDefault: SchemaType = {
+    type A = ObjectConstraints
+
+    def additionalPropertiesOrDefault: SchemaType =
       additionalProps.fold(ObjectConstraints.emptyObject)(identity)
-    }
 
     override def resolvePath(path: String): Option[SchemaType] = path match {
+      case Keywords.Object.AdditionalProperties => additionalProps
       case Keywords.Object.Dependencies => dependencies.map(entries => SchemaObject(entries.toSeq.map(e => SchemaAttribute(e._1, e._2))))
       case Keywords.Object.PatternProperties => patternProps.map(patternProps => SchemaObject(patternProps.toSeq.map(e => SchemaAttribute(e._1, e._2))))
-      case Keywords.Object.AdditionalProperties => additionalProps
+      case Keywords.Object.MinProperties => minProperties.map(min => SchemaValue(JsNumber(min)))
+      case Keywords.Object.MaxProperties => maxProperties.map(max => SchemaValue(JsNumber(max)))
       case other => any.resolvePath(other)
+    }
+
+    override def merge(constraints: Constraint): ObjectConstraints = constraints match {
+      case otherConstraints: ObjectConstraints =>
+        ObjectConstraints(
+          additionalProps orElse otherConstraints.additionalProps,
+          (dependencies ++ otherConstraints.dependencies).reduceOption(_ ++ _),
+          (patternProps ++ otherConstraints.patternProps).reduceOption(_ ++ _),
+          (required ++ otherConstraints.required).reduceOption(_ ++ _),
+          minProperties orElse otherConstraints.minProperties,
+          maxProperties orElse otherConstraints.maxProperties,
+          any.merge(otherConstraints.any)
+        )
+      case withAnyConstraints: HasAnyConstraint => copy(any = any.merge(withAnyConstraints.any))
+      case other => this
     }
   }
 
@@ -71,7 +109,9 @@ object Constraints {
                               minItems: Option[Int] = None,
                               additionalItems: Option[SchemaType] = None,
                               unique: Option[Boolean] = None,
-                              any: AnyConstraint = AnyConstraint()) extends Constraint with HasAnyConstraint {
+                              any: AnyConstraint = AnyConstraint()) extends HasAnyConstraint {
+
+    type A = ArrayConstraints
 
     override def resolvePath(path: String): Option[SchemaType] = path match {
       case Keywords.Array.MinItems => minItems.map(min => SchemaValue(JsNumber(min)))
@@ -79,6 +119,18 @@ object Constraints {
       case Keywords.Array.AdditionalItems => additionalItems
       case Keywords.Array.UniqueItems => unique.map(u => SchemaValue(JsBoolean(u)))
       case other => any.resolvePath(other)
+    }
+
+    override def merge(otherConstraints: Constraint): ArrayConstraints = otherConstraints match {
+      case otherArrayConstraints: ArrayConstraints => ArrayConstraints(
+        maxItems orElse otherArrayConstraints.maxItems,
+        minItems orElse otherArrayConstraints.minItems,
+        additionalItems orElse otherArrayConstraints.additionalItems,
+        unique orElse otherArrayConstraints.unique,
+        any.merge(otherArrayConstraints.any)
+      )
+      case withAnyConstraints: HasAnyConstraint => copy(any = any.merge(withAnyConstraints.any))
+      case other => this
     }
   }
 
@@ -91,7 +143,9 @@ object Constraints {
                                max: Option[Maximum] = None,
                                multipleOf: Option[BigDecimal] = None,
                                any: AnyConstraint = AnyConstraint())
-    extends Constraint with HasAnyConstraint {
+    extends HasAnyConstraint {
+
+    type A = NumberConstraints
 
     override def resolvePath(path: String): Option[SchemaType] = path match {
       case Keywords.Number.Min => min.map(m => SchemaValue(JsNumber(m.min)))
@@ -99,14 +153,29 @@ object Constraints {
       case Keywords.Number.MultipleOf => multipleOf.map(m => SchemaValue(JsNumber(m)))
       case other => any.resolvePath(other)
     }
+
+    override def merge(otherConstraints: Constraint): NumberConstraints = otherConstraints match {
+      case otherConstraints: NumberConstraints =>
+        NumberConstraints(
+          min orElse otherConstraints.min,
+          max orElse otherConstraints.max,
+          // TODO: we could look for the gcd here
+          multipleOf orElse otherConstraints.multipleOf,
+          any.merge(otherConstraints.any)
+        )
+      case withAnyConstraint: HasAnyConstraint => copy(any = any.merge(withAnyConstraint.any))
+      case other => this
+    }
   }
 
-  case class StringConstraints( minLength: Option[Int] = None,
-                                maxLength: Option[Int] = None,
-                                pattern: Option[String] = None,
-                                format:  Option[String] = None,
-                                any: AnyConstraint = AnyConstraint())
-    extends Constraint with HasAnyConstraint {
+  case class StringConstraints(minLength: Option[Int] = None,
+                               maxLength: Option[Int] = None,
+                               pattern: Option[String] = None,
+                               format:  Option[String] = None,
+                               any: AnyConstraint = AnyConstraint())
+    extends HasAnyConstraint {
+
+    type A = StringConstraints
 
     override def resolvePath(path: String): Option[SchemaType] = path match {
       case Keywords.String.MinLength => minLength.map(min => SchemaValue(JsNumber(min)))
@@ -114,6 +183,19 @@ object Constraints {
       case Keywords.String.Pattern => pattern.map(p => SchemaValue(JsString(p)))
       case Keywords.String.Format => format.map(f => SchemaValue(JsString(f)))
       case other => any.resolvePath(other)
+    }
+
+    override def merge(otherConstraints: Constraint): StringConstraints = otherConstraints match {
+        // TODO: somewhat arbitrary choices here
+      case otherStringConstraints: StringConstraints => StringConstraints(
+        minLength orElse otherStringConstraints.minLength,
+        maxLength orElse otherStringConstraints.maxLength,
+        pattern orElse otherStringConstraints.pattern,
+        format orElse otherStringConstraints.format,
+        any.merge(otherStringConstraints.any)
+      )
+      case withAnyConstraints: HasAnyConstraint => copy(any = any.merge(withAnyConstraints.any))
+      case other => this
     }
   }
 }

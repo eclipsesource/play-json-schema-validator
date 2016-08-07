@@ -89,8 +89,10 @@ trait JSONSchemaWrites {
   lazy val objectConstraintWriter: OWrites[ObjectConstraints] = OWrites[ObjectConstraints] {
     constraints =>
       asJsObject(Keywords.Object.AdditionalProperties, constraints.additionalProps) ++
-      asJsObject(Keywords.Object.PatternProperties, constraints.patternProps) ++
       asJsObject(Keywords.Object.Dependencies, constraints.dependencies) ++
+      asJsObject(Keywords.Object.MaxProperties, constraints.maxProperties) ++
+      asJsObject(Keywords.Object.MinProperties, constraints.minProperties) ++
+      asJsObject(Keywords.Object.PatternProperties, constraints.patternProps) ++
       asJsObject(Keywords.Object.Required, constraints.required) ++
       anyConstraintWriter.writes(constraints.any)
   }

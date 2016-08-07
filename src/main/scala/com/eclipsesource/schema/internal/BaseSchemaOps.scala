@@ -1,7 +1,5 @@
 package com.eclipsesource.schema.internal
 
-import scala.annotation.tailrec
-
 import com.eclipsesource.schema._
 
 /**
@@ -22,6 +20,9 @@ trait BaseSchemaOps {
   // TODO: duplicate check
   def merge(schema: SchemaObject, otherSchema: SchemaObject) = {
     val fieldNames = otherSchema.properties.map(_.name)
-    schema.copy(properties = schema.properties.filterNot(fd => fieldNames.contains(fd.name)) ++ otherSchema.properties)
+    schema.copy(
+      properties = schema.properties.filterNot(fd => fieldNames.contains(fd.name)) ++ otherSchema.properties
+      , constraints = schema.constraints.merge(otherSchema.constraints)
+    )
   }
 }

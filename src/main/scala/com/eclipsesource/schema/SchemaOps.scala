@@ -1,9 +1,6 @@
 package com.eclipsesource.schema
 
 import com.eclipsesource.schema.internal.BaseSchemaOps
-import play.api.libs.json.{JsObject, JsValue}
-
-import scala.reflect.ClassTag
 
 /**
  * Contains all schema operations.

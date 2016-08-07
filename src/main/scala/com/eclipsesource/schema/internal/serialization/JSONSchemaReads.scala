@@ -275,7 +275,6 @@ trait JSONSchemaReads {
       ).tupled.flatMap { read =>
 
       val (properties, patternProperties, additionalProperties, required, dependencies, minProperties, maxProperties, ref, id, anyConstraints) = read
-
       val props: List[SchemaAttribute] = properties.map(tuples2Attributes).getOrElse(List.empty)
 
       Reads.pure(
