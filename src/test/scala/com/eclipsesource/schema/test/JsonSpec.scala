@@ -28,9 +28,11 @@ trait JsonSpec extends FragmentBuilder {
       addFragments(Fragments(br, Fragment(Text(s"Could not create examples for $name"), Execution.executed(Skipped(e.getMessage)))))
     }
 
-  def validateMultiple(names: Seq[String], folder: String): Fragments = {
+  def validateMultiple(names: (String, Seq[String])*): Fragments = {
     try {
-      val frags = names.map(frag => validateFragments(frag, folder))
+      val frags = names.flatMap { case (folder, tests) =>
+        tests.map(test => validateFragments(test, folder))
+      }
       frags.reduceLeft[Fragments] { _ append _ }
     } catch { case e: Exception =>
       addFragments(Fragments(br, Fragment(Text(s"Could not create examples for $names"), Execution.executed(Skipped(e.getMessage)))))
