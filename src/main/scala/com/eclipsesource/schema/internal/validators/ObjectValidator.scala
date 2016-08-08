@@ -160,9 +160,7 @@ object ObjectValidator extends SchemaTypeValidator[SchemaObject] {
 
     def extendSchemaByDependency(baseSchema: SchemaObject, schemaType: SchemaType): SchemaObject = {
       schemaType match {
-        case extension@SchemaObject(props, _, _) =>
-          println(s"PROPS are $props")
-          baseSchema ++ extension
+        case extension@SchemaObject(props, _, _) => baseSchema ++ extension
         case _ => baseSchema
       }
     }
@@ -200,7 +198,6 @@ object ObjectValidator extends SchemaTypeValidator[SchemaObject] {
           val validated = validatePropertyDependency(name, values.collect { case JsString(str) => str}, context)
           (acc._1, Results.merge(acc._2, validated))
         case (name, cls: SchemaObject) if obj.keys.contains(name) =>
-          println(s"Extend schema with $name via ${Json.toJson(cls)}")
           (extendSchemaByDependency(acc._1, cls), acc._2)
         case _ => acc
       })
