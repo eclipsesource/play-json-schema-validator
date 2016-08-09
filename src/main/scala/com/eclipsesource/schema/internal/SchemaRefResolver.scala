@@ -38,7 +38,7 @@ object SchemaRefResolver {
             .getOrElse(resolveConstraint(arr, fragment))
       }
 
-      case tuple@SchemaTuple(items, _, _) =>
+      case tuple@SchemaTuple(items, _, _, _) =>
 
         def isValidIndex(idx: String) = {
           Try {
@@ -82,7 +82,7 @@ object SchemaRefResolver {
       schema match {
         case SchemaObject(_, _, id) => id.map(Pointer)
         case SchemaArray(_, _, id, _) => id.map(Pointer)
-        case SchemaTuple(_, _, id) => id.map(Pointer)
+        case SchemaTuple(_, _, id, _) => id.map(Pointer)
         case _ => None
       }
     }

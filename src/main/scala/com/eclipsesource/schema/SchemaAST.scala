@@ -12,6 +12,10 @@ sealed trait SchemaType {
   def constraints: HasAnyConstraint
 }
 
+sealed trait HasProps[A] {
+  def withProps(schemaObject: SchemaObject): A
+}
+
 sealed trait HasId {
   def id: Option[String]
 }
@@ -30,8 +34,6 @@ sealed trait SchemaObjectLike extends SchemaType {
   def properties: Seq[SchemaAttribute]
 }
 
-final case class JSONPointer(path: String)
-
 final case class CompoundSchemaType(alternatives: Seq[SchemaType]) extends SchemaType {
   override def toString: String = alternatives.map(_.toString).mkString(" ")
   override def constraints: HasAnyConstraint = NoConstraints()// CompoundConstraints(oneOf.map(s => s.constraints), AnyConstraint())
@@ -39,24 +41,29 @@ final case class CompoundSchemaType(alternatives: Seq[SchemaType]) extends Schem
 
 final case class SchemaObject(properties: Seq[SchemaAttribute] = Seq.empty,
                               constraints: ObjectConstraints = ObjectConstraints(),
-                              id: Option[String] = None)
-  extends HasId with SchemaObjectLike {
-
+                              id: Option[String] = None) extends HasId with SchemaObjectLike with HasProps[SchemaObject] {
   override def toString: String = "object"
+  override def withProps(schemaObject: SchemaObject): SchemaObject = (this ++ schemaObject).copy(
+    constraints = constraints,
+    id = id
+  )
 }
 
 final case class SchemaTuple(items: Seq[SchemaType],
                              constraints: ArrayConstraints = ArrayConstraints(),
-                             id: Option[String] = None) extends SchemaArrayLike {
+                             id: Option[String] = None,
+                             otherProps: Option[SchemaObject] = None) extends SchemaArrayLike with HasProps[SchemaTuple] {
   override def toString: String = "tuple"
+  override def withProps(schemaObject: SchemaObject): SchemaTuple = copy(otherProps = Some(schemaObject))
 }
 
 final case class SchemaArray(item:  SchemaType,
                              constraints: ArrayConstraints = ArrayConstraints(),
                              id: Option[String] = None,
-                             otherProps: Option[SchemaObject] = None) extends SchemaArrayLike {
+                             otherProps: Option[SchemaObject] = None) extends SchemaArrayLike with HasProps[SchemaArray] {
   override def toString: String = "array"
   def items = Seq(item)
+  override def withProps(schemaObject: SchemaObject): SchemaArray = copy(otherProps = Some(schemaObject))
 }
 
 final case class SchemaString(constraints: StringConstraints = StringConstraints()) extends PrimitiveSchemaType {

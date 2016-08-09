@@ -83,4 +83,6 @@ object Keywords {
     Keywords.Any.OneOf,
     Keywords.Any.Type
   )
+
+  val ofTuple = ofArray
 }

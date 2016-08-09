@@ -11,30 +11,34 @@ import scala.collection.immutable.Iterable
 
 trait JSONSchemaReads {
 
+  private def asSchemaType[A <: SchemaType](s: A): SchemaType = s
+
   implicit val valueReader: Reads[SchemaType] = (__ \ "type").read[String].flatMap {
-    case "boolean" => booleanReader.map(s => s : SchemaType)
-    case "string"  => stringReader.map(s => s : SchemaType)
-    case "integer" => integerReader.map(s => s : SchemaType)
-    case "number"  => numberReader.map(s => s : SchemaType)
-    case "array"   => delegatingArrayReader.map(s => s : SchemaType).orElse(tupleReader.map(s => s : SchemaType))
-    case "object"  => delegatingObjectReader.map(s => s : SchemaType)
+    case "boolean" => booleanReader.map(asSchemaType)
+    case "string"  => stringReader.map(asSchemaType)
+    case "integer" => integerReader.map(asSchemaType)
+    case "number"  => numberReader.map(asSchemaType)
+    case "array"   => delegatingArrayReader.map(asSchemaType) orElse delegatingTupleReader.map(asSchemaType)
+    case "object"  => delegatingObjectReader.map(asSchemaType)
     case "null"    => nullReader.map(s => s : SchemaType)
   }.or {
-    tupleReader.map(s => s : SchemaType)
+    tupleReader.map(asSchemaType)
   }.or {
-    arrayReader.map(s => s : SchemaType)
+    arrayReader.map(asSchemaType)
   }.or {
-    stringReader.map(s => s : SchemaType)
+    stringReader.map(asSchemaType)
   }.or {
-    numberReader.map(s => s : SchemaType)
+    numberReader.map(asSchemaType)
   }.or {
-    jsValueReader.map(s => s: SchemaType)
+    delegatingObjectReader.map(asSchemaType)
   }.or {
-    delegatingObjectReader.map(s => s : SchemaType)
-  }.or {
-    compoundReader.map(s => s : SchemaType)
+    compoundReader.map(asSchemaType)
   }.orElse {
     Reads.apply(_ => JsError("Invalid JSON schema"))
+  }
+
+  val withSchemaValueReader = valueReader.or {
+    jsValueReader.map(asSchemaType)
   }
 
   lazy val numberReader: Reads[SchemaNumber] = {
@@ -44,7 +48,7 @@ trait JSONSchemaReads {
       (__ \ Keywords.Number.ExclusiveMax).readNullable[Boolean] and
       (__ \ Keywords.Number.MultipleOf).readNullable[BigDecimal] and
       anyConstraintReader
-      ).tupled.flatMap(read => {
+      ).tupled.flatMap { read =>
 
       val (min, max, exclusiveMin, exclusiveMax, multipleOf, anyConstraints) = read
       val minimum = min.map(Minimum(_, exclusiveMin))
@@ -62,7 +66,7 @@ trait JSONSchemaReads {
       } else {
         Reads.pure(SchemaNumber(NumberConstraints(minimum, maximum, multipleOf, anyConstraints)))
       }
-    })
+    }
   }
 
   lazy val integerReader: Reads[SchemaInteger] = {
@@ -117,23 +121,21 @@ trait JSONSchemaReads {
       case bool@JsBoolean(_) => JsSuccess(SchemaValue(bool))
       case s@JsString(_) => JsSuccess(SchemaValue(s))
       case a@JsArray(els) => JsSuccess(SchemaValue(a))
-      case _ => JsError("Expected json.")
+      case other => JsError(s"Expected either Json boolean, string or array, got $other.")
     }
   }
 
-  lazy val nullReader: Reads[SchemaNull] = {
+  lazy val nullReader: Reads[SchemaNull] =
     anyConstraintReader.flatMap(any => {
       // TODO: null constraint type could be removed
       Reads.pure(SchemaNull(NoConstraints(any)))
     })
-  }
 
-  lazy val booleanReader: Reads[SchemaBoolean] = {
+  lazy val booleanReader: Reads[SchemaBoolean] =
     anyConstraintReader.flatMap(any => {
       // TODO: boolean constraint type could be removed
       Reads.pure(SchemaBoolean(NoConstraints(any)))
     })
-  }
 
   lazy val compoundReader: Reads[CompoundSchemaType] = new Reads[CompoundSchemaType] {
     override def reads(json: JsValue): JsResult[CompoundSchemaType] = json match {
@@ -145,29 +147,43 @@ trait JSONSchemaReads {
             )
             val successes = jsResults.collect { case JsSuccess(success, _) => success }
             JsSuccess(CompoundSchemaType(successes))
-          case _ => JsError("Expected compound type.")
+          case _ => JsError("Expected Json array while reading compound type.")
         }
-      case _ => JsError("Expected json object.")
+      case _ => JsError("Expected Json object while reading compound type.")
     }
   }
 
-  lazy val delegatingArrayReader: Reads[SchemaArray] = {
-    new Reads[SchemaArray] {
-      override def reads(json: JsValue): JsResult[SchemaArray] = {
+  private def createDelegateReader[A <: SchemaType with HasProps[A]](delegateReads: Reads[A], keywords: List[String]): Reads[A] = {
+    new Reads[A] {
+      override def reads(json: JsValue): JsResult[A] = {
         json match {
           case JsObject(props) =>
-            arrayReader.reads(json).map(schemaArray =>
-              addRemainingProps(schemaArray, props.toList)
-            )
-          case err => JsError(s"Expected object. Got $err")
+            delegateReads.reads(json).map(schemaObject => {
+              addRemainingProps(schemaObject, props.toList, keywords)
+            })
+          case err => JsError(s"Expected Json object during read, got $err")
         }
       }
     }
   }
 
+  lazy val delegatingTupleReader: Reads[SchemaTuple] = createDelegateReader(tupleReader, Keywords.ofTuple)
+  lazy val delegatingArrayReader: Reads[SchemaArray] = createDelegateReader(arrayReader, Keywords.ofArray)
+  lazy val delegatingObjectReader: Reads[SchemaObject] = createDelegateReader(objectReader, Keywords.ofObject)
+
+  private def addRemainingProps[A <: HasProps[A]](init: A, props: Iterable[(String, JsValue)], keywords: List[String]): A = {
+    val remainingProps = props.filterNot { case (propName, _)  => keywords.contains(propName) }
+    val objWithProps = remainingProps.foldLeft(SchemaObject()) { (obj, prop) =>
+      obj ++ valueReader.reads(prop._2).asOpt.fold[SchemaObject](SchemaObject())(value =>
+        SchemaObject(Seq(SchemaAttribute(prop._1, value)))
+      )
+    }
+    init.withProps(objWithProps)
+  }
+
   lazy val arrayReader: Reads[SchemaArray] = {
     ((__ \ Keywords.Array.Items).lazyReadNullable[SchemaType](valueReader) and
-      (__ \ Keywords.Array.AdditionalItems).lazyReadNullable[SchemaType](valueReader) and
+      (__ \ Keywords.Array.AdditionalItems).lazyReadNullable[SchemaType](withSchemaValueReader) and
       (__ \ Keywords.Array.MinItems).readNullable[Int] and
       (__ \ Keywords.Array.MaxItems).readNullable[Int] and
       (__ \ Keywords.Array.UniqueItems).readNullable[Boolean] and
@@ -197,7 +213,7 @@ trait JSONSchemaReads {
 
   lazy val tupleReader: Reads[SchemaTuple] = {
     ((__ \ Keywords.Array.Items).lazyReadNullable[Seq[SchemaType]](readJsValueArray) and
-        (__ \ Keywords.Array.AdditionalItems).lazyReadNullable[SchemaType](valueReader) and
+        (__ \ Keywords.Array.AdditionalItems).lazyReadNullable[SchemaType](withSchemaValueReader) and
         (__ \ Keywords.Array.MinItems).readNullable[Int] and
         (__ \ Keywords.Array.MaxItems).readNullable[Int] and
         (__ \ Keywords.Array.UniqueItems).readNullable[Boolean] and
@@ -215,7 +231,7 @@ trait JSONSchemaReads {
         Reads.apply(_ => JsError("Expected tuple."))
       } else {
         Reads.pure(
-          SchemaTuple(items.get,
+          SchemaTuple(items.getOrElse(Seq.empty),
             ArrayConstraints(maxItems, minItems, additionalItems, uniqueItems, any),
             id
           )
@@ -224,49 +240,15 @@ trait JSONSchemaReads {
     }
   }
 
-  def addRemainingProps(initObject: SchemaObject, props: Iterable[(String, JsValue)],
-                        occupiedPropNames: List[String]) = {
-    val remainingProps: Iterable[(String, JsValue)] = props.filterNot(prop => occupiedPropNames.contains(prop._1))
-    remainingProps.foldLeft(initObject)((acc, prop) =>
-      acc ++ valueReader.reads(prop._2).asOpt.fold[SchemaObject](SchemaObject())(value =>
-        SchemaObject(Seq(SchemaAttribute(prop._1, value)))
-      )
-    )
-  }
-
-  def addRemainingProps(initArray: SchemaArray, props: Iterable[(String, JsValue)]) = {
-    val remainingProps: Iterable[(String, JsValue)] = props.filterNot(prop => Keywords.ofArray.contains(prop._1))
-    val schemaObject = remainingProps.foldLeft(SchemaObject()) { (obj, prop) =>
-      obj ++ valueReader.reads(prop._2).asOpt.fold[SchemaObject](SchemaObject())(value =>
-        SchemaObject(Seq(SchemaAttribute(prop._1, value)))
-      )
-    }
-    initArray.copy(otherProps = Some(schemaObject))
-  }
-
-  lazy val delegatingObjectReader: Reads[SchemaObject] = {
-    new Reads[SchemaObject] {
-      override def reads(json: JsValue): JsResult[SchemaObject] = {
-        json match {
-          case JsObject(props) =>
-            objectReader.reads(json).map(schemaObject => {
-              addRemainingProps(schemaObject, props.toList, Keywords.ofObject)
-            })
-          case err => JsError(s"Expected object. Got $err")
-        }
-      }
-    }
-  }
-
   def emptyObject: SchemaType = SchemaObject(Seq.empty, ObjectConstraints())
 
   // TODO: extract into objectConstraintReader
   lazy val objectReader: Reads[SchemaObject] = {
-    ((__ \ Keywords.Object.Properties).lazyReadNullable[Map[String, SchemaType]](readsInstance) and
-        (__ \ Keywords.Object.PatternProperties).lazyReadNullable[Map[String, SchemaType]](readsInstance) and
-        (__ \ Keywords.Object.AdditionalProperties).lazyReadNullable[SchemaType](valueReader) and
+    ((__ \ Keywords.Object.Properties).lazyReadNullable[Map[String, SchemaType]](mapReadsInstance) and
+        (__ \ Keywords.Object.PatternProperties).lazyReadNullable[Map[String, SchemaType]](mapReadsInstance) and
+        (__ \ Keywords.Object.AdditionalProperties).lazyReadNullable[SchemaType](withSchemaValueReader) and
         (__ \ Keywords.Object.Required).readNullable[List[String]] and
-        (__ \ Keywords.Object.Dependencies).lazyReadNullable[Map[String, SchemaType]](readsInstance) and
+        (__ \ Keywords.Object.Dependencies).lazyReadNullable[Map[String, SchemaType]](mapReadsInstanceWithJsValueReader) and
         (__ \ Keywords.Object.MinProperties).readNullable[Int] and
         (__ \ Keywords.Object.MaxProperties).readNullable[Int] and
         (__ \ Keywords.Object.Ref).readNullable[String] and
@@ -287,7 +269,8 @@ trait JSONSchemaReads {
             required,
             minProperties,
             maxProperties,
-            anyConstraints),
+            anyConstraints
+          ),
           id
         )
       )
@@ -299,41 +282,45 @@ trait JSONSchemaReads {
       (__ \ Keywords.Any.AllOf).lazyReadNullable[Seq[SchemaType]](readJsObjectArray) and
         (__ \ Keywords.Any.AnyOf).lazyReadNullable[Seq[SchemaType]](readJsObjectArray) and
         (__ \ Keywords.Any.OneOf).lazyReadNullable[Seq[SchemaType]](readJsObjectArray) and
-        (__ \ Keywords.Any.Definitions).lazyReadNullable(readsInstance) and
+        (__ \ Keywords.Any.Definitions).lazyReadNullable(mapReadsInstance) and
         (__ \ Keywords.Any.Enum).readNullable[Seq[JsValue]] and
         (__ \ Keywords.Any.Not).lazyReadNullable(valueReader)
       ).tupled.map(
         read => {
           val (schemaType, allOf, anyOf, oneOf, definitions, enum, not) = read
-
           AnyConstraint(schemaType, allOf, anyOf, oneOf, definitions, enum, not)
         }
       )
   }
 
-  private val readsInstance: Reads[Map[String, SchemaType]] = {
+  private val mapReadsInstance: Reads[Map[String, SchemaType]] =
     new Reads[Map[String, SchemaType]] {
-      def reads(json: JsValue) = {
-        json.validate[Map[String, SchemaType]]
-      }
+      def reads(json: JsValue) = json.validate[Map[String, SchemaType]]
     }
-  }
 
-  private def mergeErrors(results: Seq[JsResult[SchemaType]]): JsResult[Seq[SchemaType]] = {
-    results.collect { case err@JsError(_) => err }.reduceLeft[JsError] { case (e1, e2) => JsError.merge(e1, e2) }
-  }
+  private val mapReadsInstanceWithJsValueReader: Reads[Map[String, SchemaType]] =
+    new Reads[Map[String, SchemaType]] {
+      def reads(json: JsValue) = json.validate[Map[String, SchemaType]](mapReads(withSchemaValueReader))
+    }
+
+  private def mergeErrors(results: Seq[JsResult[SchemaType]]): JsResult[Seq[SchemaType]] =
+    results.collect {
+      case err@JsError(_) => err
+    }.reduceLeft[JsError] {
+      case (e1, e2) => JsError.merge(e1, e2)
+    }
 
   private lazy val readJsValueArray: Reads[Seq[SchemaType]] = {
     new Reads[Seq[SchemaType]] {
       override def reads(json: JsValue): JsResult[Seq[SchemaType]] = json match {
         case JsArray(els) =>
-          val results = els.map(el => Json.fromJson[SchemaType](el))
+          val results = els.map(Json.fromJson[SchemaType](_))
           if (results.exists(_.isError)) {
             mergeErrors(results)
           } else {
             JsSuccess(results.collect { case JsSuccess(succ, _) => succ})
           }
-        case _ => JsError("Expected array")
+        case other => JsError(s"Expected Json array, got $other.")
       }
     }
   }
@@ -350,12 +337,12 @@ trait JSONSchemaReads {
           } else {
             JsSuccess(results.collect { case JsSuccess(succ, _) => succ})
           }
-        case _ => JsError("Expected array")
+        case other => JsError(s"Expected array of Json objects, got $other.")
       }
     }
   }
 
-  private def tuples2Attributes(props: Iterable[(String, SchemaType)]): List[SchemaAttribute] = {
-    props.map(property => SchemaAttribute(property._1, property._2)).toList
-  }
+  private def tuples2Attributes(props: Iterable[(String, SchemaType)]): List[SchemaAttribute] =
+    props.map { case (name, schema) => SchemaAttribute(name, schema) }.toList
+
 }
