@@ -221,9 +221,6 @@ class ErrorReportingSpec extends Specification {
                          |    ]
                          |}""".stripMargin
 
-
-
-
     val instance = """{
                      |    "c": 1
                      |}""".stripMargin

@@ -59,7 +59,7 @@ trait JsonSpec extends FragmentBuilder {
 
   def test(specName: String, result: SpecResult) =
     if (result.valid) Success(result.description)
-    else              Failure(s"'${result.description}' of spec '$specName' failed")
+    else              Failure(s"'${result.description}' of spec '$specName' failed ${result.error}")
 
   def fromUrl(url: URL): Either[String, Seq[(String, Seq[SpecResult])]] = {
     JsonSource.fromURL(url).getOrElse(Failure(s"Could not read JSON from $url.")) match {

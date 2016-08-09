@@ -156,37 +156,24 @@ object ObjectValidator extends SchemaTypeValidator[SchemaObject] {
     }
   }
 
-  private def validateDependencies(schema: SchemaObject, obj: JsObject): ValidationStep[SchemaObject] = {
-
-    def extendSchemaByDependency(baseSchema: SchemaObject, schemaType: SchemaType): SchemaObject = {
-      schemaType match {
-        case extension@SchemaObject(props, _, _) =>
-          println(s"PROPS are $props")
-          baseSchema ++ extension
-        case _ => baseSchema
-      }
-    }
+  private def validateDependencies(schema: SchemaObject, json: JsObject): ValidationStep[SchemaObject] = {
 
     def validatePropertyDependency(propName: String, dependencies: Seq[String], context: SchemaResolutionContext): VA[JsValue] = {
 
       // check if property is present at all
-      val mandatoryProps = obj.fields.find(_._1 == propName)
+      val mandatoryProps = json.fields.find(_._1 == propName)
         .map(_ => dependencies)
         .getOrElse(Seq.empty[String])
 
       // if present, make sure all dependencies are fulfilled
-      val result = mandatoryProps.map(prop => obj.fields.find(_._1 == prop).fold(
-        // msg: String, schemaPath: String, instancePath: String, schema: SchemaType, instance: JsValue)
+      val result = mandatoryProps.map(prop => json.fields.find(_._1 == prop).fold(
         prop -> Results.failureWithPath(
           s"Missing property dependency $prop.",
           context.schemaPath \ prop,
           context.instancePath \ prop,
-          obj
+          json
         )
-      )((field: (String, JsValue)) =>
-
-        Results.success(field))
-      )
+      )(field => Results.success(field)))
 
       Results.aggregateAsObject(result, context)
     }
@@ -194,18 +181,20 @@ object ObjectValidator extends SchemaTypeValidator[SchemaObject] {
     ReaderWriterState { (context, status) =>
 
       val dependencies = schema.constraints.dependencies.getOrElse(Seq.empty)
-      val (updatedSchema, updatedStatus) = dependencies.foldLeft((schema, status))((acc, dep) => dep match {
-        case (name, SchemaValue(JsArray(values))) =>
-          // collecting strings should not be necessary at this point
-          val validated = validatePropertyDependency(name, values.collect { case JsString(str) => str}, context)
-          (acc._1, Results.merge(acc._2, validated))
-        case (name, cls: SchemaObject) if obj.keys.contains(name) =>
-          println(s"Extend schema with $name via ${Json.toJson(cls)}")
-          (extendSchemaByDependency(acc._1, cls), acc._2)
-        case _ => acc
-      })
+      val updatedStatus = dependencies.foldLeft(status) { case (currStatus, dep) =>
+        dep match {
+          case (name, SchemaValue(JsArray(values))) =>
+            // collecting strings should not be necessary at this point
+            val validated = validatePropertyDependency(name, values.collect { case JsString(str) => str }, context)
+            Results.merge(currStatus, validated)
+          case (name, dep: SchemaObject) if json.keys.contains(name) =>
+            val validated = dep.validate(json, context)
+            Results.merge(currStatus, validated)
+          case _ => currStatus
+        }
+      }
 
-      ((), updatedSchema, updatedStatus)
+      ((), schema, updatedStatus)
     }
   }
 

@@ -18,7 +18,8 @@ class RemoteSpecs extends PlaySpecification with JsonSpec with Online with After
           |  "definitions": {
           |    "bar": { "type": "string" }
           |  }
-          |}""".stripMargin).get
+          |}""".stripMargin
+      ).get
     )
   }
 
@@ -40,9 +41,11 @@ class RemoteSpecs extends PlaySpecification with JsonSpec with Online with After
       { server.start; Thread.sleep(1000) } must not(throwAn[Exception]) continueWith {
       validateMultiple(
         "ajv_tests" -> Seq(
+          "5_adding_dependency_after",
           "5_recursive_references",
           "12_restoring_root_after_resolve",
           "13_root_ref_in_ref_in_remote_ref",
+          "14_ref_in_remote_ref_with_id",
           "62_resolution_scope_change"
         ),
         "draft4" -> Seq("refRemote")
@@ -51,12 +54,16 @@ class RemoteSpecs extends PlaySpecification with JsonSpec with Online with After
   }
 
   validateAjv("1_ids_in_refs")
+  validateAjv("2_root_ref_in_ref")
+
   validateAjv("17_escaping_pattern_property")
   validateAjv("19_required_many_properties")
   validateAjv("27_recursive_reference")
   validateAjv("28_escaping_pattern_error")
+  validateAjv("70_1_recursive_hash_ref_in_remote_ref")
   validateAjv("87_$_property")
   validateAjv("94_dependencies_fail")
+  validateAjv("170_ref_and_id_in_sibling")
   validateAjv("226_json_with_control_chars")
 
 }
