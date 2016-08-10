@@ -58,8 +58,11 @@ class RemoteSpecs extends PlaySpecification with JsonSpec with Online with After
 
   validateAjv("17_escaping_pattern_property")
   validateAjv("19_required_many_properties")
+  validateAjv("20_failing_to_parse_schema")
   validateAjv("27_recursive_reference")
+  validateAjv("27_1_recursive_raml_schema")
   validateAjv("28_escaping_pattern_error")
+  validateAjv("63_id_property_not_in_schema")
   validateAjv("70_1_recursive_hash_ref_in_remote_ref")
   validateAjv("87_$_property")
   validateAjv("94_dependencies_fail")
