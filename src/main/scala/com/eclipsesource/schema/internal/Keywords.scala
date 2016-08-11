@@ -25,6 +25,7 @@ object Keywords {
     val OneOf = "oneOf"
     val Not = "not"
     val Definitions = "definitions"
+    val Description = "description"
     val Enum = "enum"
     val Type = "type"
   }

@@ -49,6 +49,7 @@ package object schema
             if (fromRoot) context.scope.documentRoot
             else schemaObject
 
+          // TODO: remove get
           context.refResolver.resolve(resolutionRoot, Pointer(refValue.get), context.scope) match {
             case Left(ValidationError(msgs, errors @ _*)) =>
               Results.failureWithPath(

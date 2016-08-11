@@ -246,19 +246,24 @@ case class GenRefResolver[A : CanHaveRef : Reads]
     (fragments, instance) match {
       case (Nil, result) => Right(ResolvedResult(result, scope))
       case (fragment :: rest, resolvable) =>
-        for {
-          resolved <- refTypeClass.resolve(resolvable, fragment).right
-          result <- resolveFragments(rest,
-            updatedScope.copy(
+        refTypeClass.resolve(resolvable, fragment).right.flatMap { r =>
+          rest match {
+            case Nil => Right(ResolvedResult(r, scope.copy(
               schemaPath = scope.schemaPath.compose(JsPath \ fragment),
               instancePath = scope.instancePath.compose(JsPath \ fragment)
-            ), resolved).right
-        } yield result
+            )))
+            case _ => resolve(r, Pointer(rest.mkString("/")), updatedScope.copy(
+              schemaPath = scope.schemaPath.compose(JsPath \ fragment),
+              instancePath = scope.instancePath.compose(JsPath \ fragment)
+            ))
+          }
+        }
     }
   }
 
   /**
     * Fetch the instance located at the given URL and eventually cache it as well.
+    *
     * @param url the URL at which the instance is expected
     * @param scope the current resolution scope
     * @return the fetched instance, if any

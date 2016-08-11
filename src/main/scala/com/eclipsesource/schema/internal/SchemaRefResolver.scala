@@ -4,7 +4,7 @@ import com.eclipsesource.schema._
 import com.eclipsesource.schema.internal.refs._
 import com.eclipsesource.schema.internal.validators.DefaultFormats
 import play.api.data.validation.ValidationError
-import play.api.libs.json.{JsArray, JsString}
+import play.api.libs.json.{JsArray, JsString, Json}
 
 import scala.util.Try
 
@@ -22,52 +22,57 @@ object SchemaRefResolver {
     private def findAttribute(maybeObj: Option[SchemaObject], prop: String): Option[SchemaType] =
       maybeObj.flatMap(_.properties.collectFirst { case attr if attr.name == prop => attr.schemaType})
 
-    override def resolve(schema: SchemaType, fragment: String): Either[ValidationError, SchemaType] = schema match {
-      case obj@SchemaObject(props, _, _) => fragment match {
-        case Keywords.Object.Properties => Right(obj)
-        case other => props.collectFirst { case SchemaAttribute(name, schemaType) if name == other => schemaType }.fold(
-          resolveConstraint(obj, fragment)
-        )(Right(_))
-      }
+    override def resolve(schema: SchemaType, fragment: String): Either[ValidationError, SchemaType] = {
 
-      case arr@SchemaArray(items, _, _, maybeObject) => fragment match {
-        case Keywords.Array.Items => Right(items)
-        case other =>
-          findAttribute(maybeObject, other)
-            .map(Right(_))
-            .getOrElse(resolveConstraint(arr, fragment))
-      }
+      schema match {
 
-      case tuple@SchemaTuple(items, _, _, _) =>
-
-        def isValidIndex(idx: String) = {
-          Try {
-            val n = idx.toInt
-            n <= items.size && n >= 0
-          }.toOption.getOrElse(false)
+        case obj@SchemaObject(props, _, _) => fragment match {
+          case Keywords.Object.Properties => Right(obj)
+          case other =>
+            resolveConstraint(obj, fragment) orElse props.collectFirst {
+              case SchemaAttribute(name, schemaType) if name == other => schemaType
+            }.toRight(ValidationError(s"Property $fragment not found."))
         }
 
-        fragment match {
-          case Keywords.Array.Items => Right(tuple)
-          case idx if isValidIndex(idx) => Right(items(idx.toInt))
-          // TODO
-          case other => resolveConstraint(tuple, fragment)
+        case arr@SchemaArray(items, _, _, maybeObject) => fragment match {
+          case Keywords.Array.Items => Right(items)
+          case other =>
+            findAttribute(maybeObject, other)
+              .map(Right(_))
+              .getOrElse(resolveConstraint(arr, fragment))
         }
 
-      case schemaValue@SchemaValue(value) => (value, fragment) match {
-        case (arr: JsArray, index) if Try {
-          index.toInt
-        }.isSuccess =>
-          val idx = index.toInt
-          if (idx > 0 && idx < arr.value.size) {
-            Right(SchemaValue(arr.value(idx)))
-          } else {
-            Left(ValidationError(s"Array index $index out of bounds"))
+        case tuple@SchemaTuple(items, _, _, _) =>
+
+          def isValidIndex(idx: String) = {
+            Try {
+              val n = idx.toInt
+              n <= items.size && n >= 0
+            }.toOption.getOrElse(false)
           }
-        case other => Left(ValidationError(s"Invalid array index $fragment"))
-      }
 
-      case p: PrimitiveSchemaType => resolveConstraint(p, fragment)
+          fragment match {
+            case Keywords.Array.Items => Right(tuple)
+            case idx if isValidIndex(idx) => Right(items(idx.toInt))
+            // TODO
+            case other => resolveConstraint(tuple, fragment)
+          }
+
+        case schemaValue@SchemaValue(value) => (value, fragment) match {
+          case (arr: JsArray, index) if Try {
+            index.toInt
+          }.isSuccess =>
+            val idx = index.toInt
+            if (idx > 0 && idx < arr.value.size) {
+              Right(SchemaValue(arr.value(idx)))
+            } else {
+              Left(ValidationError(s"Array index $index out of bounds"))
+            }
+          case other => Left(ValidationError(s"Invalid array index $fragment"))
+        }
+
+        case p: PrimitiveSchemaType => resolveConstraint(p, fragment)
+      }
     }
 
     override def findRef(schema: SchemaType): Option[(String, String)] = schema match {

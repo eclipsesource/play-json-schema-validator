@@ -284,13 +284,12 @@ trait JSONSchemaReads {
         (__ \ Keywords.Any.OneOf).lazyReadNullable[Seq[SchemaType]](readJsObjectArray) and
         (__ \ Keywords.Any.Definitions).lazyReadNullable(mapReadsInstance) and
         (__ \ Keywords.Any.Enum).readNullable[Seq[JsValue]] and
-        (__ \ Keywords.Any.Not).lazyReadNullable(valueReader)
-      ).tupled.map(
-        read => {
-          val (schemaType, allOf, anyOf, oneOf, definitions, enum, not) = read
-          AnyConstraint(schemaType, allOf, anyOf, oneOf, definitions, enum, not)
-        }
-      )
+        (__ \ Keywords.Any.Not).lazyReadNullable(valueReader) and
+        (__ \ Keywords.Any.Description).readNullable[String]
+      ).tupled.map { read =>
+      val (schemaType, allOf, anyOf, oneOf, definitions, enum, not, desc) = read
+      AnyConstraint(schemaType, allOf, anyOf, oneOf, definitions, enum, not, desc)
+    }
   }
 
   private val mapReadsInstance: Reads[Map[String, SchemaType]] =

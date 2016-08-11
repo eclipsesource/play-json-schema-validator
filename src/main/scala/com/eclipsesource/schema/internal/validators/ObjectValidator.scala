@@ -16,6 +16,7 @@ object ObjectValidator extends SchemaTypeValidator[SchemaObject] {
     json match {
       case jsObject@JsObject(props) =>
         val validation = for {
+          // TODO: updatedSchema is schema
           updatedSchema <- validateDependencies(schema, jsObject)
           remaining <- validateProps(updatedSchema, jsObject)
           unmatched <- validatePatternProps(updatedSchema, jsObject.fields)
@@ -26,7 +27,8 @@ object ObjectValidator extends SchemaTypeValidator[SchemaObject] {
 
         val (_, _, result) = validation.run(context, Success(json))
         result
-      case _ => Success(json)
+      case _ =>
+        Success(json)
     }
   }
 
@@ -93,13 +95,19 @@ object ObjectValidator extends SchemaTypeValidator[SchemaObject] {
       // find all matching properties and validate them
       val validated: Seq[(String, VA[JsValue])] = props.flatMap {
         prop => {
-          val matchedPatternProperties = schema.constraints.patternProps.getOrElse(Seq.empty).filter(pp => {
+          val matchedPatternProperties: Iterable[(String, SchemaType)] = schema.constraints.patternProps.getOrElse(Seq.empty).filter(pp => {
             val pattern = Pattern.compile(pp._1)
             val matcher = pattern.matcher(prop._1)
             matcher.find()
           })
-          matchedPatternProperties.map(pp =>
-            prop._1 -> pp._2.validate(prop._2, context)
+          matchedPatternProperties.map(pp => {
+            prop._1 -> pp._2.validate(prop._2, context.updateScope(
+              _.copy(
+                schemaPath = context.schemaPath \ "properties" \ prop._1,
+                instancePath = context.instancePath \ prop._1
+              )
+            ))
+          }
           )
         }
       }

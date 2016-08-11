@@ -316,5 +316,34 @@ class SchemaRefResolverSpec extends Specification {
     val result =resolver.resolve(Pointer("#/properties/schema1/type"), context)
     result must beRight.which(r => r.scope.id === Some(Pointer("http://x.y.z/rootschema.json#foo")))
   }
+
+  "resolve ref via fragment" in {
+    val schema = JsonSource.schemaFromString(
+      """{
+        |  "type": "object",
+        |  "definitions": {
+        |    "foo": {
+        |      "$ref": "#/definitions/bar"
+        |    },
+        |    "bar": {
+        |      "minimum": 10
+        |    }
+        |  },
+        |  "properties": {
+        |    "n": {
+        |      "$ref": "#/definitions/foo/bar"
+        |    }
+        |  }
+        |}""".
+        stripMargin).get
+    val context = new
+
+        SchemaResolutionScope(schema)
+    val result =
+      resolver.resolve(Pointer("#/properties/n"), context)
+    result must
+      beRight.which(r => r.resolved.isInstanceOf[SchemaNumber])
+  }
+
 }
 
