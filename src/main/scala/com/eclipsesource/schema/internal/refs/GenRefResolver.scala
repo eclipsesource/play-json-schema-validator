@@ -171,7 +171,7 @@ case class GenRefResolver[A : CanHaveRef : Reads]
 
       // resolve root and continue with the rest of the pointer  
       case (_, _) if pointer.isFragment =>
-        resolve(updatedScope.documentRoot, pointer.dropHashAtBeginning, updatedScope.copy(id = updatedScope.id.map(_.withHashAtEnd)))
+        resolve(updatedScope.documentRoot, pointer.dropHashAtStart, updatedScope.copy(id = updatedScope.id.map(_.withHashAtEnd)))
 
 
       case (_, _) if cache.contains(pointer) =>
@@ -209,7 +209,7 @@ case class GenRefResolver[A : CanHaveRef : Reads]
   // TODO: change error reporting format
   // TODO: do not normalize, but rather introduce additional resolution scope property
   private def resolutionFailure(pointer: Pointer)(scope: GenResolutionScope[A]): ValidationError = {
-    ValidationError(s"Could not resolve ref ${normalize(pointer, scope).value}")
+    ValidationError(s"Could not resolve ref ${pointer.withHashAtStart.value}")
   }
 
   private def resolveDefinition(pointer: Pointer, scope: GenResolutionScope[A]): Either[ValidationError, ResolvedResult[A]] = {

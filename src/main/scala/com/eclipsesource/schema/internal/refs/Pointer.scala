@@ -47,7 +47,11 @@ case class Pointer(value: String) {
     Try { matcher.group(1).replaceAll("[^A-Za-z]+", "") }.toOption
   }
 
-  def dropHashAtBeginning =
+  def withHashAtStart =
+    if (!hasFragment) Pointer(s"#/$value")
+    else this
+
+  def dropHashAtStart =
     if (value.startsWith("#/")) Pointer(value.substring(math.min(2, value.length)))
     else if (isFragment) Pointer(value.substring(math.min(1, value.length)))
     else this

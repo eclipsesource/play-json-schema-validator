@@ -312,8 +312,8 @@ class SchemaRefResolverSpec extends Specification {
 
     val context = new SchemaResolutionScope(schema)
     val failedResult = resolver.resolve(Pointer("#/properties/schema1/notthere"), context)
-    failedResult must beLeft.which(err => err.message === "Could not resolve ref http://x.y.z/rootschema.json#/properties/schema1/notthere")
-    val result =resolver.resolve(Pointer("#/properties/schema1/type"), context)
+    failedResult must beLeft.which(err => err.message === "Could not resolve ref #/properties/schema1/notthere")
+    val result = resolver.resolve(Pointer("#/properties/schema1/type"), context)
     result must beRight.which(r => r.scope.id === Some(Pointer("http://x.y.z/rootschema.json#foo")))
   }
 

@@ -249,4 +249,20 @@ class ErrorReportingSpec extends Specification {
       msgs(0).get must beEqualTo(JsString("Found 0 properties, but at least 2 properties need to be present."))
     }
   }
+
+  "reporting errors with correct resolution scope " in {
+    val schema = JsonSource.schemaFromString(
+      """{
+        |"id": "foo",
+        |"minProperties": 2
+      }""".stripMargin).get
+    val json = Json.obj()
+    val result: JsResult[JsValue] = validator.validate(schema, json)
+    result.isError must beTrue
+    result.asEither must beLeft.like { case error =>
+      val errorJson = error.toJson(0)
+      val resScope = (errorJson \ "resolutionScope").get
+      resScope must beEqualTo(JsString("foo"))
+    }
+  }
 }
