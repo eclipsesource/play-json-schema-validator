@@ -54,8 +54,7 @@ package object schema
             case Left(ValidationError(msgs, errors @ _*)) =>
               Results.failureWithPath(
                 s"Could not resolve ref ${refValue.orElse(msgs.headOption).getOrElse("")}",
-                context.schemaPath,
-                context.instancePath,
+                context,
                 json)
             case Right(ResolvedResult(resolved, scope)) =>
               val updatedContext  = context.updateScope(_ => scope)
@@ -100,8 +99,7 @@ package object schema
 
         case _ =>
           Results.failureWithPath(s"Wrong type. Expected $schemaType, was ${SchemaUtil.typeOfAsString(json)}.",
-            context.schemaPath,
-            context.instancePath,
+            context,
             json)
       }
     }

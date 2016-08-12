@@ -32,20 +32,21 @@ object Results {
   def success(prop: (String, JsValue)): PropertyValidationResult = prop._1 -> Success(prop._2)
 
   def failureWithPath(msg: String,
-                      schemaPath: JsPath,
-                      instancePath: JsPath,
+                      context: SchemaResolutionContext,
                       instance: JsValue,
-                     additionalInfo: JsObject = Json.obj()): VA[JsValue] = {
+                      additionalInfo: JsObject = Json.obj()): VA[JsValue] = {
+
     // TODO: generalize
     def dropSlashIfAny(path: String) = if (path.startsWith("/#")) path.substring(1) else path
-    Failure(Seq(instancePath ->
+
+    Failure(Seq(context.instancePath ->
       Seq(ValidationError(msg,
          Json.obj(
-          "schemaPath" -> dropSlashIfAny(schemaPath.toString()),
-          "instancePath" -> instancePath.toString(),
+          "schemaPath" -> dropSlashIfAny(context.schemaPath.toString()),
+          "instancePath" -> context.instancePath.toString(),
           "value" -> instance,
           "errors" ->  additionalInfo
-        )
+        ) ++ context.currentId.fold(Json.obj())(id => Json.obj("resolutionScope" -> id.value))
       ))
     ))
   }

@@ -10,12 +10,11 @@ object CompoundValidator extends SchemaTypeValidator[CompoundSchemaType] {
     val result: Option[VA[JsValue]] = schema.alternatives
       .map(_.validate(json, context))
       .find(_.isSuccess)
-    result
-      .getOrElse(
+
+    result.getOrElse(
         Results.failureWithPath(
           "No schema applied",
-          context.schemaPath,
-          context.instancePath,
+          context,
           json
         )
       )
