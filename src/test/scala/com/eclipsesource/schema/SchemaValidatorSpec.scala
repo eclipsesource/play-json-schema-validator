@@ -174,6 +174,17 @@ class SchemaValidatorSpec extends PlaySpecification {
     result.isSuccess must beTrue
   }
 
+  "should resolve references on the classpath via UrlResolver and custom protocols (#65)" in {
+    val validator = SchemaValidator()
+      .addUrlResolver(ClasspathUrlResolver())
+      .shouldResolveRelativeRefsWithCustomProtocols(true)
+    // some.json references location.json within JAR
+    val someJson = getClass.getResourceAsStream("/some-issue-65.json")
+    val schema = JsonSource.schemaFromStream(someJson)
+    val result = validator.validate(schema.get, Json.obj("location" -> Json.obj("name" -> "Munich")))
+    result.isSuccess must beTrue
+  }
+
   "should resolve references on the classpath via UrlHandler" in {
     val validator = SchemaValidator().addUrlHandler("classpath", new URLStreamHandler {
       override def openConnection(url: URL): URLConnection = {

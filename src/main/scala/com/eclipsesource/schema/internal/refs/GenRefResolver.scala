@@ -55,6 +55,10 @@ trait CanHaveRef[A] {
 
 case class ResolvedResult[A](resolved: A, scope: GenResolutionScope[A])
 
+trait ResolverOption
+
+case object ResolveRelativeRefsWithCustomProtocols extends ResolverOption
+
 /**
   * Generic reference resolver.
   *
@@ -63,6 +67,7 @@ case class ResolvedResult[A](resolved: A, scope: GenResolutionScope[A])
 case class GenRefResolver[A : CanHaveRef : Reads]
 (
   resolverFactory: UrlStreamResolverFactory = UrlStreamResolverFactory(),
+  options: Map[ResolverOption, Boolean] = Map.empty,
   private[schema] var cache: SchemaCache[A] = SchemaCache[A]()
 ) {
 
@@ -180,8 +185,8 @@ case class GenRefResolver[A : CanHaveRef : Reads]
       case (container, _) =>
         resolveFragments(splitFragment(pointer), updatedScope, container) orElse
           resolveRelative(pointer, updatedScope) orElse
-          resolveDefinition(pointer, updatedScope)
-            .left.map(_ => resolutionFailure(pointer)(updatedScope))
+          resolveDefinition(pointer, updatedScope) orElse
+          resolveCustom(pointer, updatedScope)
     }
 
     result match {
@@ -189,6 +194,13 @@ case class GenRefResolver[A : CanHaveRef : Reads]
         refTypeClass.findRef(r).fold(result) { case (_, refValue) => resolve(Pointer(refValue), s) }
       case other => other
     }
+  }
+
+  private def resolveCustom(pointer: Pointer, scope: GenResolutionScope[A]): Either[ValidationError, ResolvedResult[A]] = {
+    if (options.getOrElse (ResolveRelativeRefsWithCustomProtocols, false))
+      resolveRelativeWithCustomProtocols(pointer, scope)
+        .left.map (_ => resolutionFailure(pointer)(scope))
+    else Left(resolutionFailure(pointer)(scope))
   }
 
   private def fetchInstance(pointer: Pointer, scope: GenResolutionScope[A]): Either[ValidationError, A] = {
@@ -344,6 +356,12 @@ case class GenRefResolver[A : CanHaveRef : Reads]
         scope.copy(documentRoot = fetchedSchema)
       ).right
     } yield result
+  }
+
+  private def resolveRelativeWithCustomProtocols(ref: Pointer, scope: GenResolutionScope[A]): Either[ValidationError, ResolvedResult[A]] = {
+    resolverFactory.protocolHandlers.collectFirst { case (protocol, _) =>
+      resolveRelative(ref.prepend(Pointer(s"$protocol://")), scope)
+    }.getOrElse(Left(resolutionFailure(ref)(scope)))
   }
 
   /**
