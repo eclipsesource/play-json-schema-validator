@@ -28,7 +28,8 @@ object Constraints {
                            oneOf: Option[Seq[SchemaType]] = None,
                            definitions: Option[Map[String, SchemaType]] = None,
                            enum: Option[Seq[JsValue]] = None,
-                           not: Option[SchemaType] = None)
+                           not: Option[SchemaType] = None,
+                           description: Option[String] = None)
     extends Constraint with Resolvable {
 
     type A = AnyConstraint
@@ -40,7 +41,8 @@ object Constraints {
       case Keywords.Any.AllOf => allOf.map(types => SchemaTuple(types))
       case Keywords.Any.AnyOf => anyOf.map(types => SchemaTuple(types))
       case Keywords.Any.OneOf => oneOf.map(types => SchemaTuple(types))
-      case Keywords.Any.Definitions => definitions.map(entries => SchemaObject(entries.toSeq.map(e => SchemaAttribute(e._1, e._2))))
+      case Keywords.Any.Definitions => definitions.map(entries =>
+        SchemaObject(entries.toSeq.map { case (name, schema) => SchemaAttribute(name, schema) }))
       case Keywords.Any.Enum => enum.map(e => SchemaValue(JsArray(e)))
       case Keywords.Any.Not => not
       case _ => None

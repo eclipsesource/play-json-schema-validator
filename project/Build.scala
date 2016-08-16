@@ -62,7 +62,10 @@ object Build extends Build {
 
   val buildSettings = Defaults.coreDefaultSettings ++ commonSettings
 
-  val testSettings = unmanagedJars in Test += baseDirectory.value / "src/test/resources/simple-schema.jar"
+  val testSettings = unmanagedJars in Test ++= Seq(
+    baseDirectory.value / "src/test/resources/simple-schema.jar",
+    baseDirectory.value / "src/test/resources/simple-schema-issue-65.jar"
+  )
 
   lazy val schemaProject = Project("play-json-schema-validator", file("."))
     .settings(buildSettings)

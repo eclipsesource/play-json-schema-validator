@@ -55,6 +55,10 @@ trait CanHaveRef[A] {
 
 case class ResolvedResult[A](resolved: A, scope: GenResolutionScope[A])
 
+trait ResolverOption
+
+case object ResolveRelativeRefsWithCustomProtocols extends ResolverOption
+
 /**
   * Generic reference resolver.
   *
@@ -63,6 +67,7 @@ case class ResolvedResult[A](resolved: A, scope: GenResolutionScope[A])
 case class GenRefResolver[A : CanHaveRef : Reads]
 (
   resolverFactory: UrlStreamResolverFactory = UrlStreamResolverFactory(),
+  options: Map[ResolverOption, Boolean] = Map.empty,
   private[schema] var cache: SchemaCache[A] = SchemaCache[A]()
 ) {
 
@@ -171,7 +176,7 @@ case class GenRefResolver[A : CanHaveRef : Reads]
 
       // resolve root and continue with the rest of the pointer  
       case (_, _) if pointer.isFragment =>
-        resolve(updatedScope.documentRoot, pointer.dropHashAtBeginning, updatedScope.copy(id = updatedScope.id.map(_.withHashAtEnd)))
+        resolve(updatedScope.documentRoot, pointer.dropHashAtStart, updatedScope.copy(id = updatedScope.id.map(_.withHashAtEnd)))
 
 
       case (_, _) if cache.contains(pointer) =>
@@ -180,8 +185,8 @@ case class GenRefResolver[A : CanHaveRef : Reads]
       case (container, _) =>
         resolveFragments(splitFragment(pointer), updatedScope, container) orElse
           resolveRelative(pointer, updatedScope) orElse
-          resolveDefinition(pointer, updatedScope)
-            .left.map(_ => resolutionFailure(pointer)(updatedScope))
+          resolveDefinition(pointer, updatedScope) orElse
+          resolveCustom(pointer, updatedScope)
     }
 
     result match {
@@ -189,6 +194,13 @@ case class GenRefResolver[A : CanHaveRef : Reads]
         refTypeClass.findRef(r).fold(result) { case (_, refValue) => resolve(Pointer(refValue), s) }
       case other => other
     }
+  }
+
+  private def resolveCustom(pointer: Pointer, scope: GenResolutionScope[A]): Either[ValidationError, ResolvedResult[A]] = {
+    if (options.getOrElse (ResolveRelativeRefsWithCustomProtocols, false))
+      resolveRelativeWithCustomProtocols(pointer, scope)
+        .left.map (_ => resolutionFailure(pointer)(scope))
+    else Left(resolutionFailure(pointer)(scope))
   }
 
   private def fetchInstance(pointer: Pointer, scope: GenResolutionScope[A]): Either[ValidationError, A] = {
@@ -209,7 +221,7 @@ case class GenRefResolver[A : CanHaveRef : Reads]
   // TODO: change error reporting format
   // TODO: do not normalize, but rather introduce additional resolution scope property
   private def resolutionFailure(pointer: Pointer)(scope: GenResolutionScope[A]): ValidationError = {
-    ValidationError(s"Could not resolve ref ${normalize(pointer, scope).value}")
+    ValidationError(s"Could not resolve ref ${pointer.withHashAtStart.value}")
   }
 
   private def resolveDefinition(pointer: Pointer, scope: GenResolutionScope[A]): Either[ValidationError, ResolvedResult[A]] = {
@@ -246,19 +258,24 @@ case class GenRefResolver[A : CanHaveRef : Reads]
     (fragments, instance) match {
       case (Nil, result) => Right(ResolvedResult(result, scope))
       case (fragment :: rest, resolvable) =>
-        for {
-          resolved <- refTypeClass.resolve(resolvable, fragment).right
-          result <- resolveFragments(rest,
-            updatedScope.copy(
+        refTypeClass.resolve(resolvable, fragment).right.flatMap { r =>
+          rest match {
+            case Nil => Right(ResolvedResult(r, scope.copy(
               schemaPath = scope.schemaPath.compose(JsPath \ fragment),
               instancePath = scope.instancePath.compose(JsPath \ fragment)
-            ), resolved).right
-        } yield result
+            )))
+            case _ => resolve(r, Pointer(rest.mkString("/")), updatedScope.copy(
+              schemaPath = scope.schemaPath.compose(JsPath \ fragment),
+              instancePath = scope.instancePath.compose(JsPath \ fragment)
+            ))
+          }
+        }
     }
   }
 
   /**
     * Fetch the instance located at the given URL and eventually cache it as well.
+    *
     * @param url the URL at which the instance is expected
     * @param scope the current resolution scope
     * @return the fetched instance, if any
@@ -339,6 +356,12 @@ case class GenRefResolver[A : CanHaveRef : Reads]
         scope.copy(documentRoot = fetchedSchema)
       ).right
     } yield result
+  }
+
+  private def resolveRelativeWithCustomProtocols(ref: Pointer, scope: GenResolutionScope[A]): Either[ValidationError, ResolvedResult[A]] = {
+    resolverFactory.protocolHandlers.collectFirst { case (protocol, _) =>
+      resolveRelative(ref.prepend(Pointer(s"$protocol://")), scope)
+    }.getOrElse(Left(resolutionFailure(ref)(scope)))
   }
 
   /**

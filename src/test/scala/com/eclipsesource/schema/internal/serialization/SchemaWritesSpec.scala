@@ -10,9 +10,21 @@ class SchemaWritesSpec extends Specification {
   "JSON Schema Writes" should {
 
     "serialize string" in {
-
       val stringConstraint = """{
         |"maxLength": 2
+      }""".stripMargin
+
+      val schema: SchemaType = JsonSource.schemaFromString(stringConstraint).get
+      Json.toJson(schema) must beEqualTo(Json.obj(
+        "maxLength" -> 2
+      ))
+    }
+
+    "serialize string with explicit type given" in {
+
+      val stringConstraint = """{
+       |"type": "string",
+       |"maxLength": 2
       }""".stripMargin
 
       val schema: SchemaType = JsonSource.schemaFromString(stringConstraint).get
@@ -40,7 +52,6 @@ class SchemaWritesSpec extends Specification {
           NumberConstraints(Some(Minimum(2, Some(false))), Some(Maximum(10, Some(false))), Some(2))
         )
       ) must beEqualTo(Json.obj(
-        "type" -> "number",
         "minimum" -> 2,
         "exclusiveMinimum" -> false,
         "maximum" -> 10,
@@ -51,25 +62,22 @@ class SchemaWritesSpec extends Specification {
 
     "serialize array" in {
       Json.toJson(SchemaArray(SchemaNumber())) must beEqualTo(Json.obj(
-        "type" -> "array",
         "items" -> Json.obj("type" -> "number")
       ))
     }
 
     "serialize tuple" in {
       Json.toJson(SchemaTuple(Seq(SchemaNumber()))) must beEqualTo(Json.obj(
-        "type" -> "array",
         "items" -> Json.arr(Json.obj("type" -> "number"))
       ))
     }
 
     "serialize $ref" in {
-      Json.toJson(SchemaObject(Seq(SchemaAttribute("$ref", SchemaValue(JsString("#")))))) must beEqualTo(Json.obj(
-        "type" -> "object",
-        "properties" -> Json.obj(
+      Json.toJson(SchemaObject(Seq(SchemaAttribute("$ref", SchemaValue(JsString("#")))))) must beEqualTo(
+        Json.obj(
           "$ref" -> "#"
         )
-      ))
+      )
     }
 
     "compound type" in {

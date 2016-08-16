@@ -34,29 +34,35 @@ trait JSONSchemaWrites {
       })
   }
 
-  lazy val nullWriter: Writes[SchemaNull] = OWrites[SchemaNull] { nll =>
-    Json.obj("type" -> "null")
+  lazy val nullWriter: Writes[SchemaNull] = OWrites[SchemaNull] { n =>
+    anyConstraintWriter.writes(n.constraints.any)
   }
 
-  implicit val booleanWriter: Writes[SchemaBoolean] = OWrites[SchemaBoolean] { bool =>
+  implicit val booleanWriter: Writes[SchemaBoolean] = OWrites[SchemaBoolean] { b =>
     Json.obj("type" -> "boolean")
+      .deepMerge(anyConstraintWriter.writes(b.constraints.any))
   }
 
-  implicit val stringWriter: Writes[SchemaString] = OWrites[SchemaString] { str =>
-    Json.obj("type" -> "string") ++ stringConstraintWriter.writes(str.constraints)
+  implicit val stringWriter: Writes[SchemaString] = OWrites[SchemaString] { s =>
+    val stringConstraints = stringConstraintWriter.writes(s.constraints)
+    if (stringConstraints.fields.isEmpty) Json.obj("type" -> "string")
+    else stringConstraints
   }
 
-  implicit val integerWriter: Writes[SchemaInteger] = OWrites[SchemaInteger] { int =>
-    Json.obj("type" -> "integer") ++ numberConstraintWriter.writes(int.constraints)
+  implicit val integerWriter: Writes[SchemaInteger] = OWrites[SchemaInteger] { i =>
+    val integerConstraints = numberConstraintWriter.writes(i.constraints)
+    if (integerConstraints.fields.isEmpty) Json.obj("type" -> "integer")
+    else integerConstraints
   }
 
   implicit val numberWriter: Writes[SchemaNumber] = OWrites[SchemaNumber] { num =>
-    Json.obj("type" -> "number") ++ numberConstraintWriter.writes(num.constraints)
+    val numberConstraints = numberConstraintWriter.writes(num.constraints)
+    if (numberConstraints.fields.isEmpty) Json.obj("type" -> "number")
+    else numberConstraints
   }
 
   implicit val arrayWriter: Writes[SchemaArray] = Writes[SchemaArray] { arr =>
     Json.obj(
-      "type" -> "array",
       "items" -> Json.toJson(arr.item)
     ) ++
       arr.id.fold(emptyObject)(i => Json.obj("id" -> i)) ++
@@ -68,22 +74,37 @@ trait JSONSchemaWrites {
 
   implicit val tupleWriter: Writes[SchemaTuple] = Writes[SchemaTuple] { arr =>
     Json.obj(
-      "type" -> "array",
       "items" -> Json.toJson(arr.items)
     ) ++
       arr.id.fold(emptyObject)(i => Json.obj("id" -> i)) ++
       arrayConstraintWriter.writes(arr.constraints)
   }
 
-  implicit val objectWriter: Writes[SchemaObject] = OWrites[SchemaObject] {
-    obj => {
-      val o = Json.obj(
-        "type" -> "object",
-        "properties" -> JsObject(obj.properties.map(attr => attr.name -> Json.toJson(attr.schemaType)))
-      ) ++ obj.id.fold(emptyObject)(i => Json.obj("id" -> i))
+  // TODO: default is missing
+  // TODO
+  // 		"jsonReference": {
+  //  "$ref": {
+  //    "type": "string"
+  //  },
+  //  "additionalProperties": false,
+  //  "required": ["$ref"],
+  //  "type": "object"
+  // }
+  implicit val objectWriter: Writes[SchemaObject] = OWrites[SchemaObject] { obj =>
 
-      o.deepMerge(objectConstraintWriter.writes(obj.constraints)).deepMerge(obj.id.fold(Json.obj())(i => Json.obj("id" -> i)))
-    }
+    // TODO: only write none empty seq of properties
+    val o = Json.obj(
+      "properties" -> JsObject(obj.properties.map(attr => attr.name -> Json.toJson(attr.schemaType)))
+    ) ++ obj.id.fold(emptyObject)(i => Json.obj("id" -> i))
+
+    // check if $ref exists
+    val maybeRef = obj.properties.find(_.name == Keywords.Object.Ref)
+    val jsonObj = maybeRef
+      .map(ref =>
+        Json.obj(Keywords.Object.Ref -> Json.toJson(ref.schemaType))
+      ).getOrElse(o)
+
+    jsonObj.deepMerge(objectConstraintWriter.writes(obj.constraints)).deepMerge(obj.id.fold(Json.obj())(i => Json.obj("id" -> i)))
   }
 
   lazy val objectConstraintWriter: OWrites[ObjectConstraints] = OWrites[ObjectConstraints] {
@@ -108,7 +129,6 @@ trait JSONSchemaWrites {
 
   lazy val numberConstraintWriter: OWrites[NumberConstraints] = OWrites[NumberConstraints] {
     constraints =>
-      asJsObject(Keywords.Any.Type, Some(Json.obj("type" -> "number")))
       constraints.max.fold(emptyObject)(max => max.isExclusive match {
         case Some(isExclusive) => Json.obj(Keywords.Number.Max -> max.max, Keywords.Number.ExclusiveMax -> isExclusive)
         case _ => Json.obj(Keywords.Number.Max -> max.max)
@@ -133,11 +153,13 @@ trait JSONSchemaWrites {
 
   lazy val anyConstraintWriter: OWrites[AnyConstraint] = OWrites[AnyConstraint] {
     anyConstraint =>
+      asJsObject(Keywords.Any.Type, anyConstraint.schemaTypeAsString) ++
       asJsObject(Keywords.Any.AllOf, anyConstraint.allOf) ++
       asJsObject(Keywords.Any.AnyOf, anyConstraint.anyOf) ++
       asJsObject(Keywords.Any.OneOf, anyConstraint.oneOf) ++
       asJsObject(Keywords.Any.Definitions, anyConstraint.definitions) ++
-      asJsObject(Keywords.Any.Enum, anyConstraint.enum)
+      asJsObject(Keywords.Any.Enum, anyConstraint.enum) ++
+      asJsObject(Keywords.Any.Description, anyConstraint.description)
   }
 
   private def asJsObject[A : Writes](key: String, opt: Option[A]): JsObject = {

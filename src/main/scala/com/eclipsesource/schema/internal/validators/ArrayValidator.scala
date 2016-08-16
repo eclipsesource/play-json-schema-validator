@@ -30,8 +30,7 @@ object ArrayValidator extends SchemaTypeValidator[SchemaArray] with ArrayConstra
     case other =>
       Results.failureWithPath(
         s"Wrong type. Expected array, was ${SchemaUtil.typeOfAsString(json)}",
-        context.schemaPath,
-        context.instancePath,
+        context,
         json
       )
   }

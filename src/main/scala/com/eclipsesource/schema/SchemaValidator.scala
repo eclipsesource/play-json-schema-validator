@@ -3,7 +3,7 @@ package com.eclipsesource.schema
 import java.net.{URL, URLStreamHandler}
 
 import com.eclipsesource.schema.internal.SchemaRefResolver._
-import com.eclipsesource.schema.internal.refs.Pointer
+import com.eclipsesource.schema.internal.refs.{Pointer, ResolveRelativeRefsWithCustomProtocols}
 import com.eclipsesource.schema.internal.validators.DefaultFormats
 import play.api.data.validation.ValidationError
 import play.api.libs.json._
@@ -233,6 +233,14 @@ case class SchemaValidator(refResolver: SchemaRefResolver = new SchemaRefResolve
     copy(refResolver =
       refResolver.copy(resolverFactory =
         refResolver.resolverFactory.addUrlResolver(urlResolver)))
+
+  def shouldResolveRelativeRefsWithCustomProtocols(value: Boolean) = {
+    copy(refResolver =
+      refResolver.copy(options =
+        refResolver.options.updated(ResolveRelativeRefsWithCustomProtocols, value)
+      )
+    )
+  }
 
   /**
     * Add a custom format

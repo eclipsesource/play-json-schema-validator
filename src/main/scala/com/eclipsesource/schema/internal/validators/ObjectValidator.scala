@@ -12,10 +12,13 @@ import scalaz.{ReaderWriterState, Success}
 
 object ObjectValidator extends SchemaTypeValidator[SchemaObject] {
 
+  private def resultOnly(va: VA[JsValue]) = ((), (), va)
+
   override def validate(schema: SchemaObject, json: => JsValue, context: SchemaResolutionContext): VA[JsValue] = {
     json match {
       case jsObject@JsObject(props) =>
         val validation = for {
+          // TODO: updatedSchema is schema
           updatedSchema <- validateDependencies(schema, jsObject)
           remaining <- validateProps(updatedSchema, jsObject)
           unmatched <- validatePatternProps(updatedSchema, jsObject.fields)
@@ -26,7 +29,8 @@ object ObjectValidator extends SchemaTypeValidator[SchemaObject] {
 
         val (_, _, result) = validation.run(context, Success(json))
         result
-      case _ => Success(json)
+      case _ =>
+        Success(json)
     }
   }
 
@@ -41,8 +45,7 @@ object ObjectValidator extends SchemaTypeValidator[SchemaObject] {
             attr.name ->
               Results.failureWithPath(
                 s"Property ${attr.name} missing",
-                context.schemaPath,
-                context.instancePath,
+                context,
                 json
               ) :: props
           } else {
@@ -68,8 +71,7 @@ object ObjectValidator extends SchemaTypeValidator[SchemaObject] {
               val result = req ->
                 Results.failureWithPath(
                   s"Property $req missing",
-                  context.schemaPath,
-                  context.instancePath,
+                  context,
                   json
                 )
               result :: acc
@@ -93,13 +95,19 @@ object ObjectValidator extends SchemaTypeValidator[SchemaObject] {
       // find all matching properties and validate them
       val validated: Seq[(String, VA[JsValue])] = props.flatMap {
         prop => {
-          val matchedPatternProperties = schema.constraints.patternProps.getOrElse(Seq.empty).filter(pp => {
+          val matchedPatternProperties: Iterable[(String, SchemaType)] = schema.constraints.patternProps.getOrElse(Seq.empty).filter(pp => {
             val pattern = Pattern.compile(pp._1)
             val matcher = pattern.matcher(prop._1)
             matcher.find()
           })
-          matchedPatternProperties.map(pp =>
-            prop._1 -> pp._2.validate(prop._2, context)
+          matchedPatternProperties.map(pp => {
+            prop._1 -> pp._2.validate(prop._2, context.updateScope(
+              _.copy(
+                schemaPath = context.schemaPath \ "properties" \ prop._1,
+                instancePath = context.instancePath \ prop._1
+              )
+            ))
+          }
           )
         }
       }
@@ -132,25 +140,22 @@ object ObjectValidator extends SchemaTypeValidator[SchemaObject] {
     ReaderWriterState { (context, status) =>
 
       if (unmatchedFields.isEmpty) {
-        ((), (), status)
+        resultOnly(status)
       } else {
         schema.constraints.additionalPropertiesOrDefault match {
           case SchemaValue(JsBoolean(enabled)) =>
-            if (enabled) {
-              ((), (), Results.merge(status, Success(JsObject(unmatchedFields))))
-            } else {
-              ((), (), Results.merge(status,
+            if (enabled) resultOnly(Results.merge(status, Success(JsObject(unmatchedFields))))
+            else resultOnly(
+              Results.merge(status,
                 Results.failureWithPath(
                   s"Additional properties are not allowed but found ${unmatchedFields.map(f => s"'${f._1}'").mkString(", ")}.",
-                  context.schemaPath,
-                  context.instancePath,
+                  context,
                   Json.obj() // TODO
                 )
               ))
-            }
           case additionalProp =>
             val validationStatus = validateUnmatched(additionalProp, context)
-            ((), (), Results.merge(status, validationStatus))
+            resultOnly(Results.merge(status, validationStatus))
         }
       }
     }
@@ -169,8 +174,10 @@ object ObjectValidator extends SchemaTypeValidator[SchemaObject] {
       val result = mandatoryProps.map(prop => json.fields.find(_._1 == prop).fold(
         prop -> Results.failureWithPath(
           s"Missing property dependency $prop.",
-          context.schemaPath \ prop,
-          context.instancePath \ prop,
+          context.updateScope(_.copy(
+            schemaPath = context.schemaPath \ prop,
+            instancePath = context.instancePath \ prop
+          )),
           json
         )
       )(field => Results.success(field)))
@@ -208,8 +215,7 @@ object ObjectValidator extends SchemaTypeValidator[SchemaObject] {
         } else {
           Results.failureWithPath(
             s"Found $size properties, but only a maximum of $max properties is allowed",
-            context.schemaPath,
-            context.instancePath,
+            context,
             json
           )
         }
@@ -228,8 +234,7 @@ object ObjectValidator extends SchemaTypeValidator[SchemaObject] {
         } else {
           Results.failureWithPath(
             s"Found $size properties, but at least $min ${if (min == 1) "property needs" else "properties need"} to be present.",
-            context.schemaPath,
-            context.instancePath,
+            context,
             json
           )
         }
