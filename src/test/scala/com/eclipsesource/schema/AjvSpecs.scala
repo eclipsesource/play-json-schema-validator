@@ -1,3 +1,5 @@
+package com.eclipsesource.schema
+
 import com.eclipsesource.schema.test.JsonSpec
 import play.api.test.PlaySpecification
 

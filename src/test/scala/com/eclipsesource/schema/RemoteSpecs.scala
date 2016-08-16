@@ -33,6 +33,8 @@ class RemoteSpecs extends PlaySpecification with JsonSpec with Online with After
 
   def afterAll = { server.stop; Thread.sleep(1000) }
 
+  def validateAjv(testName: String) = validate(testName, "ajv_tests")
+
   sequential
 
   "Validation from remote resources is possible" >> {
@@ -50,4 +52,6 @@ class RemoteSpecs extends PlaySpecification with JsonSpec with Online with After
       )
     }
   }
+
+  validateAjv("1_ids_in_refs")
 }
