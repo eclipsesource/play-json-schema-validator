@@ -185,6 +185,25 @@ class SchemaValidatorSpec extends PlaySpecification {
     result.isSuccess must beTrue
   }
 
+  "should resolve relative references with custom protocols (#65)" in {
+    val validator = SchemaValidator()
+      .addUrlResolver(ClasspathUrlResolver())
+      .shouldResolveRelativeRefsWithCustomProtocols(true)
+    val mySchemaJson = getClass.getResourceAsStream("/my-schema.schema")
+    val mySchema = JsonSource.schemaFromStream(mySchemaJson)
+    val result = validator.validate(mySchema.get, Json.obj("foo" -> Json.obj("bar" -> "whatever")))
+    result.isSuccess must beTrue
+  }
+
+  "should fail resolving relative references with custom protocols if option not set(#65)" in {
+    val validator = SchemaValidator()
+      .addUrlResolver(ClasspathUrlResolver())
+    val mySchemaJson = getClass.getResourceAsStream("/my-schema.schema")
+    val mySchema = JsonSource.schemaFromStream(mySchemaJson)
+    val result = validator.validate(mySchema.get, Json.obj("foo" -> Json.obj("bar" -> "whatever")))
+    result.isError must beTrue
+  }
+
   "should resolve references on the classpath via UrlHandler" in {
     val validator = SchemaValidator().addUrlHandler("classpath", new URLStreamHandler {
       override def openConnection(url: URL): URLConnection = {
@@ -198,7 +217,7 @@ class SchemaValidatorSpec extends PlaySpecification {
     result.isSuccess must beTrue
   }
 
-  "should resolve references on the classpath via UrlHandler" in {
+  "should fail with message in case a ref can not be resolved" in {
     val schema = JsonSource.schemaFromString(
       """{ "$ref": "#/does/not/exist" }""".stripMargin).get
     val instance = JsNumber(42)

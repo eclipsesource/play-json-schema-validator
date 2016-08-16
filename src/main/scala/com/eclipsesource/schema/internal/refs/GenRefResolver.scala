@@ -197,7 +197,7 @@ case class GenRefResolver[A : CanHaveRef : Reads]
   }
 
   private def resolveCustom(pointer: Pointer, scope: GenResolutionScope[A]): Either[ValidationError, ResolvedResult[A]] = {
-    if (options.getOrElse (ResolveRelativeRefsWithCustomProtocols, false))
+    if (options.getOrElse(ResolveRelativeRefsWithCustomProtocols, false))
       resolveRelativeWithCustomProtocols(pointer, scope)
         .left.map (_ => resolutionFailure(pointer)(scope))
     else Left(resolutionFailure(pointer)(scope))

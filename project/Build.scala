@@ -64,7 +64,8 @@ object Build extends Build {
 
   val testSettings = unmanagedJars in Test ++= Seq(
     baseDirectory.value / "src/test/resources/simple-schema.jar",
-    baseDirectory.value / "src/test/resources/simple-schema-issue-65.jar"
+    baseDirectory.value / "src/test/resources/simple-schema-issue-65.jar",
+    baseDirectory.value / "src/test/resources/issue-65.jar"
   )
 
   lazy val schemaProject = Project("play-json-schema-validator", file("."))
