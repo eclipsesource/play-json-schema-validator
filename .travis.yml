@@ -16,5 +16,5 @@ script:
   - sbt -sbt-version 0.13.9 -scala-version $TRAVIS_SCALA_VERSION clean coverage test
 
 after_success:
-    sbt coverageReport coveralls
+  - sbt coverageReport coveralls
 
