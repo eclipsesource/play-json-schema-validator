@@ -48,7 +48,7 @@ class SchemaRefResolverSpec extends Specification {
       resolver.resolveSchema("#/", scope)      must beRight(SchemaValue(JsNumber(0)))
       resolver.resolveSchema("#/a~1b", scope)  must beRight(SchemaValue(JsNumber(1)))
       // TODO: fails
-      //      resolver.resolveValue("#/c%d", scope)   must beRight(SchemaValue(JsNumber(2)))
+      // resolver.resolveValue("#/c%d", scope)   must beRight(SchemaValue(JsNumber(2)))
       resolver.resolveSchema("#/e^f", scope)   must beRight(SchemaValue(JsNumber(3)))
       resolver.resolveSchema("#/g|h", scope)   must beRight(SchemaValue(JsNumber(4)))
       resolver.resolveSchema("#/i\\j", scope)  must beRight(SchemaValue(JsNumber(5)))
@@ -63,7 +63,6 @@ class SchemaRefResolverSpec extends Specification {
     resolver.normalize(Pointer("#foo"),
       new SchemaResolutionScope(someSchema,  Some(Pointer(root)))) must beEqualTo(Pointer("http://x.y.z/rootschema.json#foo"))
 
-    // TODO meh
     resolver.normalize(Pointer("otherschema.json"),
       new SchemaResolutionScope(someSchema, Some(Pointer(other)))) must beEqualTo(Pointer("http://x.y.z/otherschema.json#"))
 

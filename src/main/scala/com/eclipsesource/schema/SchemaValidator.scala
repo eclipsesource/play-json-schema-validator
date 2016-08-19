@@ -3,7 +3,7 @@ package com.eclipsesource.schema
 import java.net.{URL, URLStreamHandler}
 
 import com.eclipsesource.schema.internal.SchemaRefResolver._
-import com.eclipsesource.schema.internal.refs.{Pointer, ResolveRelativeRefsWithCustomProtocols}
+import com.eclipsesource.schema.internal.refs.{Pointer}
 import com.eclipsesource.schema.internal.validators.DefaultFormats
 import play.api.data.validation.ValidationError
 import play.api.libs.json._
@@ -229,18 +229,18 @@ case class SchemaValidator(refResolver: SchemaRefResolver = new SchemaRefResolve
     * @param urlResolver the UrlResolver to be added
     * @return a new validator instance
     */
-  def addUrlResolver(urlResolver: UrlResolver): SchemaValidator =
+  def addUrlResolver(urlResolver: UrlProtocolHandler): SchemaValidator =
     copy(refResolver =
       refResolver.copy(resolverFactory =
-        refResolver.resolverFactory.addUrlResolver(urlResolver)))
+        refResolver.resolverFactory.addUrlHandler(urlResolver)))
 
-  def shouldResolveRelativeRefsWithCustomProtocols(value: Boolean) = {
+  /**
+    * Add a URLStreamHandler that is capable of resolving relative references.
+    */
+  def addRelativeUrlHandler(handler: URLStreamHandler): SchemaValidator =
     copy(refResolver =
-      refResolver.copy(options =
-        refResolver.options.updated(ResolveRelativeRefsWithCustomProtocols, value)
-      )
-    )
-  }
+      refResolver.copy(resolverFactory =
+        refResolver.resolverFactory.addRelativeUrlHandler(handler)))
 
   /**
     * Add a custom format

@@ -2,18 +2,21 @@ package com.eclipsesource.schema
 
 import java.net.{URL, URLConnection, URLStreamHandler}
 
-import com.eclipsesource.schema.internal.url.ClasspathUrlResolver
+import com.eclipsesource.schema.protocol.{ClasspathUrlProtocolHandler, ClasspathHandler}
 import controllers.Assets
+import play.api.inject.guice.GuiceApplicationBuilder
 import play.api.libs.functional.syntax._
 import play.api.libs.json._
 import play.api.mvc.Handler
-import play.api.test.{FakeApplication, PlaySpecification, WithServer}
+import play.api.test.{PlaySpecification, WithServer}
 
 class SchemaValidatorSpec extends PlaySpecification {
 
   val routes: PartialFunction[(String, String), Handler] = {
     case (_, path) => Assets.versioned("/", path)
   }
+
+  def createApp = new GuiceApplicationBuilder().routes(routes).build()
 
   val schema = JsonSource.schemaFromString(
     """{
@@ -51,7 +54,7 @@ class SchemaValidatorSpec extends PlaySpecification {
   "SchemaValidator" should {
 
     "validate additionalProperties schema constraint via $ref" in
-      new WithServer(app = new FakeApplication(withRoutes = routes), port = 1234) {
+      new WithServer(app = createApp, port = 1234) {
 
         val schema = JsonSource.schemaFromString(
           """{
@@ -80,7 +83,7 @@ class SchemaValidatorSpec extends PlaySpecification {
     }
 
     "validate oneOf constraint via $ref" in
-      new WithServer(app = new FakeApplication(withRoutes = routes), port = 1234) {
+      new WithServer(app = createApp, port = 1234) {
 
         val schema = JsonSource.schemaFromString(
           """{
@@ -120,15 +123,14 @@ class SchemaValidatorSpec extends PlaySpecification {
     }
 
     "validate with Reads" in
-      new WithServer(app = new FakeApplication(withRoutes = routes), port = 1234) {
+      new WithServer(app = createApp, port = 1234) {
         val result = SchemaValidator().validate(schema, instance, talkReads)
         result.isSuccess must beTrue
         result.asOpt must beSome.which(talk => talk.location.name must beEqualTo("Munich"))
       }
 
     "validate with Writes" in
-      new WithServer(app = new FakeApplication(withRoutes = routes), port = 1234) {
-
+      new WithServer(app = createApp, port = 1234) {
         val talk = Talk(Location("Munich"))
         val result = SchemaValidator().validate(schema, talk, talkWrites)
         result.isSuccess must beTrue
@@ -136,7 +138,7 @@ class SchemaValidatorSpec extends PlaySpecification {
   }
 
   "Remote ref" should {
-    "validate" in new WithServer(app = new FakeApplication(withRoutes = routes), port = 1234) {
+    "validate" in new WithServer(app = createApp, port = 1234) {
       val resourceUrl: URL = new URL("http://localhost:1234/talk.json")
       val result = SchemaValidator().validate(resourceUrl, instance)
       result.isSuccess must beTrue
@@ -144,7 +146,7 @@ class SchemaValidatorSpec extends PlaySpecification {
   }
 
   "report errors of wrong reads" in
-    new WithServer(app = new FakeApplication(withRoutes = routes), port = 1234) {
+    new WithServer(app = createApp, port = 1234) {
 
       case class Foo(location: Location, title: String)
 
@@ -165,8 +167,8 @@ class SchemaValidatorSpec extends PlaySpecification {
       }
     }
 
-  "should resolve references on the classpath via UrlResolver" in {
-    val validator = SchemaValidator().addUrlResolver(ClasspathUrlResolver())
+  "should resolve references on the classpath with ClasspathUrlResolver" in {
+    val validator = SchemaValidator().addUrlResolver(ClasspathUrlProtocolHandler())
     // some.json references location.json within JAR
     val someJson = getClass.getResourceAsStream("/some.json")
     val schema = JsonSource.schemaFromStream(someJson)
@@ -174,30 +176,28 @@ class SchemaValidatorSpec extends PlaySpecification {
     result.isSuccess must beTrue
   }
 
-  "should resolve references on the classpath via UrlResolver and custom protocols (#65)" in {
+  "should resolve relative references on the classpath with relative URL handler (#65)" in {
     val validator = SchemaValidator()
-      .addUrlResolver(ClasspathUrlResolver())
-      .shouldResolveRelativeRefsWithCustomProtocols(true)
-    // some.json references location.json within JAR
+      .addRelativeUrlHandler(new ClasspathHandler)
+    // some-issue-65.json references location.json within JAR
     val someJson = getClass.getResourceAsStream("/some-issue-65.json")
     val schema = JsonSource.schemaFromStream(someJson)
     val result = validator.validate(schema.get, Json.obj("location" -> Json.obj("name" -> "Munich")))
     result.isSuccess must beTrue
   }
 
-  "should resolve relative references with custom protocols (#65)" in {
+  "should resolve relative references on the classpath with relative URL handler (#65 - 2)" in {
     val validator = SchemaValidator()
-      .addUrlResolver(ClasspathUrlResolver())
-      .shouldResolveRelativeRefsWithCustomProtocols(true)
+      .addRelativeUrlHandler(new ClasspathHandler)
     val mySchemaJson = getClass.getResourceAsStream("/my-schema.schema")
     val mySchema = JsonSource.schemaFromStream(mySchemaJson)
     val result = validator.validate(mySchema.get, Json.obj("foo" -> Json.obj("bar" -> "whatever")))
     result.isSuccess must beTrue
   }
 
-  "should fail resolving relative references with custom protocols if option not set(#65)" in {
+  "should fail resolving relative references without any relative URL handler available (#65)" in {
     val validator = SchemaValidator()
-      .addUrlResolver(ClasspathUrlResolver())
+      .addUrlResolver(ClasspathUrlProtocolHandler())
     val mySchemaJson = getClass.getResourceAsStream("/my-schema.schema")
     val mySchema = JsonSource.schemaFromStream(mySchemaJson)
     val result = validator.validate(mySchema.get, Json.obj("foo" -> Json.obj("bar" -> "whatever")))
@@ -280,7 +280,7 @@ class SchemaValidatorSpec extends PlaySpecification {
         |}""".stripMargin).get
     val validator = SchemaValidator()
 
-    val res1 = validator.validate(schema,
+    validator.validate(schema,
       Json.obj(
         "edges" ->
           Json.arr(
@@ -289,11 +289,9 @@ class SchemaValidatorSpec extends PlaySpecification {
             Json.obj("D" -> Json.arr("F", "E"))
           )
       )
-    )
+    ).isSuccess must beTrue
 
-    res1.isSuccess must beTrue
-
-    val res2 = validator.validate(schema,
+    validator.validate(schema,
       Json.obj(
         "edges" ->
           Json.arr(
@@ -301,9 +299,7 @@ class SchemaValidatorSpec extends PlaySpecification {
             Json.obj("B" -> Json.arr("C", "D", "E"))
           )
       )
-    )
-
-    res2.isError must beTrue
+    ).isError must beTrue
 
     validator.validate(schema,
       Json.obj(
@@ -366,10 +362,7 @@ class SchemaValidatorSpec extends PlaySpecification {
     // valid with name2 field
     validator.validate(schema)(Json.obj("name2" -> "bar")).isSuccess must beTrue
 
-
-
     // invalid because not listed in enum
-    val result = SchemaValidator().validate(schema)(Json.obj("name" -> "quux"))
-    result.isError must beTrue
+    SchemaValidator().validate(schema)(Json.obj("name" -> "quux")).isError must beTrue
   }
 }
