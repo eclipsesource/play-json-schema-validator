@@ -3,8 +3,9 @@ package com.eclipsesource.schema
 import java.net.{URL, URLStreamHandler}
 
 import com.eclipsesource.schema.internal.SchemaRefResolver._
-import com.eclipsesource.schema.internal.refs.{Pointer}
+import com.eclipsesource.schema.internal.refs.Pointer
 import com.eclipsesource.schema.internal.validators.DefaultFormats
+import com.eclipsesource.schema.urlhandlers.UrlProtocolHandler
 import play.api.data.validation.ValidationError
 import play.api.libs.json._
 

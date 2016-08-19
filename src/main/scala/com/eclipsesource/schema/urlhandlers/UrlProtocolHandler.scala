@@ -1,4 +1,4 @@
-package com.eclipsesource.schema
+package com.eclipsesource.schema.urlhandlers
 
 import java.net.URLStreamHandler
 

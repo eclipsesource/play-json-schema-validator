@@ -1,4 +1,4 @@
-package com.eclipsesource.schema.protocol
+package com.eclipsesource.schema.urlhandlers
 
 import java.net.{URL, URLConnection, URLStreamHandler}
 
