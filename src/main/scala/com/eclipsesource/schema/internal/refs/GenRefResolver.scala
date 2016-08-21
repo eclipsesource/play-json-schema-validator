@@ -68,7 +68,7 @@ case class GenRefResolver[A : CanHaveRef : Reads]
 (
   resolverFactory: UrlStreamResolverFactory = UrlStreamResolverFactory(),
   options: Map[ResolverOption, Boolean] = Map.empty,
-  private[schema] var cache: SchemaCache[A] = SchemaCache[A]()
+  private[schema] var cache: DocumentCache[A] = DocumentCache[A]()
 ) {
 
   val refTypeClass = implicitly[CanHaveRef[A]]
@@ -133,7 +133,7 @@ case class GenRefResolver[A : CanHaveRef : Reads]
   private[schema] def updateResolutionScope(scope: GenResolutionScope[A], a: A): GenResolutionScope[A] = a match {
     case _ if refTypeClass.refinesScope(a) =>
       val updatedId = refTypeClass.findScopeRefinement(a).map(id => normalize(id, scope))
-      updatedId.foreach(id => cache = cache.addId(id)(a))
+      updatedId.foreach(id => cache = cache.add(id)(a))
       scope.copy(id = updatedId)
     case other => scope
   }
@@ -174,13 +174,13 @@ case class GenRefResolver[A : CanHaveRef : Reads]
       case (_, Pointers.`#`) =>
         Right(ResolvedResult(updatedScope.documentRoot, updatedScope))
 
-      // resolve root and continue with the rest of the pointer  
+      // resolve root and continue with the rest of the pointer
       case (_, _) if pointer.isFragment =>
         resolve(updatedScope.documentRoot, pointer.dropHashAtStart, updatedScope.copy(id = updatedScope.id.map(_.withHashAtEnd)))
 
 
       case (_, _) if cache.contains(pointer) =>
-        Right(ResolvedResult(cache.idMapping(pointer.value), scope))
+        Right(ResolvedResult(cache.mapping(pointer.value), scope))
 
       case (container, _) =>
         resolveFragments(splitFragment(pointer), updatedScope, container) orElse
@@ -198,7 +198,7 @@ case class GenRefResolver[A : CanHaveRef : Reads]
 
   private def fetchDocument(pointer: Pointer, scope: GenResolutionScope[A]): Either[ValidationError, A] = {
     // check if we already resolved the document
-    cache.getId(pointer.documentName).fold {
+    cache.get(pointer.documentName).fold {
       // we didn't, so let's fetch the document
       // fetch will take care of putting the document into the cache
       for {
@@ -287,7 +287,8 @@ case class GenRefResolver[A : CanHaveRef : Reads]
       .toEither
       .right
       .flatMap( using(_) { source =>
-          cache.getId(Pointer(url.toString)) match {
+          val pointer = Pointer(url.toString)
+          cache.get(pointer) match {
             case cached@Some(a) => Right(a)
             case otherwise =>
               val resolved = for {
@@ -295,7 +296,7 @@ case class GenRefResolver[A : CanHaveRef : Reads]
                 resolvedSchema <- readJson(json).right
               } yield resolvedSchema
               resolved.right.map { res =>
-                cache = cache.addId(normalize(Pointer(url.toString), scope))(res)
+                cache = cache.add(normalize(pointer, scope))(res)
                 res
               }
           }

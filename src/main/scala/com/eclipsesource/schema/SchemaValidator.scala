@@ -215,25 +215,25 @@ case class SchemaValidator(refResolver: SchemaRefResolver = new SchemaRefResolve
   /**
     * Add a URL stream handler that is capable of handling the specified protocol.
     *
-    * @param protocolEntry a tuple mapping the protocol type to the respective handler
+    * @param handler a tuple mapping the protocol type to the respective handler
     * @return a new validator instance
     */
-  def addUrlHandler(protocolEntry: (String, URLStreamHandler)): SchemaValidator =
+  def addUrlProtocolHandler(handler: (String, URLStreamHandler)): SchemaValidator =
     copy(refResolver =
       refResolver.copy(resolverFactory =
-        refResolver.resolverFactory.addUrlHandler(protocolEntry)))
+        refResolver.resolverFactory.addUrlHandler(handler)))
 
   /**
-    * Add a URL resolver (which is just convenience wrapper around an URLStreamHandler)
-    * that is capable of handling the specified protocol.
+    * Add a URL protocol handler (which is just convenience wrapper around an URLStreamHandler)
+    * that is capable of handling a specific protocol.
     *
-    * @param urlResolver the UrlResolver to be added
+    * @param protocolHandler the UrlProtocolHandler to be added
     * @return a new validator instance
     */
-  def addUrlResolver(urlResolver: UrlProtocolHandler): SchemaValidator =
+  def addUrlProtocolHandler(protocolHandler: UrlProtocolHandler): SchemaValidator =
     copy(refResolver =
       refResolver.copy(resolverFactory =
-        refResolver.resolverFactory.addUrlHandler(urlResolver)))
+        refResolver.resolverFactory.addUrlHandler(protocolHandler)))
 
   /**
     * Add a URLStreamHandler that is capable of resolving relative references.
@@ -260,7 +260,7 @@ case class SchemaValidator(refResolver: SchemaRefResolver = new SchemaRefResolve
   def addSchema(id: String, schema: SchemaType): SchemaValidator = {
     copy(refResolver =
       refResolver.copy(cache =
-        refResolver.cache.addId(Pointer(id))(schema))
+        refResolver.cache.add(Pointer(id))(schema))
     )
   }
 }

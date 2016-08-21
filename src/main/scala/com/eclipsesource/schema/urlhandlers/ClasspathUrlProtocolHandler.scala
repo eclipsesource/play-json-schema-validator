@@ -1,5 +1,5 @@
 package com.eclipsesource.schema.urlhandlers
 
-case class ClasspathUrlProtocolHandler() extends ClasspathHandler with UrlProtocolHandler {
+class ClasspathUrlProtocolHandler extends ClasspathUrlHandler with UrlProtocolHandler {
   override def protocol: String = "classpath"
 }

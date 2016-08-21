@@ -2,7 +2,7 @@ package com.eclipsesource.schema
 
 import java.net.{URL, URLConnection, URLStreamHandler}
 
-import com.eclipsesource.schema.urlhandlers.{ClasspathUrlProtocolHandler, ClasspathHandler}
+import com.eclipsesource.schema.urlhandlers.{ClasspathUrlProtocolHandler, ClasspathUrlHandler}
 import controllers.Assets
 import play.api.inject.guice.GuiceApplicationBuilder
 import play.api.libs.functional.syntax._
@@ -167,8 +167,8 @@ class SchemaValidatorSpec extends PlaySpecification {
       }
     }
 
-  "should resolve references on the classpath with ClasspathUrlResolver" in {
-    val validator = SchemaValidator().addUrlResolver(ClasspathUrlProtocolHandler())
+  "should resolve references on the classpath with ClasspathUrlProtocolHandler" in {
+    val validator = SchemaValidator().addUrlProtocolHandler(new ClasspathUrlProtocolHandler())
     // some.json references location.json within JAR
     val someJson = getClass.getResourceAsStream("/some.json")
     val schema = JsonSource.schemaFromStream(someJson)
@@ -176,45 +176,107 @@ class SchemaValidatorSpec extends PlaySpecification {
     result.isSuccess must beTrue
   }
 
-  "should resolve relative references on the classpath with relative URL handler (#65)" in {
+  // No protocol handler, no relative handler
+  "should fail resolving explicit relative references if no protocol handler at all is set" in {
     val validator = SchemaValidator()
-      .addRelativeUrlHandler(new ClasspathHandler)
-    // some-issue-65.json references location.json within JAR
-    val someJson = getClass.getResourceAsStream("/some-issue-65.json")
-    val schema = JsonSource.schemaFromStream(someJson)
-    val result = validator.validate(schema.get, Json.obj("location" -> Json.obj("name" -> "Munich")))
-    result.isSuccess must beTrue
-  }
-
-  "should resolve relative references on the classpath with relative URL handler (#65 - 2)" in {
-    val validator = SchemaValidator()
-      .addRelativeUrlHandler(new ClasspathHandler)
+    // my-schema references relative file without explicit protocol
     val mySchemaJson = getClass.getResourceAsStream("/my-schema.schema")
     val mySchema = JsonSource.schemaFromStream(mySchemaJson)
-    val result = validator.validate(mySchema.get, Json.obj("foo" -> Json.obj("bar" -> "whatever")))
-    result.isSuccess must beTrue
+    validator
+      .validate(mySchema.get, Json.obj("foo" -> Json.obj("bar" -> "whatever")))
+      .isError must beTrue
   }
 
-  "should fail resolving relative references without any relative URL handler available (#65)" in {
+  "should fail resolving protocol-less relative references if no protocol handler at all is set" in {
     val validator = SchemaValidator()
-      .addUrlResolver(ClasspathUrlProtocolHandler())
-    val mySchemaJson = getClass.getResourceAsStream("/my-schema.schema")
-    val mySchema = JsonSource.schemaFromStream(mySchemaJson)
-    val result = validator.validate(mySchema.get, Json.obj("foo" -> Json.obj("bar" -> "whatever")))
-    result.isError must beTrue
-  }
-
-  "should resolve references on the classpath via UrlHandler" in {
-    val validator = SchemaValidator().addUrlHandler("classpath", new URLStreamHandler {
-      override def openConnection(url: URL): URLConnection = {
-        getClass.getResource(url.getPath).openConnection()
-      }
-    })
-    // some.json references another JSON within same JAR
+    // some.json references location.json within explicit protocol
     val someJson = getClass.getResourceAsStream("/some.json")
     val schema = JsonSource.schemaFromStream(someJson)
-    val result = validator.validate(schema.get, Json.obj("location" -> Json.obj("name" -> "Munich")))
-    result.isSuccess must beTrue
+    validator
+      .validate(schema.get, Json.obj("location" -> Json.obj("name" -> "Munich")))
+      .isError must beTrue
+  }
+
+  // No protocol handler, but classpath relative URL handler
+  "should resolve protocol-less relative classpath references with classpath URL handler" in {
+    val validator = SchemaValidator()
+      .addRelativeUrlHandler(new ClasspathUrlHandler)
+
+    // some.json references location.json within explicit protocol
+    val someJson = getClass.getResourceAsStream("/some.json")
+    val schema = JsonSource.schemaFromStream(someJson)
+    validator
+      .validate(schema.get, Json.obj("location" -> Json.obj("name" -> "Munich")))
+      .isError must beTrue
+
+    val mySchemaJson = getClass.getResourceAsStream("/my-schema.schema")
+    val mySchema = JsonSource.schemaFromStream(mySchemaJson)
+    validator
+      .validate(mySchema.get, Json.obj("foo" -> Json.obj("bar" -> "whatever")))
+      .isSuccess must beTrue
+  }
+
+  // Classpath protocol handler, but no classpath relative URL handler
+  "should resolve explicit relative references with classpath URL protocol handler" in {
+    val validator = SchemaValidator()
+      .addUrlProtocolHandler(new ClasspathUrlProtocolHandler)
+
+    // some.json references location.json within explicit protocol
+    val someJson = getClass.getResourceAsStream("/some.json")
+    val schema = JsonSource.schemaFromStream(someJson)
+    validator
+      .validate(schema.get, Json.obj("location" -> Json.obj("name" -> "Munich")))
+      .isSuccess must beTrue
+
+    val mySchemaJson = getClass.getResourceAsStream("/my-schema.schema")
+    val mySchema = JsonSource.schemaFromStream(mySchemaJson)
+    validator
+      .validate(mySchema.get, Json.obj("foo" -> Json.obj("bar" -> "whatever")))
+      .isError must beTrue
+  }
+
+  "should resolve explicit relative references with classpath URL protocol handler added via URLStreamHandler signature" in {
+    val validator = SchemaValidator()
+        .addUrlProtocolHandler("classpath", new ClasspathUrlProtocolHandler)
+
+    // some.json references location.json within explicit protocol
+    val someJson = getClass.getResourceAsStream("/some.json")
+    val schema = JsonSource.schemaFromStream(someJson)
+    validator
+      .validate(schema.get, Json.obj("location" -> Json.obj("name" -> "Munich")))
+      .isSuccess must beTrue
+  }
+
+  "should fail resolve explicit relative references with classpath URL protocol handler if registered for the wrong protocol " in {
+    val validator = SchemaValidator()
+      .addUrlProtocolHandler("foobar", new ClasspathUrlProtocolHandler)
+
+    // some.json references location.json within explicit protocol
+    val someJson = getClass.getResourceAsStream("/some.json")
+    val schema = JsonSource.schemaFromStream(someJson)
+    validator
+      .validate(schema.get, Json.obj("location" -> Json.obj("name" -> "Munich")))
+      .isError must beTrue
+  }
+
+  // Classpath protocol handler and classpath relative URL handler
+  "should resolve both, relative references with and without explicit protocol being" in {
+    val validator = SchemaValidator()
+      .addUrlProtocolHandler(new ClasspathUrlProtocolHandler)
+      .addRelativeUrlHandler(new ClasspathUrlHandler)
+
+    // some.json references location.json within explicit protocol
+    val someJson = getClass.getResourceAsStream("/some.json")
+    val schema = JsonSource.schemaFromStream(someJson)
+    validator
+      .validate(schema.get, Json.obj("location" -> Json.obj("name" -> "Munich")))
+      .isSuccess must beTrue
+
+    val mySchemaJson = getClass.getResourceAsStream("/my-schema.schema")
+    val mySchema = JsonSource.schemaFromStream(mySchemaJson)
+    validator
+      .validate(mySchema.get, Json.obj("foo" -> Json.obj("bar" -> "whatever")))
+      .isSuccess must beTrue
   }
 
   "should fail with message in case a ref can not be resolved" in {
