@@ -2,19 +2,22 @@ package com.eclipsesource.schema.internal.url
 
 import java.net.{URLStreamHandler, URLStreamHandlerFactory}
 
-import com.eclipsesource.schema.UrlResolver
+import com.eclipsesource.schema.urlhandlers.UrlProtocolHandler
 
-case class UrlStreamResolverFactory(protocolHandlers: Map[String, URLStreamHandler] =
-                                    Map.empty[String, URLStreamHandler]) extends URLStreamHandlerFactory {
+case class UrlStreamResolverFactory(
+                                     protocolUrlHandlers: Map[String, URLStreamHandler] = Map.empty[String, URLStreamHandler],
+                                     relativeUrlHandlers: Set[URLStreamHandler] = Set.empty[URLStreamHandler]
+                                   ) extends URLStreamHandlerFactory {
 
-  override def createURLStreamHandler(protocol: String): URLStreamHandler = {
-    protocolHandlers.getOrElse(protocol, null)
-  }
+  override def createURLStreamHandler(protocol: String): URLStreamHandler =
+    protocolUrlHandlers.getOrElse(protocol, null)
 
-  def addUrlResolver(resolver: UrlResolver): UrlStreamResolverFactory =
-    copy(protocolHandlers = protocolHandlers + (resolver.protocol -> resolver))
+  def addUrlHandler(handler: UrlProtocolHandler): UrlStreamResolverFactory =
+    copy(protocolUrlHandlers = protocolUrlHandlers + (handler.protocol -> handler))
 
+  def addRelativeUrlHandler(handler: URLStreamHandler): UrlStreamResolverFactory =
+    copy(relativeUrlHandlers = relativeUrlHandlers + handler)
 
   def addUrlHandler(protocolEntry: (String, URLStreamHandler)): UrlStreamResolverFactory =
-    copy(protocolHandlers = protocolHandlers + protocolEntry)
+    copy(protocolUrlHandlers = protocolUrlHandlers + protocolEntry)
 }

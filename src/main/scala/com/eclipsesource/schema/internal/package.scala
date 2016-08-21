@@ -30,6 +30,14 @@ package object internal {
     }
   }
 
+  def using[T <: { def close() }, A](resource: T)(block: T => A): A = {
+    try {
+      block(resource)
+    } finally {
+      if (resource != null) resource.close()
+    }
+  }
+
   /**
    * Type params in this order are:
    * - reader

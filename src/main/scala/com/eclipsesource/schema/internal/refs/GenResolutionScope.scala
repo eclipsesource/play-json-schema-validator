@@ -21,25 +21,16 @@ case class GenResolutionScope[A : CanHaveRef](
                                              ) {
 
   def hasBeenVisited = visited.contains _
-  def addVisited(ref: String) = {
-    copy(visited = visited + ref)
-  }
+  def addVisited(ref: String) = copy(visited = visited + ref)
 }
 
-case class SchemaCache[A](private[schema] val idMapping: Map[String, A] = Map.empty[String, A]) {
+case class DocumentCache[A](private[schema] val mapping: Map[String, A] = Map.empty[String, A]) {
 
-  def addId(id: Pointer)(schemaType: A): SchemaCache[A] =
-    if (idMapping.contains(id.value)) {
-      this
-    }
-    else {
-      if (id.isAbsolute) copy(idMapping = idMapping + (id.documentName.value -> schemaType))
-      else copy(idMapping = idMapping + (id.value -> schemaType))
-    }
+  def add(id: Pointer)(schemaType: A): DocumentCache[A] =
+    if (mapping.contains(id.value)) this
+    else copy(mapping = mapping + (id.value -> schemaType))
 
-  def getId(id: Pointer): Option[A] =
-    if (id.isAbsolute) idMapping.get(id.documentName.value)
-    else idMapping.get(id.value)
+  def get(id: Pointer): Option[A] = mapping.get(id.value)
 
-  def contains(id: Pointer): Boolean = idMapping.contains(id.value)
+  def contains(id: Pointer): Boolean = mapping.contains(id.value)
 }

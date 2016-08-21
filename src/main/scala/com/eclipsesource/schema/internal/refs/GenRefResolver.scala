@@ -68,7 +68,7 @@ case class GenRefResolver[A : CanHaveRef : Reads]
 (
   resolverFactory: UrlStreamResolverFactory = UrlStreamResolverFactory(),
   options: Map[ResolverOption, Boolean] = Map.empty,
-  private[schema] var cache: SchemaCache[A] = SchemaCache[A]()
+  private[schema] var cache: DocumentCache[A] = DocumentCache[A]()
 ) {
 
   val refTypeClass = implicitly[CanHaveRef[A]]
@@ -133,7 +133,7 @@ case class GenRefResolver[A : CanHaveRef : Reads]
   private[schema] def updateResolutionScope(scope: GenResolutionScope[A], a: A): GenResolutionScope[A] = a match {
     case _ if refTypeClass.refinesScope(a) =>
       val updatedId = refTypeClass.findScopeRefinement(a).map(id => normalize(id, scope))
-      updatedId.foreach(id => cache = cache.addId(id)(a))
+      updatedId.foreach(id => cache = cache.add(id)(a))
       scope.copy(id = updatedId)
     case other => scope
   }
@@ -164,7 +164,7 @@ case class GenRefResolver[A : CanHaveRef : Reads]
       case (_, _) if  pointer.isAbsolute =>
         // update document root and continue resolving with fragments part only, if applicable
         for {
-          instance <- fetchInstance(pointer, scope).right
+          instance <- fetchDocument(pointer, scope).right
           result   <- pointer.fragments
             .map(frags => resolve(instance, frags, scope.copy(documentRoot = instance)))
             .getOrElse(Right(ResolvedResult(instance, scope))).right
@@ -174,19 +174,19 @@ case class GenRefResolver[A : CanHaveRef : Reads]
       case (_, Pointers.`#`) =>
         Right(ResolvedResult(updatedScope.documentRoot, updatedScope))
 
-      // resolve root and continue with the rest of the pointer  
+      // resolve root and continue with the rest of the pointer
       case (_, _) if pointer.isFragment =>
         resolve(updatedScope.documentRoot, pointer.dropHashAtStart, updatedScope.copy(id = updatedScope.id.map(_.withHashAtEnd)))
 
 
       case (_, _) if cache.contains(pointer) =>
-        Right(ResolvedResult(cache.idMapping(pointer.value), scope))
+        Right(ResolvedResult(cache.mapping(pointer.value), scope))
 
       case (container, _) =>
         resolveFragments(splitFragment(pointer), updatedScope, container) orElse
           resolveRelative(pointer, updatedScope) orElse
-          resolveDefinition(pointer, updatedScope) orElse
-          resolveCustom(pointer, updatedScope)
+          resolveDefinition(pointer, updatedScope)
+            .left.map(_ => resolutionFailure(pointer)(updatedScope))
     }
 
     result match {
@@ -196,16 +196,9 @@ case class GenRefResolver[A : CanHaveRef : Reads]
     }
   }
 
-  private def resolveCustom(pointer: Pointer, scope: GenResolutionScope[A]): Either[ValidationError, ResolvedResult[A]] = {
-    if (options.getOrElse(ResolveRelativeRefsWithCustomProtocols, false))
-      resolveRelativeWithCustomProtocols(pointer, scope)
-        .left.map (_ => resolutionFailure(pointer)(scope))
-    else Left(resolutionFailure(pointer)(scope))
-  }
-
-  private def fetchInstance(pointer: Pointer, scope: GenResolutionScope[A]): Either[ValidationError, A] = {
+  private def fetchDocument(pointer: Pointer, scope: GenResolutionScope[A]): Either[ValidationError, A] = {
     // check if we already resolved the document
-    cache.getId(pointer.documentName).fold {
+    cache.get(pointer.documentName).fold {
       // we didn't, so let's fetch the document
       // fetch will take care of putting the document into the cache
       for {
@@ -281,25 +274,32 @@ case class GenRefResolver[A : CanHaveRef : Reads]
     * @return the fetched instance, if any
     */
   private[schema] def fetch(url: URL, scope: GenResolutionScope[A]): Either[ValidationError, A] = {
+
+    def parseJson(source: Source): Either[ValidationError, JsValue] = Try {
+      Json.parse(source.getLines().mkString)
+    }.toEither
+
+    def readJson(json: JsValue): Either[ValidationError, A] = Json.fromJson[A](json).asEither.left.map(errors =>
+      ValidationError("Could not parse JSON", JsError.toJson(errors))
+    )
+
     Try { Source.fromURL(url) }
       .toEither
       .right
-      .flatMap(source =>
-        cache.getId(Pointer(url.toString)) match {
-          case cached@Some(a) => Right(a)
-          case otherwise =>
-            val resolved = for {
-              json <- Try {
-                Json.parse(source.getLines().mkString)
-              }.toEither.right
-              resolvedSchema <- Json.fromJson[A](json).asEither.left.map(errors =>
-                ValidationError("Could not parse JSON", JsError.toJson(errors))
-              ).right
-            } yield resolvedSchema
-            resolved.right.map { res =>
-              cache = cache.addId(normalize(Pointer(url.toString), scope))(res)
-              res
-            }
+      .flatMap( using(_) { source =>
+          val pointer = Pointer(url.toString)
+          cache.get(pointer) match {
+            case cached@Some(a) => Right(a)
+            case otherwise =>
+              val resolved = for {
+                json <- parseJson(source).right
+                resolvedSchema <- readJson(json).right
+              } yield resolvedSchema
+              resolved.right.map { res =>
+                cache = cache.add(normalize(pointer, scope))(res)
+                res
+              }
+          }
         }
       )
   }
@@ -349,7 +349,7 @@ case class GenRefResolver[A : CanHaveRef : Reads]
     val normalized = normalize(ref, scope)
 
     for {
-      url           <- createUrl(normalized).right
+      url           <- (createUrl(normalized) orElse createCustomRelativeUrl(ref, scope)).right
       fetchedSchema <- fetch(url, scope).right
       result        <- resolve(fetchedSchema,
         ref.fragments.getOrElse(Pointers.`#`),
@@ -358,10 +358,16 @@ case class GenRefResolver[A : CanHaveRef : Reads]
     } yield result
   }
 
-  private def resolveRelativeWithCustomProtocols(ref: Pointer, scope: GenResolutionScope[A]): Either[ValidationError, ResolvedResult[A]] = {
-    resolverFactory.protocolHandlers.collectFirst { case (protocol, _) =>
-      resolveRelative(ref.prepend(Pointer(s"$protocol://")), scope)
-    }.getOrElse(Left(resolutionFailure(ref)(scope)))
+  private def createCustomRelativeUrl(ref: Pointer, scope: GenResolutionScope[A]): Either[ValidationError, URL] = {
+    val maybeHandler = resolverFactory.relativeUrlHandlers.find {
+      case handler =>
+        // use custom protocol in order to create a valid URL
+        val url = new URL(null, s"play-validator://${ref.value}", handler)
+        fetch(url, scope).isRight
+    }
+    maybeHandler
+      .map(h => Right(new URL(null, s"play-validator://${ref.value}", h)))
+      .getOrElse(Left(resolutionFailure(ref)(scope)))
   }
 
   /**

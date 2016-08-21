@@ -3,8 +3,9 @@ package com.eclipsesource.schema
 import java.net.{URL, URLStreamHandler}
 
 import com.eclipsesource.schema.internal.SchemaRefResolver._
-import com.eclipsesource.schema.internal.refs.{Pointer, ResolveRelativeRefsWithCustomProtocols}
+import com.eclipsesource.schema.internal.refs.Pointer
 import com.eclipsesource.schema.internal.validators.DefaultFormats
+import com.eclipsesource.schema.urlhandlers.UrlProtocolHandler
 import play.api.data.validation.ValidationError
 import play.api.libs.json._
 
@@ -214,33 +215,33 @@ case class SchemaValidator(refResolver: SchemaRefResolver = new SchemaRefResolve
   /**
     * Add a URL stream handler that is capable of handling the specified protocol.
     *
-    * @param protocolEntry a tuple mapping the protocol type to the respective handler
+    * @param handler a tuple mapping the protocol type to the respective handler
     * @return a new validator instance
     */
-  def addUrlHandler(protocolEntry: (String, URLStreamHandler)): SchemaValidator =
+  def addUrlProtocolHandler(handler: (String, URLStreamHandler)): SchemaValidator =
     copy(refResolver =
       refResolver.copy(resolverFactory =
-        refResolver.resolverFactory.addUrlHandler(protocolEntry)))
+        refResolver.resolverFactory.addUrlHandler(handler)))
 
   /**
-    * Add a URL resolver (which is just convenience wrapper around an URLStreamHandler)
-    * that is capable of handling the specified protocol.
+    * Add a URL protocol handler (which is just convenience wrapper around an URLStreamHandler)
+    * that is capable of handling a specific protocol.
     *
-    * @param urlResolver the UrlResolver to be added
+    * @param protocolHandler the UrlProtocolHandler to be added
     * @return a new validator instance
     */
-  def addUrlResolver(urlResolver: UrlResolver): SchemaValidator =
+  def addUrlProtocolHandler(protocolHandler: UrlProtocolHandler): SchemaValidator =
     copy(refResolver =
       refResolver.copy(resolverFactory =
-        refResolver.resolverFactory.addUrlResolver(urlResolver)))
+        refResolver.resolverFactory.addUrlHandler(protocolHandler)))
 
-  def shouldResolveRelativeRefsWithCustomProtocols(value: Boolean) = {
+  /**
+    * Add a URLStreamHandler that is capable of resolving relative references.
+    */
+  def addRelativeUrlHandler(handler: URLStreamHandler): SchemaValidator =
     copy(refResolver =
-      refResolver.copy(options =
-        refResolver.options.updated(ResolveRelativeRefsWithCustomProtocols, value)
-      )
-    )
-  }
+      refResolver.copy(resolverFactory =
+        refResolver.resolverFactory.addRelativeUrlHandler(handler)))
 
   /**
     * Add a custom format
@@ -259,7 +260,7 @@ case class SchemaValidator(refResolver: SchemaRefResolver = new SchemaRefResolve
   def addSchema(id: String, schema: SchemaType): SchemaValidator = {
     copy(refResolver =
       refResolver.copy(cache =
-        refResolver.cache.addId(Pointer(id))(schema))
+        refResolver.cache.add(Pointer(id))(schema))
     )
   }
 }
