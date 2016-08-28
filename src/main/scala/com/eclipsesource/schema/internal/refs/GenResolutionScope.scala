@@ -17,7 +17,7 @@ case class GenResolutionScope[A : CanHaveRef](
                                                id: Option[Pointer] = None,     // current resolution scope
                                                schemaPath: JsPath = JsPath \ "#",
                                                instancePath: JsPath = JsPath,
-                                               visited: Set[String] = Set.empty[String] // tracks all visited refs
+                                               visited: Set[String] = Set.empty[String] // tracks all visited refs,
                                              ) {
 
   def hasBeenVisited = visited.contains _
@@ -26,11 +26,13 @@ case class GenResolutionScope[A : CanHaveRef](
 
 case class DocumentCache[A](private[schema] val mapping: Map[String, A] = Map.empty[String, A]) {
 
-  def add(id: Pointer)(schemaType: A): DocumentCache[A] =
-    if (mapping.contains(id.value)) this
-    else copy(mapping = mapping + (id.value -> schemaType))
+  def add(id: Pointer)(schemaType: A): DocumentCache[A] = copy(mapping = mapping + (id.value -> schemaType))
+
+  def ++(schemaCache: DocumentCache[A]) = copy(mapping = mapping ++ schemaCache.mapping)
 
   def get(id: Pointer): Option[A] = mapping.get(id.value)
+
+  def apply(id: Pointer) = mapping(id.value)
 
   def contains(id: Pointer): Boolean = mapping.contains(id.value)
 }

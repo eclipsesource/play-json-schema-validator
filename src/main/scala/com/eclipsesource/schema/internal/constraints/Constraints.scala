@@ -1,5 +1,6 @@
 package com.eclipsesource.schema.internal.constraints
 
+import com.eclipsesource.schema.internal.refs.Pointer
 import play.api.libs.json._
 
 object Constraints {
@@ -29,7 +30,9 @@ object Constraints {
                            definitions: Option[Map[String, SchemaType]] = None,
                            enum: Option[Seq[JsValue]] = None,
                            not: Option[SchemaType] = None,
-                           description: Option[String] = None)
+                           description: Option[String] = None,
+                           id: Option[String] = None,
+                           anchors: Map[Pointer, SchemaType] = Map.empty)
     extends Constraint with Resolvable {
 
     type A = AnyConstraint
@@ -45,6 +48,7 @@ object Constraints {
         SchemaObject(entries.toSeq.map { case (name, schema) => SchemaAttribute(name, schema) }))
       case Keywords.Any.Enum => enum.map(e => SchemaValue(JsArray(e)))
       case Keywords.Any.Not => not
+      case Keywords.Any.Id => id.map(i => SchemaValue(JsString(i)))
       case _ => None
     }
 
@@ -59,6 +63,7 @@ object Constraints {
           (enum ++ otherAny.enum).reduceOption(_ ++ _),
           // TODO: could be improved by merging both schemas
           not orElse otherAny.not
+          // id is not taken care of
         )
       case other => this
     }

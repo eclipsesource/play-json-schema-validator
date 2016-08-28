@@ -30,10 +30,7 @@ trait CanValidate {
   def validate(schemaUrl: URL, input: => JsValue): JsResult[JsValue] = {
 
     def buildContext(schema: SchemaType): SchemaResolutionContext = {
-      val id = schema match {
-        case container: HasId => container.id.map(Pointer)
-        case _ => None
-      }
+      val id = schema.constraints.any.id.map(Pointer)
       new SchemaResolutionContext(refResolver,
         new SchemaResolutionScope(schema, id.orElse(Some(Pointer(schemaUrl.toString)))),
         formats = formats
@@ -104,13 +101,10 @@ trait CanValidate {
     * @return a JsResult holding the valid result
     */
   def validate(schema: SchemaType)(input: => JsValue): JsResult[JsValue] = {
-    val id = schema match {
-      case container: HasId => container.id
-      case _ => None
-    }
+    val id = schema.constraints.any.id.map(Pointer)
     val context = new SchemaResolutionContext(
       refResolver,
-      new SchemaResolutionScope(schema, id.map(Pointer)),
+      new SchemaResolutionScope(schema, id),
       formats = formats
     )
     schema.validate(
@@ -239,6 +233,11 @@ case class SchemaValidator(refResolver: SchemaRefResolver = new SchemaRefResolve
     * Add a URLStreamHandler that is capable of resolving relative references.
     */
   def addRelativeUrlHandler(handler: URLStreamHandler): SchemaValidator =
+    copy(refResolver =
+      refResolver.copy(resolverFactory =
+        refResolver.resolverFactory.addRelativeUrlHandler(handler)))
+
+  def addRelativeUrlHandler(handler: UrlProtocolHandler): SchemaValidator =
     copy(refResolver =
       refResolver.copy(resolverFactory =
         refResolver.resolverFactory.addRelativeUrlHandler(handler)))

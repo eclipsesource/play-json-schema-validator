@@ -1,10 +1,11 @@
 package com.eclipsesource.schema.internal
 
+
 import com.eclipsesource.schema._
 import com.eclipsesource.schema.internal.refs._
 import com.eclipsesource.schema.internal.validators.DefaultFormats
 import play.api.data.validation.ValidationError
-import play.api.libs.json.{JsArray, JsString, Json}
+import play.api.libs.json.{JsArray, JsString}
 
 import scala.util.Try
 
@@ -22,19 +23,25 @@ object SchemaRefResolver {
     private def findAttribute(maybeObj: Option[SchemaObject], prop: String): Option[SchemaType] =
       maybeObj.flatMap(_.properties.collectFirst { case attr if attr.name == prop => attr.schemaType})
 
+    private def findSchemaAttribute(props: Seq[SchemaAttribute], propName: String): Either[ValidationError, SchemaType] = {
+      props.collectFirst {
+        case SchemaAttribute(name, s) if name == propName => s
+      }.toRight(ValidationError(s"Could not find property $propName"))
+    }
+
     override def resolve(schema: SchemaType, fragment: String): Either[ValidationError, SchemaType] = {
 
       schema match {
 
-        case obj@SchemaObject(props, _, _) => fragment match {
+        case obj@SchemaObject(props, _, remainingProps) => fragment match {
           case Keywords.Object.Properties => Right(obj)
-          case other =>
-            resolveConstraint(obj, fragment) orElse props.collectFirst {
-              case SchemaAttribute(name, schemaType) if name == other => schemaType
-            }.toRight(ValidationError(s"Property $fragment not found."))
+          case _ =>
+            resolveConstraint(obj, fragment) orElse
+            findSchemaAttribute(props, fragment) orElse
+              findSchemaAttribute(remainingProps, fragment)
         }
 
-        case arr@SchemaArray(items, _, _, maybeObject) => fragment match {
+        case arr@SchemaArray(items, _, maybeObject) => fragment match {
           case Keywords.Array.Items => Right(items)
           case other =>
             findAttribute(maybeObject, other)
@@ -42,7 +49,7 @@ object SchemaRefResolver {
               .getOrElse(resolveConstraint(arr, fragment))
         }
 
-        case tuple@SchemaTuple(items, _, _, _) =>
+        case tuple@SchemaTuple(items, _, _) =>
 
           def isValidIndex(idx: String) = {
             Try {
@@ -54,7 +61,6 @@ object SchemaRefResolver {
           fragment match {
             case Keywords.Array.Items => Right(tuple)
             case idx if isValidIndex(idx) => Right(items(idx.toInt))
-            // TODO
             case other => resolveConstraint(tuple, fragment)
           }
 
@@ -83,14 +89,10 @@ object SchemaRefResolver {
       case _ => None
     }
 
-    override def findScopeRefinement(schema: SchemaType): Option[Pointer] = {
-      schema match {
-        case SchemaObject(_, _, id) => id.map(Pointer)
-        case SchemaArray(_, _, id, _) => id.map(Pointer)
-        case SchemaTuple(_, _, id, _) => id.map(Pointer)
-        case _ => None
-      }
-    }
+    override def findScopeRefinement(schema: SchemaType): Option[Pointer] =
+      schema.constraints.any.id.map(Pointer)
+
+    override def anchors(a: SchemaType): Map[Pointer, SchemaType] = a.constraints.any.anchors
   }
 
   case class SchemaResolutionContext(refResolver: SchemaRefResolver,

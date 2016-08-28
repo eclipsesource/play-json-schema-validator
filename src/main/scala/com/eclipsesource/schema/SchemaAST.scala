@@ -16,17 +16,13 @@ sealed trait HasProps[A] {
   def withProps(schemaObject: SchemaObject): A
 }
 
-sealed trait HasId {
-  def id: Option[String]
-}
-
 sealed trait PrimitiveSchemaType extends SchemaType
 
 final case class SchemaValue(value: JsValue) extends SchemaType {
   override def constraints: HasAnyConstraint = NoConstraints()
 }
 
-sealed trait SchemaArrayLike extends SchemaType with HasId {
+sealed trait SchemaArrayLike extends SchemaType {
   def items: Seq[SchemaType]
 }
 
@@ -41,17 +37,15 @@ final case class CompoundSchemaType(alternatives: Seq[SchemaType]) extends Schem
 
 final case class SchemaObject(properties: Seq[SchemaAttribute] = Seq.empty,
                               constraints: ObjectConstraints = ObjectConstraints(),
-                              id: Option[String] = None) extends HasId with SchemaObjectLike with HasProps[SchemaObject] {
+                              remainingsProps: Seq[SchemaAttribute] = Seq.empty) extends SchemaObjectLike with HasProps[SchemaObject] {
   override def toString: String = "object"
   override def withProps(schemaObject: SchemaObject): SchemaObject = (this ++ schemaObject).copy(
-    constraints = constraints,
-    id = id
+    constraints = constraints
   )
 }
 
 final case class SchemaTuple(items: Seq[SchemaType],
                              constraints: ArrayConstraints = ArrayConstraints(),
-                             id: Option[String] = None,
                              otherProps: Option[SchemaObject] = None) extends SchemaArrayLike with HasProps[SchemaTuple] {
   override def toString: String = "tuple"
   override def withProps(schemaObject: SchemaObject): SchemaTuple = copy(otherProps = Some(schemaObject))
@@ -59,7 +53,6 @@ final case class SchemaTuple(items: Seq[SchemaType],
 
 final case class SchemaArray(item:  SchemaType,
                              constraints: ArrayConstraints = ArrayConstraints(),
-                             id: Option[String] = None,
                              otherProps: Option[SchemaObject] = None) extends SchemaArrayLike with HasProps[SchemaArray] {
   override def toString: String = "array"
   def items = Seq(item)

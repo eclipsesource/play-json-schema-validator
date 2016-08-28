@@ -1,11 +1,10 @@
 package com.eclipsesource
 
-import com.eclipsesource.schema.internal.SchemaRefResolver._
-import com.eclipsesource.schema.internal.refs.{Pointer, ResolvedResult}
+import com.eclipsesource.schema.internal.refs._
 import com.eclipsesource.schema.internal.serialization.{JSONSchemaReads, JSONSchemaWrites}
 import com.eclipsesource.schema.internal.validation.VA
 import com.eclipsesource.schema.internal.validators._
-import com.eclipsesource.schema.internal.{Results, SchemaUtil}
+import com.eclipsesource.schema.internal.{Results, SchemaRefResolver, SchemaUtil}
 import play.api.data.validation.ValidationError
 import play.api.libs.json._
 
@@ -15,6 +14,8 @@ package object schema
   extends SchemaOps
   with JSONSchemaWrites
   with JSONSchemaReads {
+
+  import SchemaRefResolver._
 
   implicit def noValidator[S <: SchemaType] = new SchemaTypeValidator[S] {
     override def validate(schema: S, json: => JsValue, resolutionContext: SchemaResolutionContext): VA[JsValue] = Success(json)
@@ -37,23 +38,27 @@ package object schema
     def validate(json: JsValue, resolutionContext: SchemaResolutionContext): VA[JsValue] = {
 
       // refine resolution scope
-      val updatedScope = resolutionContext.refResolver.updateResolutionScope(resolutionContext.scope, schemaType)
+      val updatedScope: GenResolutionScope[SchemaType] = resolutionContext.refResolver
+        .updateResolutionScope(resolutionContext.scope, schemaType)
+
       val context = resolutionContext.updateScope(_ => updatedScope)
 
       (json, schemaType) match {
 
         case (_, schemaObject: SchemaObject) if hasUnvisitedRef(schemaObject, context) =>
-          val refValue  = context.refResolver.refTypeClass.findRef(schemaObject).map(_._2)
+
+          val refValue: Option[String] = context.refResolver.refTypeClass.findRef(schemaObject).map(_._2)
+          // TODO: remove get & review
+          val p = Pointers.normalize(refValue.map(Pointer).get, schemaObject.constraints.any.id.map(Pointer))
           val fromRoot = refValue.map(Pointer).exists(p => p.isAbsolute || p.isFragment)
           val resolutionRoot =
             if (fromRoot) context.scope.documentRoot
             else schemaObject
 
-          // TODO: remove get
-          context.refResolver.resolve(resolutionRoot, Pointer(refValue.get), context.scope) match {
-            case Left(ValidationError(msgs, errors @ _*)) =>
+          context.refResolver.resolve(resolutionRoot, p, context.scope) match {
+            case Left(ValidationError(messages, errors @ _*)) =>
               Results.failureWithPath(
-                s"Could not resolve ref ${refValue.orElse(msgs.headOption).getOrElse("")}",
+                s"Could not resolve ref ${refValue.orElse(messages.headOption).getOrElse("")}",
                 context,
                 json)
             case Right(ResolvedResult(resolved, scope)) =>
