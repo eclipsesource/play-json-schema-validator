@@ -1,0 +1,7 @@
+{
+  "properties": {
+    "foo": {
+      "$ref": "classpath://schemas/foo.schema#"
+    }
+  }
+}

@@ -81,10 +81,10 @@ object SchemaRefResolver {
       }
     }
 
-    override def findRef(schema: SchemaType): Option[(String, String)] = schema match {
+    override def findRef(schema: SchemaType): Option[Pointer] = schema match {
       case SchemaObject(props, _, _) =>
         props.collectFirst {
-          case SchemaAttribute("$ref", SchemaValue(JsString(pointer))) => "$ref" -> pointer
+          case SchemaAttribute("$ref", SchemaValue(JsString(pointer))) => Pointer(pointer)
         }
       case _ => None
     }
@@ -92,7 +92,7 @@ object SchemaRefResolver {
     override def findScopeRefinement(schema: SchemaType): Option[Pointer] =
       schema.constraints.any.id.map(Pointer)
 
-    override def anchors(a: SchemaType): Map[Pointer, SchemaType] = a.constraints.any.anchors
+    override def anchorsOf(a: SchemaType): Map[Pointer, SchemaType] = a.constraints.any.anchors
   }
 
   case class SchemaResolutionContext(refResolver: SchemaRefResolver,
@@ -100,7 +100,6 @@ object SchemaRefResolver {
                                      formats: Map[String, SchemaStringFormat] = DefaultFormats.formats) extends GenResolutionContext[SchemaType] {
     def updateScope(scopeUpdateFn: SchemaResolutionScope => SchemaResolutionScope): SchemaResolutionContext =
       copy(scope = scopeUpdateFn(scope))
-    def updateResolutionScope(schema: SchemaType) = copy(scope = refResolver.updateResolutionScope(scope, schema))
   }
   type SchemaResolutionScope = GenResolutionScope[SchemaType]
   type SchemaRefResolver = GenRefResolver[SchemaType]

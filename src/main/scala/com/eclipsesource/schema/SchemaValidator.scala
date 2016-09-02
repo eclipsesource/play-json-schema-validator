@@ -238,6 +238,13 @@ case class SchemaValidator(refResolver: SchemaRefResolver = new SchemaRefResolve
       refResolver.copy(resolverFactory =
         refResolver.resolverFactory.addRelativeUrlHandler(handler)))
 
+  def addRelativeUrlHandler(handler: URLStreamHandler): SchemaValidator =
+    copy(refResolver =
+      refResolver.copy(resolverFactory =
+        refResolver.resolverFactory.addRelativeUrlHandler("play-schema-validator" -> handler)
+      )
+    )
+
   /**
     * Add a custom format
     *

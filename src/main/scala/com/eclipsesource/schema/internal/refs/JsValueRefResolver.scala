@@ -10,7 +10,7 @@ object JsValueRefResolver {
   implicit val jsValueRefInstance = new CanHaveRef[JsValue] {
     def findScopeRefinement(json: JsValue) = None
     def findRef(json: JsValue) = None
-    override def anchors(a: JsValue): Map[Pointer, JsValue] = Map.empty
+    override def anchorsOf(a: JsValue): Map[Pointer, JsValue] = Map.empty
 
     override def resolve(json: JsValue, fragment: String): Either[ValidationError, JsValue] = {
       def fragmentIsInt = Try(fragment.toInt).isSuccess
