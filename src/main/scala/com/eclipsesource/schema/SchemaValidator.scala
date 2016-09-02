@@ -54,7 +54,7 @@ trait CanValidate {
     */
   def validate[A](schemaUrl: URL, input: => JsValue, reads: Reads[A]) : JsResult[A] = {
     validate(schemaUrl, input).fold(
-      valid = readAndValidate(reads),
+      valid = readWith(reads),
       invalid = errors => JsError(essentialErrorInfo(errors, Some(input)))
     )
   }
@@ -84,7 +84,7 @@ trait CanValidate {
     val writes = implicitly[Writes[A]]
     val reads = implicitly[Reads[A]]
     validate(schemaUrl, input, writes).fold(
-      valid = readAndValidate(reads),
+      valid = readWith(reads),
       invalid = errors => JsError(essentialErrorInfo(errors, None))
     )
   }
@@ -124,7 +124,7 @@ trait CanValidate {
   def validate[A](schema: SchemaType, input: => JsValue, reads: Reads[A]) : JsResult[A] = {
     val result = validate(schema)(input)
     result.fold(
-      valid = readAndValidate(reads),
+      valid = readWith(reads),
       invalid  = errors => JsError(essentialErrorInfo(errors, Some(input)))
     )
   }
@@ -156,12 +156,12 @@ trait CanValidate {
     val inputJs = writes.writes(input)
     val result = validate(schema)(inputJs)
     result.fold(
-      valid = readAndValidate(reads),
+      valid = readWith(reads),
       invalid = errors => JsError(essentialErrorInfo(errors, Some(inputJs)))
     )
   }
 
-  private def readAndValidate[A](reads: Reads[A]): JsValue => JsResult[A] = json =>
+  private def readWith[A](reads: Reads[A]): JsValue => JsResult[A] = json =>
     reads.reads(json) match {
       case JsSuccess(success, _) => JsSuccess(success)
       case JsError(errors) => JsError(essentialErrorInfo(errors, Some(json)))
@@ -206,13 +206,14 @@ case class SchemaValidator(refResolver: SchemaRefResolver = new SchemaRefResolve
   extends CanValidate with Customizations {
 
 
+
   /**
     * Add a URL stream handler that is capable of handling the specified protocol.
     *
     * @param handler a tuple mapping the protocol type to the respective handler
     * @return a new validator instance
     */
-  def addUrlProtocolHandler(handler: (String, URLStreamHandler)): SchemaValidator =
+  def addUrlHandler(handler: (String, URLStreamHandler)): SchemaValidator =
     copy(refResolver =
       refResolver.copy(resolverFactory =
         refResolver.resolverFactory.addUrlHandler(handler)))
@@ -224,7 +225,7 @@ case class SchemaValidator(refResolver: SchemaRefResolver = new SchemaRefResolve
     * @param protocolHandler the UrlProtocolHandler to be added
     * @return a new validator instance
     */
-  def addUrlProtocolHandler(protocolHandler: UrlProtocolHandler): SchemaValidator =
+  def addUrlHandler(protocolHandler: UrlProtocolHandler): SchemaValidator =
     copy(refResolver =
       refResolver.copy(resolverFactory =
         refResolver.resolverFactory.addUrlHandler(protocolHandler)))
@@ -232,11 +233,6 @@ case class SchemaValidator(refResolver: SchemaRefResolver = new SchemaRefResolve
   /**
     * Add a URLStreamHandler that is capable of resolving relative references.
     */
-  def addRelativeUrlHandler(handler: URLStreamHandler): SchemaValidator =
-    copy(refResolver =
-      refResolver.copy(resolverFactory =
-        refResolver.resolverFactory.addRelativeUrlHandler(handler)))
-
   def addRelativeUrlHandler(handler: UrlProtocolHandler): SchemaValidator =
     copy(refResolver =
       refResolver.copy(resolverFactory =
@@ -253,6 +249,7 @@ case class SchemaValidator(refResolver: SchemaRefResolver = new SchemaRefResolve
 
   /**
     * Add a schema.
+    *
     * @param id the id of the schema
     * @param schema the schema
     */
