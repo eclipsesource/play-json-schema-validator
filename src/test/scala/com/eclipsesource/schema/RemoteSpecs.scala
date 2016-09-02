@@ -56,4 +56,6 @@ class RemoteSpecs extends PlaySpecification with JsonSpec with Online with After
       )
     }
   }
+
+  validateAjv("1_ids_in_refs")
 }
