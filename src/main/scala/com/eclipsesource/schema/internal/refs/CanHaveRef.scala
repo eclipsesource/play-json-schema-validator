@@ -38,6 +38,7 @@ trait CanHaveRef[A] {
   def findScopeRefinement(a: A): Option[Ref]
 
   /**
+    * Returns any anchors.
     *
     * @param a
     * @return

@@ -9,6 +9,8 @@ import play.api.libs.json._
 
 import scala.io.Source
 import scala.util.{Success, Try}
+import scalaz.{\/, \/-}
+import scalaz.syntax.either._
 
 case class ResolvedResult[A](resolved: A, scope: GenResolutionScope[A])
 
@@ -44,20 +46,20 @@ case class GenRefResolver[A : CanHaveRef : Reads]
   }
 
   private[schema] def resolveSchema(url: String, scope: GenResolutionScope[A]): Either[ValidationError, A] =
-    resolve(scope.documentRoot, Ref(url), scope).right.map(_.resolved)
+    resolve(scope.documentRoot, Ref(url), scope).map(_.resolved).toEither
 
   private[schema] def resolve(ref: Ref, scope: GenResolutionScope[A]): Either[ValidationError, ResolvedResult[A]] =
-    resolve(scope.documentRoot, ref, scope)
+    resolve(scope.documentRoot, ref, scope).toEither
 
-  private[schema] def resolve(current: A, ref: Ref, scope: GenResolutionScope[A]): Either[ValidationError, ResolvedResult[A]] = {
+  private[schema] def resolve(current: A, ref: Ref, scope: GenResolutionScope[A]): \/[ValidationError, ResolvedResult[A]] = {
 
     def hasRef(obj: A): Boolean =
-      refTypeClass.findRef(obj).fold(false) { case ref => !scope.hasBeenVisited(ref) }
+      refTypeClass.findRef(obj).fold(false) { case r => !scope.hasBeenVisited(r) }
 
     // update resolution scope, if applicable
     val updatedScope = updateResolutionScope(scope, current)
 
-    val result: Either[ValidationError, ResolvedResult[A]] = (current, ref) match {
+    val result: \/[ValidationError, ResolvedResult[A]] = (current, ref) match {
 
       // current schema id is part of to be resolved id
       case (_, _) if refTypeClass.findScopeRefinement(current).exists(id => ref.startsWith(id)) =>
@@ -65,9 +67,9 @@ case class GenRefResolver[A : CanHaveRef : Reads]
 
       // if current instance has a ref, resolve that one first
       case (_, _) if hasRef(current) =>
-        val Some(ref) = refTypeClass.findRef(current)
+        val Some(anotherRef) = refTypeClass.findRef(current)
         // TODO should we check whether we need to update the document root in case current == documentRoot?
-        resolve(current, ref, updatedScope.addVisited(ref)).right flatMap continueResolving(ref)
+        resolve(current, anotherRef, updatedScope.addVisited(ref)) flatMap continueResolving(ref)
 
       case (_, _) if  ref.isAbsolute =>
         // could be an id
@@ -78,11 +80,11 @@ case class GenRefResolver[A : CanHaveRef : Reads]
 
       // since the cache may contain unresolved refs, this must come after the previous case
       case (_, _) if cache.contains(ref) =>
-        Right(ResolvedResult(cache(ref), scope))
+        ResolvedResult(cache(ref), scope).right
 
       // resolve root only
       case (_, Refs.`#`) =>
-        Right(ResolvedResult(updatedScope.documentRoot, updatedScope))
+        ResolvedResult(updatedScope.documentRoot, updatedScope).right
 
       // resolve root and continue with the rest of the ref
       case (_, _) if ref.isFragment && !ref.isAnchor =>
@@ -96,36 +98,38 @@ case class GenRefResolver[A : CanHaveRef : Reads]
     }
 
     result match {
-      case Right(resolvedResult@ResolvedResult(r, s)) =>
+      case \/-(resolvedResult@ResolvedResult(r, s)) =>
         refTypeClass.findRef(r).fold(result)(foundRef => continueResolving(foundRef)(resolvedResult))
-      case other => Left(resolutionFailure(ref)(updatedScope))
+      case other => resolutionFailure(ref)(updatedScope).left
     }
   }
 
   // protocol-less relative URL resolution
-  private def resolveWithRelativeUrlHandlers(ref: Ref, scope: GenResolutionScope[A]): Either[ValidationError, ResolvedResult[A]] = {
+  private def resolveWithRelativeUrlHandlers(ref: Ref, scope: GenResolutionScope[A]): \/[ValidationError, ResolvedResult[A]] = {
     val normalized = Refs.normalize(ref, scope.id, Some(resolverFactory))
     val foundResult = resolverFactory.relativeUrlHandlers.map { case (_, handler) =>
       val url  = new URL(null, normalized.value, handler)
       fetch(url, scope)
     }.find(_.isRight)
 
-    foundResult
-      .map(a => a.right.map(result => ResolvedResult(result, scope)))
-      .getOrElse(Left(resolutionFailure(ref)(scope)))
+
+    foundResult.fold[\/[ValidationError, ResolvedResult[A]]](resolutionFailure(ref)(scope).left)(right =>
+      right.map(result => ResolvedResult(result, scope))
+    )
   }
 
-  private def continueResolving(ref: Ref)(resolvedResult: ResolvedResult[A]) = {
+  private def continueResolving(ref: Ref)(resolvedResult: ResolvedResult[A]): \/[ValidationError, ResolvedResult[A]] = {
     resolve(resolvedResult.resolved, ref, resolvedResult.scope)
   }
 
-  private def matchAnchorIdAndResolve(current: A, ref: Ref, scope: GenResolutionScope[A]): Either[ValidationError, ResolvedResult[A]] = {
+  private def matchAnchorIdAndResolve(current: A, ref: Ref, scope: GenResolutionScope[A]): \/[ValidationError, ResolvedResult[A]] = {
     val foundId = refTypeClass.findScopeRefinement(current)
     val normalized = Refs.normalize(ref, foundId, Some(resolverFactory))
-    foundId.fold[Either[ValidationError, ResolvedResult[A]]] {
-      Left(ValidationError(s"Resolution scope ID must not be empty."))
+
+    foundId.fold[\/[ValidationError, ResolvedResult[A]]] {
+      ValidationError(s"Resolution scope ID must not be empty.").left
     } { id =>
-      if (ref == id) Right(ResolvedResult(current, scope))
+      if (ref == id) ResolvedResult(current, scope).right
       else {
         val rest = if (id.endsWith("#")) normalized.drop(id.length - 1) else normalized.drop(id.length)
         resolve(current, rest, scope)
@@ -133,11 +137,11 @@ case class GenRefResolver[A : CanHaveRef : Reads]
     }
   }
 
-  private def resolveAnchorId(ref: Ref, scope: GenResolutionScope[A], a: A): Either[ValidationError, ResolvedResult[A]] = {
+  private def resolveAnchorId(ref: Ref, scope: GenResolutionScope[A], a: A): \/[ValidationError, ResolvedResult[A]] = {
     val normalized = Refs.normalize(ref, scope.id, Some(resolverFactory))
     val knownAnchors = refTypeClass.anchorsOf(a)
     knownAnchors.get(normalized)
-      .map(r => Right(ResolvedResult(r, scope))).getOrElse(Left(resolutionFailure(normalized)(scope)))
+      .map(r => ResolvedResult(r, scope).right).getOrElse(resolutionFailure(normalized)(scope).left)
   }
 
   // TODO: change error reporting format
@@ -152,17 +156,17 @@ case class GenRefResolver[A : CanHaveRef : Reads]
     * @param instance the instance which the fragments are to be resolved against
     * @return the resolved result, if any
     */
-  private def resolveFragments(fragments: List[String], scope: GenResolutionScope[A], instance: A): Either[ValidationError, ResolvedResult[A]] = {
+  private def resolveFragments(fragments: List[String], scope: GenResolutionScope[A], instance: A): \/[ValidationError, ResolvedResult[A]] = {
     (fragments, instance) match {
-      case (Nil, result) => Right(ResolvedResult(result, scope))
+      case (Nil, result) => ResolvedResult(result, scope).right
       case (fragment :: rest, resolvable) =>
-        refTypeClass.resolve(resolvable, fragment).right.flatMap { r =>
+        \/.fromEither(refTypeClass.resolve(resolvable, fragment)).flatMap { r =>
           rest match {
             case Nil =>
-              Right(ResolvedResult(r, scope.copy(
+              ResolvedResult(r, scope.copy(
                 schemaPath = scope.schemaPath.compose(JsPath \ fragment),
                 instancePath = scope.instancePath.compose(JsPath \ fragment)
-              )))
+              )).right
             case _ =>
               resolve(r, Ref(rest.mkString("/")), scope.copy(
                 schemaPath = scope.schemaPath.compose(JsPath \ fragment),
@@ -173,13 +177,13 @@ case class GenRefResolver[A : CanHaveRef : Reads]
     }
   }
 
-  private def createUrl(ref: Ref): Either[ValidationError, URL] = {
+  private def createUrl(ref: Ref): \/[ValidationError, URL] = {
     // use handlers for protocol-ful absolute refs or fall back to default behaviour via null
     val handler: URLStreamHandler = ref.scheme.map(resolverFactory.createURLStreamHandler).orNull
     val triedUrl = Try { new URL(null, ref.value, handler) }
     triedUrl match {
-      case Success(url) => Right(url)
-      case _            => Left(ValidationError(s"Could not resolve ref ${ref.value}"))
+      case Success(url) => url.right
+      case _            => ValidationError(s"Could not resolve ref ${ref.value}").left
     }
   }
 
@@ -190,25 +194,26 @@ case class GenRefResolver[A : CanHaveRef : Reads]
     * @param scope the current resolution scope
     * @return the fetched instance, if any
     */
-  private[schema] def fetch(url: URL, scope: GenResolutionScope[A]): Either[ValidationError, A] = {
+  private def fetch(url: URL, scope: GenResolutionScope[A]): \/[ValidationError, A] = {
 
-    def parseJson(source: Source): Either[ValidationError, JsValue] = Try {
+    def parseJson(source: Source): \/[ValidationError, JsValue] = \/.fromEither(Try {
       Json.parse(source.getLines().mkString)
-    }.toEither
+    }.toEither)
 
-    def readJson(json: JsValue): Either[ValidationError, A] = Json.fromJson[A](json).asEither.left.map(errors =>
+    def readJson(json: JsValue): \/[ValidationError, A] = \/.fromEither(Json.fromJson[A](json).asEither)
+      .leftMap(errors =>
         ValidationError("Could not parse JSON", JsError.toJson(errors))
       )
 
     val ref = Ref(url.toString)
 
-    def readSource(source: Source): Either[ValidationError, A] = {
+    def readSource(source: Source): \/[ValidationError, A] = {
       using(source) { src =>
         val resolved = for {
-          json <- parseJson(source).right
-          resolvedSchema <- readJson(json).right
+          json <- parseJson(source)
+          resolvedSchema <- readJson(json)
         } yield resolvedSchema
-        resolved.right.map { res =>
+        resolved.map { res =>
           cache.add(Refs.normalize(ref, scope.id, Some(resolverFactory)))(res)
           res
         }
@@ -216,10 +221,10 @@ case class GenRefResolver[A : CanHaveRef : Reads]
     }
 
     cache.get(ref) match {
-      case cached@Some(a) => Right(a)
+      case cached@Some(a) => a.right
       case otherwise => for {
-          source <- Try { Source.fromURL(url) }.toEither.right
-          read <- readSource(source).right
+          source <- \/.fromEither(Try { Source.fromURL(url) }.toEither)
+          read <- readSource(source)
         } yield read
     }
   }
@@ -232,26 +237,26 @@ case class GenRefResolver[A : CanHaveRef : Reads]
     * @param scope the resolution scope
     * @return the resolved schema
     */
-  private def resolveRelative(ref: Ref, scope: GenResolutionScope[A]): Either[ValidationError, ResolvedResult[A]] = {
+  private def resolveRelative(ref: Ref, scope: GenResolutionScope[A]): \/[ValidationError, ResolvedResult[A]] = {
     // pass in resolver factory to recognize custom schemes
     val normalized = Refs.normalize(ref, scope.id, Some(resolverFactory))
     for {
-      url           <- createUrl(normalized).right
-      fetchedSchema <- fetch(url, scope).right
+      url           <- createUrl(normalized)
+      fetchedSchema <- fetch(url, scope)
       result        <- resolve(fetchedSchema,
         ref.fragments.getOrElse(Refs.`#`),
         scope.copy(documentRoot = fetchedSchema)
-      ).right
+      )
     } yield result
   }
 
-  private def resolveDocument(ref: Ref, scope: GenResolutionScope[A]) = {
+  private def resolveDocument(ref: Ref, scope: GenResolutionScope[A]): \/[ValidationError, ResolvedResult[A]] = {
     for {
-      documentUrl <- createUrl(ref.documentName).right
-      instance    <- fetch(documentUrl, scope).right
+      documentUrl <- createUrl(ref.documentName)
+      instance    <- fetch(documentUrl, scope)
       result      <- ref.fragments
         .map(frags => resolve(instance, frags, scope.copy(documentRoot = instance)))
-        .getOrElse(Right(ResolvedResult(instance, scope))).right
+        .getOrElse(ResolvedResult(instance, scope).right)
     } yield result
   }
 
@@ -262,7 +267,7 @@ case class GenRefResolver[A : CanHaveRef : Reads]
     * @param ref the reference that should be split up into single segments
     * @return a list containing all the segments
     */
-  private[schema] def toSegments(ref: Ref): List[String] = {
+  private def toSegments(ref: Ref): List[String] = {
 
     def escape(s: String): String =
       URLDecoder.decode(s, "UTF-8")

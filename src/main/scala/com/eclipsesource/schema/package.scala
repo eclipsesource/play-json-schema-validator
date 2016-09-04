@@ -8,7 +8,7 @@ import com.eclipsesource.schema.internal.{Results, SchemaRefResolver, SchemaUtil
 import play.api.data.validation.ValidationError
 import play.api.libs.json._
 
-import scalaz.{Failure, Success}
+import scalaz.{-\/, Failure, Success, \/-}
 
 package object schema
   extends SchemaOps
@@ -53,9 +53,9 @@ package object schema
         val root = determineResolutionRoot(normalizedRef, schemaObject, context)
 
         context.refResolver.resolve(root, normalizedRef, context.scope) match {
-          case Left(ValidationError(messages, errors@_*)) =>
+          case -\/(ValidationError(messages, errors@_*)) =>
             Results.failureWithPath(s"Could not resolve ref ${ref.value}", context, json)
-          case Right(ResolvedResult(resolved, scope)) =>
+          case \/-(ResolvedResult(resolved, scope)) =>
             val updatedContext = context.updateScope(_ => scope)
             Results.merge(
               resolved.validate(json, updatedContext),
