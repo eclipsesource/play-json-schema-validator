@@ -222,13 +222,13 @@ case class SchemaValidator(refResolver: SchemaRefResolver = new SchemaRefResolve
     * Add a URL protocol handler (which is just convenience wrapper around an URLStreamHandler)
     * that is capable of handling a specific protocol.
     *
-    * @param protocolHandler the UrlProtocolHandler to be added
+    * @param handler the UrlHandler to be added
     * @return a new validator instance
     */
-  def addUrlHandler(protocolHandler: UrlHandler): SchemaValidator =
+  def addUrlHandler(handler: UrlHandler): SchemaValidator =
     copy(refResolver =
       refResolver.copy(resolverFactory =
-        refResolver.resolverFactory.addUrlHandler(protocolHandler)))
+        refResolver.resolverFactory.addUrlHandler(handler)))
 
   /**
     * Add a relative UrlProtocolHandler that is capable of resolving relative references.
@@ -251,7 +251,7 @@ case class SchemaValidator(refResolver: SchemaRefResolver = new SchemaRefResolve
   def addRelativeUrlHandler(handler: URLStreamHandler): SchemaValidator =
     copy(refResolver =
       refResolver.copy(resolverFactory =
-        refResolver.resolverFactory.addRelativeUrlHandler("play-schema-validator" -> handler)
+        refResolver.resolverFactory.addRelativeUrlHandler(UrlHandler.ProtocolLessScheme -> handler)
       )
     )
 
