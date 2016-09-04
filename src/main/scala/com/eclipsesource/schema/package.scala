@@ -1,11 +1,10 @@
 package com.eclipsesource
 
-import com.eclipsesource.schema.internal.SchemaRefResolver._
-import com.eclipsesource.schema.internal.refs.{Pointer, ResolvedResult}
+import com.eclipsesource.schema.internal.refs._
 import com.eclipsesource.schema.internal.serialization.{JSONSchemaReads, JSONSchemaWrites}
 import com.eclipsesource.schema.internal.validation.VA
 import com.eclipsesource.schema.internal.validators._
-import com.eclipsesource.schema.internal.{Results, SchemaUtil}
+import com.eclipsesource.schema.internal.{Results, SchemaRefResolver, SchemaUtil}
 import play.api.data.validation.ValidationError
 import play.api.libs.json._
 
@@ -13,8 +12,10 @@ import scalaz.{Failure, Success}
 
 package object schema
   extends SchemaOps
-  with JSONSchemaWrites
-  with JSONSchemaReads {
+    with JSONSchemaWrites
+    with JSONSchemaReads {
+
+  import SchemaRefResolver._
 
   implicit def noValidator[S <: SchemaType] = new SchemaTypeValidator[S] {
     override def validate(schema: S, json: => JsValue, resolutionContext: SchemaResolutionContext): VA[JsValue] = Success(json)
@@ -34,35 +35,50 @@ package object schema
 
     def prettyPrint: String = SchemaUtil.prettyPrint(schemaType)
 
+    private def resolveRefAndValidate(json: JsValue, schemaObject: SchemaObject, context: SchemaResolutionContext) = {
+
+      def determineResolutionRoot(ref: Pointer, schemaObject: SchemaObject, context: SchemaResolutionContext): SchemaType = {
+        val fromRoot = ref.isAbsolute || ref.isFragment
+        if (fromRoot) context.scope.documentRoot
+        else schemaObject
+      }
+
+      def normalizeRef(ref: Pointer, scopeId: Option[Pointer], resolutionContext: SchemaResolutionContext): Pointer = {
+        Pointers.normalize(ref, scopeId, Some(resolutionContext.refResolver.resolverFactory))
+      }
+
+      val result: Option[VA[JsValue]] = schemaObject.findUnvisitedRef(context).map { ref =>
+
+        val normalizedRef = normalizeRef(ref, schemaObject.constraints.any.id.map(Pointer), context)
+        val root = determineResolutionRoot(normalizedRef, schemaObject, context)
+
+        context.refResolver.resolve(root, normalizedRef, context.scope) match {
+          case Left(ValidationError(messages, errors@_*)) =>
+            Results.failureWithPath(s"Could not resolve ref ${ref.value}", context, json)
+          case Right(ResolvedResult(resolved, scope)) =>
+            val updatedContext = context.updateScope(_ => scope)
+            Results.merge(
+              resolved.validate(json, updatedContext),
+              AnyConstraintValidator.validate(json, resolved, updatedContext)
+            )
+        }
+      }
+
+      result.getOrElse(
+        Results.failureWithPath(s"Expected to find unvisited ref at ${context.schemaPath}", context, json))
+    }
+
     def validate(json: JsValue, resolutionContext: SchemaResolutionContext): VA[JsValue] = {
 
       // refine resolution scope
-      val updatedScope = resolutionContext.refResolver.updateResolutionScope(resolutionContext.scope, schemaType)
+      val updatedScope: GenResolutionScope[SchemaType] = resolutionContext.refResolver
+        .updateResolutionScope(resolutionContext.scope, schemaType)
       val context = resolutionContext.updateScope(_ => updatedScope)
 
       (json, schemaType) match {
 
-        case (_, schemaObject: SchemaObject) if hasUnvisitedRef(schemaObject, context) =>
-          val refValue  = context.refResolver.refTypeClass.findRef(schemaObject).map(_._2)
-          val fromRoot = refValue.map(Pointer).exists(p => p.isAbsolute || p.isFragment)
-          val resolutionRoot =
-            if (fromRoot) context.scope.documentRoot
-            else schemaObject
-
-          // TODO: remove get
-          context.refResolver.resolve(resolutionRoot, Pointer(refValue.get), context.scope) match {
-            case Left(ValidationError(msgs, errors @ _*)) =>
-              Results.failureWithPath(
-                s"Could not resolve ref ${refValue.orElse(msgs.headOption).getOrElse("")}",
-                context,
-                json)
-            case Right(ResolvedResult(resolved, scope)) =>
-              val updatedContext  = context.updateScope(_ => scope)
-              Results.merge(
-                resolved.validate(json, updatedContext),
-                AnyConstraintValidator.validate(json, resolved, updatedContext)
-              )
-          }
+        case (_, schemaObject: SchemaObject) if schemaObject.hasUnvisitedRef(context) =>
+          resolveRefAndValidate(json, schemaObject, context)
 
         case (_: JsObject, schemaObject: SchemaObject) =>
           schemaObject.validateConstraints(json, context)
@@ -104,20 +120,24 @@ package object schema
       }
     }
 
-    private def hasUnvisitedRef(schemaObject: SchemaObject, resolutionContext: SchemaResolutionContext): Boolean = {
-      resolutionContext.refResolver.refTypeClass.findRef(schemaObject)
-        .map { case (_, ref) =>
-          !resolutionContext.hasBeenVisited(ref) }
-        .isDefined
-    }
-
     private[schema] def validateConstraints(json: => JsValue, resolutionContext: SchemaResolutionContext)
-                                   (implicit validator: SchemaTypeValidator[S]): VA[JsValue] = {
+                                           (implicit validator: SchemaTypeValidator[S]): VA[JsValue] = {
       Results.merge(
         validator.validate(schemaType, json, resolutionContext),
         AnyConstraintValidator.validate(json, schemaType, resolutionContext)
       )
     }
+  }
+
+  private implicit class SchemaObjectExtension(schemaObject: SchemaObject) {
+    def hasUnvisitedRef(resolutionContext: SchemaResolutionContext): Boolean = {
+      resolutionContext.refResolver.refTypeClass.findRef(schemaObject)
+        .map { case ref => !resolutionContext.hasBeenVisited(ref) }
+        .isDefined
+    }
+
+    def findUnvisitedRef(resolutionContext: SchemaResolutionContext): Option[Pointer] =
+      resolutionContext.refResolver.refTypeClass.findRef(schemaObject)
   }
 
   implicit class VAExtensions[O](va: VA[O]) {

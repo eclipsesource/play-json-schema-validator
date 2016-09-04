@@ -31,14 +31,18 @@ class RemoteSpecs extends PlaySpecification with JsonSpec with Online with After
 
   lazy val server = TestServer(port = 1234, createApp)
 
-  def afterAll = { server.stop; Thread.sleep(1000) }
+  def afterAll = {
+    server.stop; Thread.sleep(1000)
+  }
 
   def validateAjv(testName: String) = validate(testName, "ajv_tests")
 
   sequential
 
   "Validation from remote resources is possible" >> {
-      { server.start; Thread.sleep(1000) } must not(throwAn[Exception]) continueWith {
+    {
+      server.start; Thread.sleep(1000)
+    } must not(throwAn[Exception]) continueWith {
       validateMultiple(
         "ajv_tests" -> Seq(
           "5_adding_dependency_after",

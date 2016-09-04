@@ -28,6 +28,7 @@ object Keywords {
     val Description = "description"
     val Enum = "enum"
     val Type = "type"
+    val Id = "id"
   }
 
   object Number {

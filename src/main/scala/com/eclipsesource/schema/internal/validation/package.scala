@@ -1,8 +1,8 @@
 package com.eclipsesource.schema.internal
 
 import play.api.data.validation.ValidationError
-import play.api.libs.json.{JsPath}
-import scalaz.{Validation}
+import play.api.libs.json.JsPath
+import scalaz.Validation
 
 package object validation {
   type Validated[E, O] = Validation[Seq[E], O]

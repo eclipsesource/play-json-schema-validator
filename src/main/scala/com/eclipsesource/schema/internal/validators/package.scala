@@ -1,6 +1,6 @@
 package com.eclipsesource.schema.internal
 
-import com.eclipsesource.schema.internal.validation.{Validated}
+import com.eclipsesource.schema.internal.validation.Validated
 import play.api.data.validation.ValidationError
 import play.api.libs.json.{JsPath, JsObject, JsValue, Json}
 import scalaz.Failure

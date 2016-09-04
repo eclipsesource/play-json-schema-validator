@@ -19,10 +19,12 @@ trait BaseSchemaOps {
    */
   // TODO: duplicate check
   def merge(schema: SchemaObject, otherSchema: SchemaObject) = {
-    val fieldNames = otherSchema.properties.map(_.name)
+    val propertyNames = otherSchema.properties.map(_.name)
+    val otherRemainingProperties = otherSchema.properties.map(_.name)
     schema.copy(
-      properties = schema.properties.filterNot(fd => fieldNames.contains(fd.name)) ++ otherSchema.properties
-      , constraints = schema.constraints.merge(otherSchema.constraints)
+      properties = schema.properties.filterNot(fd => propertyNames.contains(fd.name)) ++ otherSchema.properties,
+      remainingsProps = schema.remainingsProps.filterNot(fd => otherRemainingProperties.contains(fd.name)) ++ otherSchema.remainingsProps,
+      constraints = schema.constraints.merge(otherSchema.constraints)
     )
   }
 }
