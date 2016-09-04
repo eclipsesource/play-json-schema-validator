@@ -3,9 +3,9 @@ package com.eclipsesource.schema
 import java.net.{URL, URLStreamHandler}
 
 import com.eclipsesource.schema.internal.SchemaRefResolver._
-import com.eclipsesource.schema.internal.refs.Pointer
+import com.eclipsesource.schema.internal.refs.Ref
 import com.eclipsesource.schema.internal.validators.DefaultFormats
-import com.eclipsesource.schema.urlhandlers.UrlProtocolHandler
+import com.eclipsesource.schema.urlhandlers.UrlHandler
 import play.api.data.validation.ValidationError
 import play.api.libs.json._
 
@@ -30,9 +30,9 @@ trait CanValidate {
   def validate(schemaUrl: URL, input: => JsValue): JsResult[JsValue] = {
 
     def buildContext(schema: SchemaType): SchemaResolutionContext = {
-      val id = schema.constraints.any.id.map(Pointer)
+      val id = schema.constraints.any.id.map(Ref)
       new SchemaResolutionContext(refResolver,
-        new SchemaResolutionScope(schema, id.orElse(Some(Pointer(schemaUrl.toString)))),
+        new SchemaResolutionScope(schema, id.orElse(Some(Ref(schemaUrl.toString)))),
         formats = formats
       )
     }
@@ -101,7 +101,7 @@ trait CanValidate {
     * @return a JsResult holding the valid result
     */
   def validate(schema: SchemaType)(input: => JsValue): JsResult[JsValue] = {
-    val id = schema.constraints.any.id.map(Pointer)
+    val id = schema.constraints.any.id.map(Ref)
     val context = new SchemaResolutionContext(
       refResolver,
       new SchemaResolutionScope(schema, id),
@@ -225,19 +225,29 @@ case class SchemaValidator(refResolver: SchemaRefResolver = new SchemaRefResolve
     * @param protocolHandler the UrlProtocolHandler to be added
     * @return a new validator instance
     */
-  def addUrlHandler(protocolHandler: UrlProtocolHandler): SchemaValidator =
+  def addUrlHandler(protocolHandler: UrlHandler): SchemaValidator =
     copy(refResolver =
       refResolver.copy(resolverFactory =
         refResolver.resolverFactory.addUrlHandler(protocolHandler)))
 
   /**
-    * Add a URLStreamHandler that is capable of resolving relative references.
+    * Add a relative UrlProtocolHandler that is capable of resolving relative references.
+    *
+    * @param handler the relative handler to be added
+    * @return the validator instance with the handler being added
     */
-  def addRelativeUrlHandler(handler: UrlProtocolHandler): SchemaValidator =
+  def addRelativeUrlHandler(handler: UrlHandler): SchemaValidator =
     copy(refResolver =
       refResolver.copy(resolverFactory =
         refResolver.resolverFactory.addRelativeUrlHandler(handler)))
 
+  /**
+    * Add a protocol-less relative URL handler that will be used to resolve
+    * custom relative references without a schema component.
+    *
+    * @param handler the URLStreamHandler to be added
+    * @return the validator instance with the handler being added
+    */
   def addRelativeUrlHandler(handler: URLStreamHandler): SchemaValidator =
     copy(refResolver =
       refResolver.copy(resolverFactory =
@@ -263,7 +273,7 @@ case class SchemaValidator(refResolver: SchemaRefResolver = new SchemaRefResolve
   def addSchema(id: String, schema: SchemaType): SchemaValidator = {
     copy(refResolver =
       refResolver.copy(cache =
-        refResolver.cache.add(Pointer(id))(schema))
+        refResolver.cache.add(Ref(id))(schema))
     )
   }
 }

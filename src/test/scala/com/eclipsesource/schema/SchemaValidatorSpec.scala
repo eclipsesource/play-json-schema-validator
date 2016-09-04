@@ -2,7 +2,7 @@ package com.eclipsesource.schema
 
 import java.net.{URL, URLConnection, URLStreamHandler}
 
-import com.eclipsesource.schema.urlhandlers.{ClasspathUrlProtocolHandler, ClasspathUrlHandler}
+import com.eclipsesource.schema.urlhandlers.ClasspathUrlHandler
 import controllers.Assets
 import play.api.inject.guice.GuiceApplicationBuilder
 import play.api.libs.functional.syntax._

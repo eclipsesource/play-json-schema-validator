@@ -10,7 +10,7 @@ object JsValueRefResolver {
   implicit val jsValueRefInstance = new CanHaveRef[JsValue] {
     def findScopeRefinement(json: JsValue) = None
     def findRef(json: JsValue) = None
-    override def anchorsOf(a: JsValue): Map[Pointer, JsValue] = Map.empty
+    override def anchorsOf(a: JsValue): Map[Ref, JsValue] = Map.empty
 
     override def resolve(json: JsValue, fragment: String): Either[ValidationError, JsValue] = {
       def fragmentIsInt = Try(fragment.toInt).isSuccess
@@ -30,7 +30,7 @@ object JsValueRefResolver {
 
   def resolve(path: String, root: JsValue): Either[Errors, JsValue] = {
     val resolver = new JsValueRefResolver
-    resolver.resolve(Pointer(path), new JsValueResolutionScope(root)).right.map(_.resolved)
+    resolver.resolve(Ref(path), new JsValueResolutionScope(root)).right.map(_.resolved)
   }
 
   // WIP: some code to resolve relative refs within JSON instance

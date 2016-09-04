@@ -312,10 +312,10 @@ class SchemaRefResolverSpec extends Specification {
           stripMargin).get
 
       val context = new SchemaResolutionScope(schema)
-      val failedResult = resolver.resolve(Pointer("#/properties/schema1/notthere"), context)
+      val failedResult = resolver.resolve(Ref("#/properties/schema1/notthere"), context)
       failedResult must beLeft.which(err => err.message === "Could not resolve ref #/properties/schema1/notthere")
-      val result = resolver.resolve(Pointer("#/properties/schema1/type"), context)
-      result must beRight.which(r => r.scope.id === Some(Pointer("http://x.y.z/rootschema.json#foo")))
+      val result = resolver.resolve(Ref("#/properties/schema1/type"), context)
+      result must beRight.which(r => r.scope.id === Some(Ref("http://x.y.z/rootschema.json#foo")))
     }
 
     "resolve ref via fragment" in {
@@ -340,7 +340,7 @@ class SchemaRefResolverSpec extends Specification {
           stripMargin).get
 
       val context = new SchemaResolutionScope(schema)
-      val result = resolver.resolve(Pointer("#/properties/n"), context)
+      val result = resolver.resolve(Ref("#/properties/n"), context)
       result must beRight.which(r => r.resolved.isInstanceOf[SchemaNumber])
     }
 
@@ -361,7 +361,7 @@ class SchemaRefResolverSpec extends Specification {
           |}""".stripMargin).get
 
       val scope = new SchemaResolutionScope(schema)
-      val result = resolver.resolve(Pointer("http://my.site/schema1#"), scope)
+      val result = resolver.resolve(Ref("http://my.site/schema1#"), scope)
       result must beRight.which(r => r.resolved.isInstanceOf[SchemaInteger])
     }
 
@@ -390,13 +390,13 @@ class SchemaRefResolverSpec extends Specification {
       val scope = new SchemaResolutionScope(mySiteSchema)
 
       "resolve schema1 via anchor" in {
-        resolver.resolve(Pointer("http://my.site/schema1#"), scope) must beRight.which(r =>
+        resolver.resolve(Ref("http://my.site/schema1#"), scope) must beRight.which(r =>
           r.resolved.isInstanceOf[SchemaInteger]
         )
       }
 
       "resolve schema1 via full path" in {
-        val result = resolver.resolve(Pointer("http://my.site/myschema#/definitions/schema1"), scope)
+        val result = resolver.resolve(Ref("http://my.site/myschema#/definitions/schema1"), scope)
         result.right.map { case ResolvedResult(r, s) => Json.toJson(r) } must beRight(
           Json.obj(
             "properties" -> Json.obj(
@@ -410,7 +410,7 @@ class SchemaRefResolverSpec extends Specification {
       }
 
       "resolve type of schema2 via full path" in {
-        val result = resolver.resolve(Pointer("http://my.site/myschema#/definitions/schema2/type"), scope)
+        val result = resolver.resolve(Ref("http://my.site/myschema#/definitions/schema2/type"), scope)
         result.right.map { case ResolvedResult(r, s) => Json.toJson(r) } must beRight(
           JsString("array")
         )
@@ -442,47 +442,47 @@ class SchemaRefResolverSpec extends Specification {
       val scope = new SchemaResolutionScope(schema)
 
       "infer correct resolution scope for #" in {
-        resolver.resolve(Pointer("#"), scope) must beRight.which(
-          _.scope.id.contains(Pointer("http://x.y.z/rootschema.json#"))
+        resolver.resolve(Ref("#"), scope) must beRight.which(
+          _.scope.id.contains(Ref("http://x.y.z/rootschema.json#"))
         )
       }
 
       "infer correct resolution scope within schema1" in {
-        resolver.resolve(Pointer("#/schema1/id"), scope) must beRight.which(
-          _.scope.id.contains(Pointer("http://x.y.z/rootschema.json#foo"))
+        resolver.resolve(Ref("#/schema1/id"), scope) must beRight.which(
+          _.scope.id.contains(Ref("http://x.y.z/rootschema.json#foo"))
         )
       }
 
       "infer correct resolution scope within schema1" in {
-        resolver.resolve(Pointer("#/schema2/nested"), scope) must beRight.which(
-          _.scope.id.contains(Pointer("http://x.y.z/otherschema.json#"))
+        resolver.resolve(Ref("#/schema2/nested"), scope) must beRight.which(
+          _.scope.id.contains(Ref("http://x.y.z/otherschema.json#"))
         )
       }
 
       "infer correct resolution scope within schema2/nested" in {
-        resolver.resolve(Pointer("#/schema2/nested/id"), scope) must beRight.which(
-          _.scope.id.contains(Pointer("http://x.y.z/otherschema.json#bar"))
+        resolver.resolve(Ref("#/schema2/nested/id"), scope) must beRight.which(
+          _.scope.id.contains(Ref("http://x.y.z/otherschema.json#bar"))
         )
       }
 
       "infer correct resolution scope within schema2/alsonested" in {
-        resolver.resolve(Pointer("#/schema2/alsonested/id"), scope) must beRight.which(
-          _.scope.id.contains(Pointer("http://x.y.z/t/inner.json#a"))
+        resolver.resolve(Ref("#/schema2/alsonested/id"), scope) must beRight.which(
+          _.scope.id.contains(Ref("http://x.y.z/t/inner.json#a"))
         )
       }
 
       "infer correct resolution scope within schema3" in {
-        resolver.resolve(Pointer("#/schema3/id"), scope) must beRight.which(
-          _.scope.id.contains(Pointer("some://where.else/completely#"))
+        resolver.resolve(Ref("#/schema3/id"), scope) must beRight.which(
+          _.scope.id.contains(Ref("some://where.else/completely#"))
         )
 
         "resolve #/schema1" in {
-          val result = resolver.resolve(Pointer("#/schema1"), scope)
+          val result = resolver.resolve(Ref("#/schema1"), scope)
           result.right.map { case ResolvedResult(r, s) => Json.toJson(r) } must beRight(Json.obj("id" -> "#foo"))
         }
 
         "resolve #/schema2" in {
-          val result = resolver.resolve(Pointer("#/schema2"), scope)
+          val result = resolver.resolve(Ref("#/schema2"), scope)
           result.right.map { case ResolvedResult(r, s) => Json.toJson(r) } must beRight(
             Json.obj(
               "nested" -> Json.obj("id" -> "#bar"),
@@ -493,21 +493,21 @@ class SchemaRefResolverSpec extends Specification {
         }
 
         "resolve #/schema2/nested" in {
-          val result = resolver.resolve(Pointer("#/schema2/nested"), scope)
+          val result = resolver.resolve(Ref("#/schema2/nested"), scope)
           result.right.map { case ResolvedResult(r, s) => Json.toJson(r) } must beRight(
             Json.obj("id" -> "#bar")
           )
         }
 
         "resolve #/schema2/alsonested" in {
-          val result = resolver.resolve(Pointer("#/schema2/alsonested"), scope)
+          val result = resolver.resolve(Ref("#/schema2/alsonested"), scope)
           result.right.map { case ResolvedResult(r, s) => Json.toJson(r) } must beRight(
             Json.obj("id" -> "t/inner.json#a")
           )
         }
 
         "resolve #/schema3" in {
-          val result7 = resolver.resolve(Pointer("#/schema3"), scope)
+          val result7 = resolver.resolve(Ref("#/schema3"), scope)
           result7.right.map { case ResolvedResult(r, s) => Json.toJson(r) } must beRight(
             Json.obj("id" -> "some://where.else/completely#")
           )

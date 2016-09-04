@@ -35,14 +35,14 @@ trait CanHaveRef[A] {
     * @param a the instance to be checked
     * @return true, if the given instance has an id field, false otherwise
     */
-  def findScopeRefinement(a: A): Option[Pointer]
+  def findScopeRefinement(a: A): Option[Ref]
 
   /**
     *
     * @param a
     * @return
     */
-  def anchorsOf(a: A): Map[Pointer, A]
+  def anchorsOf(a: A): Map[Ref, A]
 
   /**
     * Tries to find a resolvable instance within the given value.
@@ -50,5 +50,5 @@ trait CanHaveRef[A] {
     * @param a the value
     * @return an Option containing the field name and value, if any ref has been found
     */
-  def findRef(a: A): Option[Pointer]
+  def findRef(a: A): Option[Ref]
 }

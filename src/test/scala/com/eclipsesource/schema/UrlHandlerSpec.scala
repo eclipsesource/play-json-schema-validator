@@ -2,7 +2,7 @@ package com.eclipsesource.schema
 
 import java.net.{URL, URLConnection, URLStreamHandler}
 
-import com.eclipsesource.schema.urlhandlers.ClasspathUrlProtocolHandler
+import com.eclipsesource.schema.urlhandlers.ClasspathUrlHandler
 import org.specs2.mutable.Specification
 import play.api.libs.json.{JsDefined, JsString, Json}
 
@@ -21,7 +21,7 @@ class UrlHandlerSpec extends Specification {
 
     // absolute protocol-ful handler
     "should resolve absolute references on the classpath with ClasspathUrlProtocolHandler" in {
-      val validator = SchemaValidator().addUrlHandler(new ClasspathUrlProtocolHandler())
+      val validator = SchemaValidator().addUrlHandler(new ClasspathUrlHandler())
       val someJson = getClass.getResourceAsStream("/schemas/my-schema-with-protocol-ful-absolute-path.schema")
       val schema = JsonSource.schemaFromStream(someJson)
       validator.validate(schema.get, Json.obj("foo" -> Json.obj("bar" -> "Munich")))
@@ -30,7 +30,7 @@ class UrlHandlerSpec extends Specification {
 
     // relative protocol-ful handler with valid instance
     "should resolve protocol-ful relative references on the classpath with ClasspathUrlProtocolHandler" in {
-      val validator = SchemaValidator().addRelativeUrlHandler(new ClasspathUrlProtocolHandler())
+      val validator = SchemaValidator().addRelativeUrlHandler(new ClasspathUrlHandler())
       val url = getClass.getResource("/schemas/my-schema-with-protocol-ful-relative-path.schema")
       validator.validate(url, Json.obj("foo" -> Json.obj("bar" -> "Munich")))
         .isSuccess must beTrue
@@ -38,7 +38,7 @@ class UrlHandlerSpec extends Specification {
 
     // relative protocol-ful handler with invalid instance
     "should resolve protocol-ful relative references on the classpath with ClasspathUrlProtocolHandler (invalid instance)" in {
-      val validator = SchemaValidator().addRelativeUrlHandler(new ClasspathUrlProtocolHandler())
+      val validator = SchemaValidator().addRelativeUrlHandler(new ClasspathUrlHandler())
       val url = getClass.getResource("/schemas/my-schema-with-protocol-ful-relative-path.schema")
       val result = validator.validate(url, Json.obj("foo" -> Json.obj("bar" -> 42)))
       result.asEither must beLeft.like { case error =>
