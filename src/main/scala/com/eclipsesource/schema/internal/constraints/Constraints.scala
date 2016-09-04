@@ -1,6 +1,6 @@
 package com.eclipsesource.schema.internal.constraints
 
-import com.eclipsesource.schema.internal.refs.Pointer
+import com.eclipsesource.schema.internal.refs.Ref
 import play.api.libs.json._
 
 object Constraints {
@@ -32,7 +32,7 @@ object Constraints {
                            not: Option[SchemaType] = None,
                            description: Option[String] = None,
                            id: Option[String] = None,
-                           anchors: Map[Pointer, SchemaType] = Map.empty)
+                           anchors: Map[Ref, SchemaType] = Map.empty)
     extends Constraint with Resolvable {
 
     type A = AnyConstraint

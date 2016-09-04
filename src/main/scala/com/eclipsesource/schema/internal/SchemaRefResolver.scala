@@ -81,18 +81,18 @@ object SchemaRefResolver {
       }
     }
 
-    override def findRef(schema: SchemaType): Option[Pointer] = schema match {
+    override def findRef(schema: SchemaType): Option[Ref] = schema match {
       case SchemaObject(props, _, _) =>
         props.collectFirst {
-          case SchemaAttribute("$ref", SchemaValue(JsString(pointer))) => Pointer(pointer)
+          case SchemaAttribute("$ref", SchemaValue(JsString(ref))) => Ref(ref)
         }
       case _ => None
     }
 
-    override def findScopeRefinement(schema: SchemaType): Option[Pointer] =
-      schema.constraints.any.id.map(Pointer)
+    override def findScopeRefinement(schema: SchemaType): Option[Ref] =
+      schema.constraints.any.id.map(Ref)
 
-    override def anchorsOf(a: SchemaType): Map[Pointer, SchemaType] = a.constraints.any.anchors
+    override def anchorsOf(a: SchemaType): Map[Ref, SchemaType] = a.constraints.any.anchors
   }
 
   case class SchemaResolutionContext(refResolver: SchemaRefResolver,
