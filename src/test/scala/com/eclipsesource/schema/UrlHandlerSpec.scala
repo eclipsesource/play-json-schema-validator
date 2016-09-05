@@ -21,7 +21,7 @@ class UrlHandlerSpec extends Specification {
 
     // absolute protocol-ful handler
     "should resolve absolute references on the classpath with ClasspathUrlProtocolHandler" in {
-      val validator = SchemaValidator().addUrlHandler(new ClasspathUrlHandler())
+      val validator = SchemaValidator().addUrlHandler(new ClasspathUrlHandler(), ClasspathUrlHandler.Scheme)
       val someJson = getClass.getResourceAsStream("/schemas/my-schema-with-protocol-ful-absolute-path.schema")
       val schema = JsonSource.schemaFromStream(someJson)
       validator.validate(schema.get, Json.obj("foo" -> Json.obj("bar" -> "Munich")))
@@ -30,7 +30,7 @@ class UrlHandlerSpec extends Specification {
 
     // relative protocol-ful handler with valid instance
     "should resolve protocol-ful relative references on the classpath with ClasspathUrlProtocolHandler" in {
-      val validator = SchemaValidator().addRelativeUrlHandler(new ClasspathUrlHandler())
+      val validator = SchemaValidator().addRelativeUrlHandler(new ClasspathUrlHandler(), ClasspathUrlHandler.Scheme)
       val url = getClass.getResource("/schemas/my-schema-with-protocol-ful-relative-path.schema")
       validator.validate(url, Json.obj("foo" -> Json.obj("bar" -> "Munich")))
         .isSuccess must beTrue
@@ -38,7 +38,7 @@ class UrlHandlerSpec extends Specification {
 
     // relative protocol-ful handler with invalid instance
     "should resolve protocol-ful relative references on the classpath with ClasspathUrlProtocolHandler (invalid instance)" in {
-      val validator = SchemaValidator().addRelativeUrlHandler(new ClasspathUrlHandler())
+      val validator = SchemaValidator().addRelativeUrlHandler(new ClasspathUrlHandler(), ClasspathUrlHandler.Scheme)
       val url = getClass.getResource("/schemas/my-schema-with-protocol-ful-relative-path.schema")
       val result = validator.validate(url, Json.obj("foo" -> Json.obj("bar" -> 42)))
       result.asEither must beLeft.like { case error =>
@@ -94,8 +94,8 @@ class UrlHandlerSpec extends Specification {
     "should fail resolving protocol-less relative references on the classpath if no relative URL handler registered" in {
       val validator = SchemaValidator()
       val url = getClass.getResource("/issue-65/schemas/my-schema-with-protocol-less-relative-path.schema")
-      val result = validator.validate(url, Json.obj("quux" -> "Munich"))
-      result.isError must beTrue
+      validator.validate(url, Json.obj("quux" -> "Munich"))
+        .isError must beTrue
     }
   }
 }

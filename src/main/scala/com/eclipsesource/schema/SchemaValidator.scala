@@ -205,55 +205,30 @@ case class SchemaValidator(refResolver: SchemaRefResolver = new SchemaRefResolve
                            formats: Map[String, SchemaStringFormat] = DefaultFormats.formats)
   extends CanValidate with Customizations {
 
-
-
   /**
-    * Add a URL stream handler that is capable of handling the specified protocol.
-    *
-    * @param handler a tuple mapping the protocol type to the respective handler
-    * @return a new validator instance
-    */
-  def addUrlHandler(handler: (String, URLStreamHandler)): SchemaValidator =
-    copy(refResolver =
-      refResolver.copy(resolverFactory =
-        refResolver.resolverFactory.addUrlHandler(handler)))
-
-  /**
-    * Add a URL protocol handler (which is just convenience wrapper around an URLStreamHandler)
-    * that is capable of handling a specific protocol.
+    * Add a URLStreamHandler that is capable of handling absolute with a specific scheme.
     *
     * @param handler the UrlHandler to be added
     * @return a new validator instance
     */
-  def addUrlHandler(handler: UrlHandler): SchemaValidator =
+  def addUrlHandler(handler: URLStreamHandler, scheme: String): SchemaValidator =
     copy(refResolver =
       refResolver.copy(resolverFactory =
-        refResolver.resolverFactory.addUrlHandler(handler)))
+        refResolver.resolverFactory.addUrlHandler(scheme, handler)))
 
   /**
-    * Add a relative UrlProtocolHandler that is capable of resolving relative references.
+    * Add a relative URLStreamHandler that is capable of resolving relative references.
+    * Optionally takes a protocol that determines for which schemes the
+    * handler should be triggered.
     *
     * @param handler the relative handler to be added
     * @return the validator instance with the handler being added
     */
-  def addRelativeUrlHandler(handler: UrlHandler): SchemaValidator =
+  def addRelativeUrlHandler(handler: URLStreamHandler, scheme: String = UrlHandler.ProtocolLessScheme): SchemaValidator =
     copy(refResolver =
       refResolver.copy(resolverFactory =
-        refResolver.resolverFactory.addRelativeUrlHandler(handler)))
+        refResolver.resolverFactory.addRelativeUrlHandler(scheme, handler)))
 
-  /**
-    * Add a protocol-less relative URL handler that will be used to resolve
-    * custom relative references without a schema component.
-    *
-    * @param handler the URLStreamHandler to be added
-    * @return the validator instance with the handler being added
-    */
-  def addRelativeUrlHandler(handler: URLStreamHandler): SchemaValidator =
-    copy(refResolver =
-      refResolver.copy(resolverFactory =
-        refResolver.resolverFactory.addRelativeUrlHandler(UrlHandler.ProtocolLessScheme -> handler)
-      )
-    )
 
   /**
     * Add a custom format
