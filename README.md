@@ -44,7 +44,8 @@ Schemas can be parsed by passing the schema string to `Json.fromJson`, for insta
 With a schema at hand, we can now validate `JsValue`s via the `SchemaValidator` (note that since 0.8.0 the validator is a class and not an object anymore):
 
 ```Scala 
-SchemaValidator().validate(schema, json)
+val validator = new SchemaValidator()
+validator.validate(schema, json)
 ```
 
 `validate` returns a `JsResult[A]`. `JsResult` can either be a `JsSuccess` or a `JsError`.
@@ -52,9 +53,9 @@ SchemaValidator().validate(schema, json)
 This is useful for mapping `JsValue`s onto case classes and vice versa:
 
 ```Scala
-validate[A](schema: SchemaType, input: => JsValue, reads: Reads[A]) : JsResult[A]
-validate[A](schema: SchemaType, input: A, writes: Writes[A]): JsResult[JsValue] 
-validate[A: Format](schema: SchemaType, input: A): JsResult[A] 
+validate[A](schemaUrl: URL, input: => JsValue, reads: Reads[A]) : JsResult[A]
+validate[A](schemaUrl: URL, input: A, writes: Writes[A]): JsResult[JsValue] 
+validate[A: Format](schemaUrl: URL, input: A): JsResult[A] 
 ```
 
 ## Error Reporting
@@ -65,7 +66,7 @@ Below is given an example taken from the example app:
 ```Scala
 import com.eclipsesource.schema._ // brings toJson into scope
 
-val result = SchemaValidator.validate(schema, json, Post.reads)
+val result = validator.validate(schema, json, Post.reads)
 result.fold(
   invalid = { errors =>  BadRequest(errors.toJson) },
   valid = { post => ... } 
@@ -83,6 +84,8 @@ Errors feature a `schemaPath`, an `instancePath`, a `value` and a `msgs` propert
   "errors": []
 }
 ```
+
+In case the schema to validate against makes use of the `id` property to alter resolution scope (or if the schema has been loaded via an `URL`), the error report also contains a `resolutionScope` property.
 
 ### anyOf, oneOf, allOf 
 In case of `allOf`, `anyOf` and `oneOf`,  the `errors` array property holds the actual sub errors. For instance, if we have a schema like the following:
