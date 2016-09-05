@@ -85,6 +85,8 @@ Errors feature a `schemaPath`, an `instancePath`, a `value` and a `msgs` propert
 }
 ```
 
+### id
+
 In case the schema to validate against makes use of the `id` property to alter resolution scope (or if the schema has been loaded via an `URL`), the error report also contains a `resolutionScope` property.
 
 ### anyOf, oneOf, allOf 
