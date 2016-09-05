@@ -20,7 +20,7 @@ object Refs {
     */
   private[schema] def normalize(ref: Ref, currentScope: Option[Ref], urlHandlers: Option[UrlStreamResolverFactory] = None): Ref = {
 
-    def isRefWithCustomScheme = ref.scheme.fold(false)(p => urlHandlers.exists(_.contains(p)))
+    def isRefWithCustomScheme = ref.scheme.fold(false)(p => urlHandlers.exists(_.hasHandlerFor(p)))
 
     ref match {
 
