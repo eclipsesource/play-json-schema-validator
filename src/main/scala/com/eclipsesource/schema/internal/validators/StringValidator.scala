@@ -4,6 +4,7 @@ import java.text.BreakIterator
 import java.util.regex.Pattern
 
 import com.eclipsesource.schema.SchemaString
+import com.eclipsesource.schema.internal.Keywords
 import com.eclipsesource.schema.internal.SchemaRefResolver._
 import com.eclipsesource.schema.internal.constraints.Constraints.StringConstraints
 import com.eclipsesource.schema.internal.validation.{Rule, VA}
@@ -37,6 +38,7 @@ object StringValidator extends SchemaTypeValidator[SchemaString] {
               Success(json)
             } else {
               failure(
+                Keywords.String.Pattern,
                 s"$string does not match pattern $pattern",
                 context.schemaPath,
                 context.instancePath,
@@ -57,6 +59,7 @@ object StringValidator extends SchemaTypeValidator[SchemaString] {
             Success(json)
           } else {
             failure(
+              Keywords.String.MinLength,
               s"$string violates min length of $minLength",
               context.schemaPath,
               context.instancePath,
@@ -77,6 +80,7 @@ object StringValidator extends SchemaTypeValidator[SchemaString] {
               Success(json)
             } else {
               failure(
+                Keywords.String.MaxLength,
                 s"$string violates max length of $max",
                 context.schemaPath,
                 context.instancePath,
@@ -105,6 +109,7 @@ object StringValidator extends SchemaTypeValidator[SchemaString] {
                 Success(json)
               } else {
                 failure(
+                  Keywords.String.Format,
                   s"$string does not match format ${f.name}",
                   context.schemaPath,
                   context.instancePath,
@@ -120,6 +125,7 @@ object StringValidator extends SchemaTypeValidator[SchemaString] {
 
   private def unknownFormat(json: JsValue, context: SchemaResolutionContext, format: String) =
     failure(
+      Keywords.String.Format,
       s"Unknown format $format",
       context.schemaPath,
       context.instancePath,

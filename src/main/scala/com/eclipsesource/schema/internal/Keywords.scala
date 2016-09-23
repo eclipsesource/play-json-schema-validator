@@ -7,6 +7,7 @@ object Keywords {
   val Description = "description"
 
   val Default = "default"
+  val Ref = "$ref"
 
   object Object {
     val Properties = "properties"
@@ -16,7 +17,6 @@ object Keywords {
     val Dependencies = "dependencies"
     val MinProperties = "minProperties"
     val MaxProperties = "maxProperties"
-    val Ref = "$ref"
   }
 
   object Any {
@@ -60,7 +60,7 @@ object Keywords {
     Keywords.Description,
 
     Keywords.Default,
-    Keywords.Object.Ref,
+    Keywords.Ref,
     Keywords.Object.Properties,
     Keywords.Object.PatternProperties,
     Keywords.Object.AdditionalProperties,

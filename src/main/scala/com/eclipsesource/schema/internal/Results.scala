@@ -31,7 +31,8 @@ object Results {
 
   def success(prop: (String, JsValue)): PropertyValidationResult = prop._1 -> Success(prop._2)
 
-  def failureWithPath(msg: String,
+  def failureWithPath(keyword: String,
+                      msg: String,
                       context: SchemaResolutionContext,
                       instance: JsValue,
                       additionalInfo: JsObject = Json.obj()): VA[JsValue] = {
@@ -42,11 +43,12 @@ object Results {
     Failure(Seq(context.instancePath ->
       Seq(ValidationError(msg,
          Json.obj(
+           "keyword" -> keyword,
           "schemaPath" -> dropSlashIfAny(context.schemaPath.toString()),
           "instancePath" -> context.instancePath.toString(),
           "value" -> instance,
           "errors" ->  additionalInfo
-        ) ++ context.currentId.fold(Json.obj())(id => Json.obj("resolutionScope" -> id.value))
+        ) ++ context.scope.id.fold(Json.obj())(id => Json.obj("resolutionScope" -> id.value))
       ))
     ))
   }

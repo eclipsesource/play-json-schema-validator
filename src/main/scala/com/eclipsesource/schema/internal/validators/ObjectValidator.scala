@@ -18,7 +18,7 @@ object ObjectValidator extends SchemaTypeValidator[SchemaObject] {
     json match {
       case jsObject@JsObject(props) =>
         val validation = for {
-          // TODO: updatedSchema is schema
+        // TODO: updatedSchema is schema
           updatedSchema <- validateDependencies(schema, jsObject)
           remaining <- validateProps(updatedSchema, jsObject)
           unmatched <- validatePatternProps(updatedSchema, jsObject.fields)
@@ -44,6 +44,7 @@ object ObjectValidator extends SchemaTypeValidator[SchemaObject] {
           case _: JsUndefined => if (required.contains(attr.name)) {
             attr.name ->
               Results.failureWithPath(
+                Keywords.Object.Required,
                 s"Property ${attr.name} missing",
                 context,
                 json
@@ -70,6 +71,7 @@ object ObjectValidator extends SchemaTypeValidator[SchemaObject] {
             case _: JsUndefined =>
               val result = req ->
                 Results.failureWithPath(
+                  Keywords.Object.Required,
                   s"Property $req missing",
                   context,
                   json
@@ -148,6 +150,7 @@ object ObjectValidator extends SchemaTypeValidator[SchemaObject] {
             else resultOnly(
               Results.merge(status,
                 Results.failureWithPath(
+                  Keywords.Object.AdditionalProperties,
                   s"Additional properties are not allowed but found ${unmatchedFields.map(f => s"'${f._1}'").mkString(", ")}.",
                   context,
                   Json.obj() // TODO
@@ -173,6 +176,7 @@ object ObjectValidator extends SchemaTypeValidator[SchemaObject] {
       // if present, make sure all dependencies are fulfilled
       val result = mandatoryProps.map(prop => json.fields.find(_._1 == prop).fold(
         prop -> Results.failureWithPath(
+          Keywords.Object.Dependencies,
           s"Missing property dependency $prop.",
           context.updateScope(_.copy(
             schemaPath = context.schemaPath \ prop,
@@ -210,15 +214,14 @@ object ObjectValidator extends SchemaTypeValidator[SchemaObject] {
       val size = json.fields.size
       val result: VA[JsValue] = schema.constraints.maxProperties match {
         case None => Success(json)
-        case Some(max) => if (size <= max) {
-          Success(json)
-        } else {
-          Results.failureWithPath(
+        case Some(max) =>
+          if (size <= max)  Success(json)
+          else  Results.failureWithPath(
+            Keywords.Object.MaxProperties,
             s"Found $size properties, but only a maximum of $max properties is allowed",
             context,
             json
           )
-        }
       }
       ((), (), Results.merge(status, result))
     }
@@ -233,6 +236,7 @@ object ObjectValidator extends SchemaTypeValidator[SchemaObject] {
           Success(json)
         } else {
           Results.failureWithPath(
+            Keywords.Object.MinProperties,
             s"Found $size properties, but at least $min ${if (min == 1) "property needs" else "properties need"} to be present.",
             context,
             json

@@ -4,7 +4,7 @@ import com.eclipsesource.schema.internal.refs._
 import com.eclipsesource.schema.internal.serialization.{JSONSchemaReads, JSONSchemaWrites}
 import com.eclipsesource.schema.internal.validation.VA
 import com.eclipsesource.schema.internal.validators._
-import com.eclipsesource.schema.internal.{Results, SchemaRefResolver, SchemaUtil}
+import com.eclipsesource.schema.internal.{Keywords, Results, SchemaRefResolver, SchemaUtil}
 import play.api.data.validation.ValidationError
 import play.api.libs.json._
 
@@ -54,7 +54,11 @@ package object schema
 
         context.refResolver.resolve(root, normalizedRef, context.scope) match {
           case -\/(ValidationError(messages, errors@_*)) =>
-            Results.failureWithPath(s"Could not resolve ref ${ref.value}", context, json)
+            Results.failureWithPath(
+              Keywords.Ref,
+              s"Could not resolve ref ${ref.value}",
+              context,
+              json)
           case \/-(ResolvedResult(resolved, scope)) =>
             val updatedContext = context.updateScope(_ => scope)
             Results.merge(
@@ -65,7 +69,12 @@ package object schema
       }
 
       result.getOrElse(
-        Results.failureWithPath(s"Expected to find unvisited ref at ${context.schemaPath}", context, json))
+        Results.failureWithPath(
+          Keywords.Ref,
+          s"Expected to find unvisited ref at ${context.schemaPath}",
+          context,
+          json)
+      )
     }
 
     def validate(json: JsValue, resolutionContext: SchemaResolutionContext): VA[JsValue] = {
@@ -114,7 +123,9 @@ package object schema
           Success(json)
 
         case _ =>
-          Results.failureWithPath(s"Wrong type. Expected $schemaType, was ${SchemaUtil.typeOfAsString(json)}.",
+          Results.failureWithPath(
+            Keywords.Any.Type,
+            s"Expected $schemaType, was ${SchemaUtil.typeOfAsString(json)}.",
             context,
             json)
       }

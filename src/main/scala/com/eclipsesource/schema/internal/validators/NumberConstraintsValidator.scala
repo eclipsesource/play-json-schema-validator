@@ -1,7 +1,7 @@
 package com.eclipsesource.schema.internal.validators
 
 import com.eclipsesource.schema.internal.SchemaRefResolver.SchemaResolutionContext
-import com.eclipsesource.schema.internal.SchemaUtil
+import com.eclipsesource.schema.internal.{Keywords, SchemaUtil}
 import com.eclipsesource.schema.internal.constraints.Constraints.{Maximum, Minimum, NumberConstraints}
 import com.eclipsesource.schema.internal.validation.Rule
 import play.api.libs.json.{JsNumber, JsValue}
@@ -32,6 +32,7 @@ trait NumberConstraintsValidator {
               val minType = if (isExclusive) "exclusive minimum" else "minimum"
               val comparison = if (isExclusive) "less than or equal to" else "less than"
               failure(
+                Keywords.Number.Min,
                 s"$minType violated: $number is $comparison ${min.min}",
                 context.schemaPath,
                 context.instancePath,
@@ -66,6 +67,7 @@ trait NumberConstraintsValidator {
               val maxType = if (isExclusive) "exclusive maximum" else "maximum"
               val comparison = if (isExclusive) "bigger than or equal to" else "bigger than"
               failure(
+                Keywords.Number.Max,
                 s"$maxType violated: $number is $comparison ${max.max}",
                 context.schemaPath,
                 context.instancePath,
@@ -87,6 +89,7 @@ trait NumberConstraintsValidator {
               Success(number)
             } else {
               failure(
+                Keywords.Number.MultipleOf,
                 s"$number is not a multiple of $factor.",
                 context.schemaPath,
                 context.instancePath,
@@ -101,6 +104,7 @@ trait NumberConstraintsValidator {
 
   private def expectedNumber(json: JsValue, context: SchemaResolutionContext) =
     failure(
+      Keywords.Any.Type,
       s"Wrong type. Expected number, was ${SchemaUtil.typeOfAsString(json)}",
       context.schemaPath,
       context.instancePath,

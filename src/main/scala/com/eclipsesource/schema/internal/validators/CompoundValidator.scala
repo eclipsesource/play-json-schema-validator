@@ -1,6 +1,6 @@
 package com.eclipsesource.schema.internal.validators
 import com.eclipsesource.schema.{CompoundSchemaType, _}
-import com.eclipsesource.schema.internal.Results
+import com.eclipsesource.schema.internal.{Keywords, Results}
 import com.eclipsesource.schema.internal.SchemaRefResolver.SchemaResolutionContext
 import com.eclipsesource.schema.internal.validation.VA
 import play.api.libs.json.JsValue
@@ -13,7 +13,8 @@ object CompoundValidator extends SchemaTypeValidator[CompoundSchemaType] {
 
     result.getOrElse(
         Results.failureWithPath(
-          "No schema applied",
+          Keywords.Any.Type,
+          "No schema applicable",
           context,
           json
         )
