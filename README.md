@@ -19,7 +19,7 @@ Then add the dependency:
 
 ```
 libraryDependencies ++= Seq(
- "com.eclipsesource" %% "play-json-schema-validator" % "0.8.4"
+ "com.eclipsesource" %% "play-json-schema-validator" % "0.8.5"
 )
 ```
  
@@ -78,6 +78,7 @@ Errors feature a `schemaPath`, an `instancePath`, a `value` and a `msgs` propert
 ```Javascript
 {
   "schemaPath" : "#/properties/title",
+  "keyword": "minLength",
   "instancePath" : "/title",
   "value" : "a",
   "msgs" : [ "a violates min length of 3", "a does not match pattern ^[A-Z].*" ],
