@@ -9,17 +9,21 @@ package object validators {
 
   implicit val objectValidator = ObjectValidator
 
-  def failure(msg: String,
+  def failure(keyword: String,
+              msg: String,
               schemaPath: JsPath,
               instancePath: JsPath,
               instance: JsValue,
               additionalInfo: JsObject = Json.obj()
              ): Validated[ValidationError, JsValue] = {
+
     def dropSlashIfAny(path: String) = if (path.startsWith("/#")) path.substring(1) else path
+
     Failure(
       Seq(
       ValidationError(msg,
         Json.obj(
+          "keyword" -> keyword,
           "schemaPath" -> dropSlashIfAny(schemaPath.toString()),
           "instancePath" -> instancePath.toString(),
           "value" -> instance,

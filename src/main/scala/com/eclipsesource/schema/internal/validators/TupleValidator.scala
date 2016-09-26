@@ -1,7 +1,7 @@
 package com.eclipsesource.schema.internal.validators
 
 import com.eclipsesource.schema._
-import com.eclipsesource.schema.internal.Results
+import com.eclipsesource.schema.internal.{Keywords, Results}
 import com.eclipsesource.schema.internal.SchemaRefResolver._
 import com.eclipsesource.schema.internal.validation.VA
 import play.api.libs.json.{JsArray, JsBoolean, JsValue}
@@ -22,6 +22,7 @@ object TupleValidator extends SchemaTypeValidator[SchemaTuple] with ArrayConstra
           case SchemaValue(JsBoolean(false)) =>
             Seq(
               Results.failureWithPath(
+                Keywords.Array.AdditionalItems,
                 s"Too many items. Expected $schemaSize items, found $instanceSize.",
                 context,
                 json
@@ -75,7 +76,9 @@ object TupleValidator extends SchemaTypeValidator[SchemaTuple] with ArrayConstra
         val updatedArr = JsArray(results.collect { case Success(js) => js })
         validate(updatedArr, schema.constraints, context)
       }
+
     case other => Results.failureWithPath(
+      Keywords.Any.Type,
       s"Expected array, was $other",
       context,
       json

@@ -1,5 +1,6 @@
 package com.eclipsesource.schema
 
+import com.eclipsesource.schema.internal.Keywords
 import org.specs2.mutable.Specification
 import play.api.data.validation.ValidationError
 import play.api.libs.json._
@@ -12,13 +13,29 @@ class ErrorReportingSpec extends Specification {
 
   "Validator" should {
 
+    "report error for wrong type" in {
+      val schema = JsonSource.schemaFromString(
+        """{
+        |  "properties": {
+        |    "foo": { "type": "integer" }
+        |  }
+        |}""".stripMargin).get
+      val result = validator.validate(schema)(Json.obj("foo" -> "bar"))
+      result.asEither must beLeft.like { case error => (error.toJson(0) \ "msgs").get.as[JsArray].value.head ==
+        JsString("Expected integer, was string.")
+      }
+      result.asEither must beLeft.like { case error => (error.toJson(0) \ "keyword").get ==
+        JsString(Keywords.Any.Type)
+      }
+    }
+
     "handle multiple errors for same property" in {
       val schema = JsonSource.schemaFromString(
         """{
-          |"properties": {
-          |  "id":    { "type": "integer" },
-          |  "title": { "type": "string", "minLength": 3, "pattern": "^[A-Z].*" }
-          |}
+          |  "properties": {
+          |    "id":    { "type": "integer" },
+          |    "title": { "type": "string", "minLength": 3, "pattern": "^[A-Z].*" }
+          |  }
           |}""".stripMargin).get
       val result: JsResult[JsValue] = validator.validate(schema)(Json.obj("title" -> "a"))
       result.isError must beTrue

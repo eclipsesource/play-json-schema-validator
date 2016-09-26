@@ -1,7 +1,7 @@
 package com.eclipsesource.schema.internal.validators
 
 import com.eclipsesource.schema.internal.SchemaRefResolver._
-import com.eclipsesource.schema.internal.SchemaUtil
+import com.eclipsesource.schema.internal.{Keywords, SchemaUtil}
 import com.eclipsesource.schema.internal.constraints.Constraints.ArrayConstraints
 import com.eclipsesource.schema.internal.validation.{Rule, VA}
 import play.api.libs.json.{JsArray, JsValue}
@@ -28,6 +28,7 @@ trait ArrayConstraintValidator {
             Success(json)
           } else {
             failure(
+              Keywords.Array.MaxItems,
               s"Too many items. ${values.size} items found, but only $max item(s) are allowed.",
               context.schemaPath,
               context.instancePath,
@@ -49,6 +50,7 @@ trait ArrayConstraintValidator {
             Success(json)
           } else {
             failure(
+              Keywords.Array.MinItems,
               s"Not enough items. ${values.size} items found, but at least $minItems item(s) need to be present.",
               context.schemaPath,
               context.instancePath,
@@ -68,6 +70,7 @@ trait ArrayConstraintValidator {
             Success(json)
           } else {
             failure(
+              Keywords.Array.UniqueItems,
               s"[${values.mkString(", ")}] contains duplicates",
               context.schemaPath,
               context.instancePath,
@@ -81,6 +84,7 @@ trait ArrayConstraintValidator {
 
   private def expectedArray(json: JsValue, context: SchemaResolutionContext) =
     failure(
+      Keywords.Any.Type,
       s"Wrong type. Expected array, was ${SchemaUtil.typeOfAsString(json)}",
       context.schemaPath,
       context.instancePath,

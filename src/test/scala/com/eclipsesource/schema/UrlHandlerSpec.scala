@@ -42,7 +42,7 @@ class UrlHandlerSpec extends Specification {
       val url = getClass.getResource("/schemas/my-schema-with-protocol-ful-relative-path.schema")
       val result = validator.validate(url, Json.obj("foo" -> Json.obj("bar" -> 42)))
       result.asEither must beLeft.like { case error =>
-        error.toJson(0) \ "msgs" == JsDefined(Json.arr(JsString("Wrong type. Expected string, was number.")))
+        error.toJson(0) \ "msgs" == JsDefined(Json.arr(JsString("Expected string, was number.")))
       }
     }
 

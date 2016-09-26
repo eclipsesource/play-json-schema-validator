@@ -31,6 +31,7 @@ object AnyConstraintValidator {
             Success(json)
           } else {
             failure(
+              Keywords.Any.Not,
               s"$json matches schema '$schema' although it should not.",
               context.schemaPath,
               context.instancePath,
@@ -54,6 +55,7 @@ object AnyConstraintValidator {
               Success(json)
             } else {
               failure(
+                Keywords.Any.AllOf,
                 s"Instance does not match all schemas",
                 context.schemaPath,
                 context.instancePath,
@@ -88,6 +90,7 @@ object AnyConstraintValidator {
               untilFirstSuccess(json, schema, context, schemas.toList, List.empty) match {
                 case Nil => Success(json)
                 case errors => failure(
+                  Keywords.Any.AnyOf,
                   "Instance does not match any of the schemas",
                   context.schemaPath,
                   context.instancePath,
@@ -112,6 +115,7 @@ object AnyConstraintValidator {
             allValidationResults.count(_.isSuccess) match {
               case 0 =>
                 failure(
+                  Keywords.Any.OneOf,
                   s"Instance does not match any schema",
                   context.schemaPath,
                   context.instancePath,
@@ -126,6 +130,7 @@ object AnyConstraintValidator {
                   case (arr, _) => arr
                 }
                 failure(
+                  Keywords.Any.OneOf,
                   s"Instance matches more than one schema",
                   context.schemaPath,
                   context.instancePath,
@@ -146,6 +151,7 @@ object AnyConstraintValidator {
           case Some(values) if values.contains(json) => Success(json)
           case Some(values) =>
             failure(
+              Keywords.Any.Enum,
               "Instance is invalid enum value",
               context.schemaPath,
               context.instancePath,

@@ -95,10 +95,10 @@ trait JSONSchemaWrites {
     val o = (if (props.nonEmpty) Json.obj("properties" -> JsObject(props)) else Json.obj()).deepMerge(JsObject(remainingProps))
 
     // check if $ref exists
-    val maybeRef = obj.properties.find(_.name == Keywords.Object.Ref)
+    val maybeRef = obj.properties.find(_.name == Keywords.Ref)
     val jsonObj = maybeRef
       .map(ref =>
-        Json.obj(Keywords.Object.Ref -> Json.toJson(ref.schemaType))
+        Json.obj(Keywords.Ref -> Json.toJson(ref.schemaType))
       ).getOrElse(o)
 
     jsonObj.deepMerge(objectConstraintWriter.writes(obj.constraints))

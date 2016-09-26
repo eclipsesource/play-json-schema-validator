@@ -8,7 +8,6 @@ trait GenResolutionContext[A] {
   def schemaPath = scope.schemaPath
   def instancePath = scope.instancePath
   val hasBeenVisited = scope.visited.contains _
-  def currentId = scope.id
 }
 
 case class GenResolutionScope[A : CanHaveRef](

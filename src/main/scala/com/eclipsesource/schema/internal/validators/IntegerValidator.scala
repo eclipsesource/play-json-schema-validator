@@ -2,7 +2,7 @@ package com.eclipsesource.schema.internal.validators
 
 import com.eclipsesource.schema.SchemaInteger
 import com.eclipsesource.schema.internal.SchemaRefResolver.SchemaResolutionContext
-import com.eclipsesource.schema.internal.SchemaUtil
+import com.eclipsesource.schema.internal.{Keywords, SchemaUtil}
 import com.eclipsesource.schema.internal.constraints.Constraints.NumberConstraints
 import com.eclipsesource.schema.internal.validation.{Rule, VA}
 import play.api.libs.json.{JsNumber, JsValue}
@@ -17,6 +17,7 @@ object IntegerValidator extends SchemaTypeValidator[SchemaInteger] with NumberCo
         case json@JsNumber(number) if number.isWhole()  => Success(json)
         case other =>
           failure(
+            Keywords.Any.Type,
             s"Wrong type. Expected integer, was ${SchemaUtil.typeOfAsString(other)}",
             context.schemaPath,
             context.instancePath,

@@ -258,7 +258,7 @@ trait JSONSchemaReads {
       (__ \ Keywords.Object.Dependencies).lazyReadNullable[Map[String, SchemaType]](mapReadsInstanceWithJsValueReader) and
       (__ \ Keywords.Object.MinProperties).readNullable[Int] and
       (__ \ Keywords.Object.MaxProperties).readNullable[Int] and
-      (__ \ Keywords.Object.Ref).readNullable[String] and
+      (__ \ Keywords.Ref).readNullable[String] and
       anyConstraintReader
       ).tupled.flatMap { read =>
 

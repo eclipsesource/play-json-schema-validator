@@ -3,7 +3,7 @@ package com.eclipsesource.schema.internal.validators
 import com.eclipsesource.schema.SchemaArray
 import com.eclipsesource.schema.internal.SchemaRefResolver._
 import com.eclipsesource.schema.internal.validation.VA
-import com.eclipsesource.schema.internal.{Results, SchemaUtil}
+import com.eclipsesource.schema.internal.{Keywords, Results, SchemaUtil}
 import play.api.libs.json.{JsArray, JsValue}
 
 import scalaz.{Failure, Success}
@@ -29,6 +29,7 @@ object ArrayValidator extends SchemaTypeValidator[SchemaArray] with ArrayConstra
       }
     case other =>
       Results.failureWithPath(
+        Keywords.Any.Type,
         s"Wrong type. Expected array, was ${SchemaUtil.typeOfAsString(json)}",
         context,
         json
