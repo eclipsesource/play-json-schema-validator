@@ -130,7 +130,7 @@ object ObjectValidator extends SchemaTypeValidator[SchemaObject] {
           attr._2,
           context.updateScope(
             _.copy(
-              schemaPath = context.schemaPath \ attr._1,
+              schemaPath = context.schemaPath \ Keywords.Object.AdditionalProperties,
               instancePath = context.instancePath \ attr._1
             )
           )
@@ -151,7 +151,7 @@ object ObjectValidator extends SchemaTypeValidator[SchemaObject] {
               Results.merge(status,
                 Results.failureWithPath(
                   Keywords.Object.AdditionalProperties,
-                  s"Additional properties are not allowed but found ${unmatchedFields.map(f => s"'${f._1}'").mkString(", ")}.",
+                  s"Additional properties are not allowed but found ${unmatchedFields.map(f => s"'${f._1}'").mkString(" and ")}.",
                   context,
                   Json.obj() // TODO
                 )

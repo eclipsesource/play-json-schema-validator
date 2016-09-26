@@ -75,7 +75,7 @@ case class GenRefResolver[A : CanHaveRef : Reads]
         // could be an id
         resolveAnchorId(ref, updatedScope, current) orElse
           // protocol-ful relative refs; relative refs with custom schemes will be recognized as absolute
-          resolveRelative(ref, scope ) orElse
+          resolveRelative(ref, scope) orElse
           resolveDocument(ref, updatedScope)
 
       // since the cache may contain unresolved refs, this must come after the previous case
@@ -84,11 +84,16 @@ case class GenRefResolver[A : CanHaveRef : Reads]
 
       // resolve root only
       case (_, Refs.`#`) =>
-        ResolvedResult(updatedScope.documentRoot, updatedScope).right
+        ResolvedResult(updatedScope.documentRoot, updatedScope.copy(schemaPath = JsPath \ "#")).right
 
       // resolve root and continue with the rest of the ref
       case (_, _) if ref.isFragment && !ref.isAnchor =>
-        resolve(updatedScope.documentRoot, ref.dropHashAtStart, updatedScope.copy(id = updatedScope.id.map(_.withHashAtEnd)))
+        resolve(updatedScope.documentRoot, ref.dropHashAtStart,
+          updatedScope.copy(
+            id = updatedScope.id.map(_.withHashAtEnd),
+            schemaPath = JsPath \ "#"
+          )
+        )
 
       case (_, _) =>
         resolveFragments(toSegments(ref), updatedScope, current) orElse
@@ -164,13 +169,11 @@ case class GenRefResolver[A : CanHaveRef : Reads]
           rest match {
             case Nil =>
               ResolvedResult(r, scope.copy(
-                schemaPath = scope.schemaPath.compose(JsPath \ fragment),
-                instancePath = scope.instancePath.compose(JsPath \ fragment)
+                schemaPath = scope.schemaPath.compose(JsPath \ fragment)
               )).right
             case _ =>
               resolve(r, Ref(rest.mkString("/")), scope.copy(
-                schemaPath = scope.schemaPath.compose(JsPath \ fragment),
-                instancePath = scope.instancePath.compose(JsPath \ fragment)
+                schemaPath = scope.schemaPath.compose(JsPath \ fragment)
               ))
           }
         }
@@ -223,9 +226,9 @@ case class GenRefResolver[A : CanHaveRef : Reads]
     cache.get(ref) match {
       case cached@Some(a) => a.right
       case otherwise => for {
-          source <- \/.fromEither(Try { Source.fromURL(url) }.toEither)
-          read <- readSource(source)
-        } yield read
+        source <- \/.fromEither(Try { Source.fromURL(url) }.toEither)
+        read <- readSource(source)
+      } yield read
     }
   }
 
@@ -256,7 +259,7 @@ case class GenRefResolver[A : CanHaveRef : Reads]
       instance    <- fetch(documentUrl, scope)
       result      <- ref.fragments
         .map(frags => resolve(instance, frags, scope.copy(documentRoot = instance)))
-        .getOrElse(ResolvedResult(instance, scope).right)
+        .getOrElse(ResolvedResult(instance, scope.copy(schemaPath = JsPath \ "#")).right)
     } yield result
   }
 

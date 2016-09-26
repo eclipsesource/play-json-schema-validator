@@ -5,6 +5,7 @@ import org.specs2.mutable.Specification
 
 class OneOfSpec extends Specification with JsonSpec {
   validate("oneOf")
+  validate("oneOf", "ajv_tests")
 
   "oneOf must be array of objects (invalid)" in {
     val schema = JsonSource.schemaFromString(
