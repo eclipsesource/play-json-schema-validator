@@ -22,7 +22,7 @@ object ObjectValidator extends SchemaTypeValidator[SchemaObject] {
           updatedSchema <- validateDependencies(schema, jsObject)
           remaining <- validateProps(updatedSchema, jsObject)
           unmatched <- validatePatternProps(updatedSchema, jsObject.fields)
-          _ <- validateAdditionalProps(updatedSchema, unmatched.intersect(remaining))
+          _ <- validateAdditionalProps(updatedSchema, unmatched.intersect(remaining), json)
           _ <- validateMinProperties(updatedSchema, jsObject)
           _ <- validateMaxProperties(updatedSchema, jsObject)
         } yield updatedSchema
@@ -122,7 +122,7 @@ object ObjectValidator extends SchemaTypeValidator[SchemaObject] {
       ((), unmatchedProps, Results.merge(status, Results.aggregateAsObject(validated, context)))
     }
 
-  private def validateAdditionalProps(schema: SchemaObject, unmatchedFields: Props): ValidationStep[Unit] = {
+  private def validateAdditionalProps(schema: SchemaObject, unmatchedFields: Props, json: JsValue): ValidationStep[Unit] = {
 
     def validateUnmatched(schemaType: SchemaType, context: SchemaResolutionContext): VA[JsValue] = {
       val validated = unmatchedFields.map { attr =>
@@ -153,7 +153,7 @@ object ObjectValidator extends SchemaTypeValidator[SchemaObject] {
                   Keywords.Object.AdditionalProperties,
                   s"Additional properties are not allowed but found ${unmatchedFields.map(f => s"'${f._1}'").mkString(" and ")}.",
                   context,
-                  Json.obj() // TODO
+                  json
                 )
               ))
           case additionalProp =>
