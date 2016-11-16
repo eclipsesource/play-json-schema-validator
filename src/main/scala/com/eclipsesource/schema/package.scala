@@ -61,10 +61,7 @@ package object schema
               json)
           case \/-(ResolvedResult(resolved, scope)) =>
             val updatedContext = context.updateScope(_ => scope)
-            Results.merge(
-              resolved.validate(json, updatedContext),
-              AnyConstraintValidator.validate(json, resolved, updatedContext)
-            )
+            resolved.validate(json, updatedContext)
         }
       }
 

@@ -13,9 +13,7 @@ object Results {
     (va1, va2) match {
       case (Success(_), f@Failure(err)) => f
       case (f@Failure(_), Success(_)) => f
-      case (f1@Failure(errs1), f2@Failure(errs2))    => Failure(errs1 ++ errs2)
-      case (s@Success(obj1@JsObject(_)), Success(_)) => s
-      case (s@Success(JsArray(values1)), Success(_)) => s
+      case (f1@Failure(errs1), f2@Failure(errs2))    => Failure((errs1 ++ errs2).distinct)
       case (s@Success(json), Success(_)) => s
     }
   }
@@ -24,7 +22,7 @@ object Results {
     validatedProps.foldLeft[VA[JsValue]](Success(Json.obj()))((va, result) => (va, result._2) match {
       case (Success(_), f@Failure(err)) => f
       case (f@Failure(_), Success(_)) => f
-      case (f1@Failure(errs1), f2@Failure(errs2)) => Failure(errs1 ++ errs2)
+      case (f1@Failure(errs1), f2@Failure(errs2)) => Failure((errs1 ++ errs2).distinct)
       case (Success(obj@JsObject(fields)), Success(s2)) => Success(JsObject(obj.fields :+ (result._1, s2)))
     })
   }
