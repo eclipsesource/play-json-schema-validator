@@ -86,6 +86,19 @@ Errors feature a `schemaPath`, an `instancePath`, a `value` and a `msgs` propert
 }
 ```
 
+The value of `schemaPath` will be updated when following any refs, hence when validating
+
+```Javascript
+{
+  "properties": {
+    "foo": {"type": "integer"},
+    "bar": {"$ref": "#/properties/foo"}
+  }
+}
+```
+
+the generated error report's `schemaPath` property will point to `#/properties/foo`.
+
 ### id
 
 In case the schema to validate against makes use of the `id` property to alter resolution scope (or if the schema has been loaded via an `URL`), the error report also contains a `resolutionScope` property.
