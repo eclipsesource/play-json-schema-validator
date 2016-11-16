@@ -15,6 +15,7 @@ object JsonSource {
 
   /**
     * Tries to parse the given JSON string.
+ *
     * @param json the input string
     * @return the result wrapped in a Try
     */
@@ -26,7 +27,7 @@ object JsonSource {
     * @param url the URL at which a JSON instance is expected
     * @return the result wrapped in a Try
     */
-  def fromURL(url: URL): Try[JsValue] = Try {
+  def fromUrl(url: URL): Try[JsValue] = Try {
     val source = Source.fromURL(url)
     try source.getLines.mkString("\n") finally source.close
   }.flatMap(fromString)
@@ -58,7 +59,7 @@ object JsonSource {
     */
   def schemaFromUrl(url: URL): JsResult[SchemaType] = {
     for {
-      schemaJson <- JsonSource.fromURL(url) match {
+      schemaJson <- JsonSource.fromUrl(url) match {
         case Success(json) => JsSuccess(json)
         case Failure(throwable) => JsError(throwable.getMessage)
       }
