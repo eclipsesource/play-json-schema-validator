@@ -79,9 +79,4 @@ class EMFLibraryExampleSpec extends Specification {
       )
       result.isSuccess must beTrue
   }
-
-
-  // name: 'string'
-  // empty input for web validator
-  // error: "msgs" undefined on object
 }
