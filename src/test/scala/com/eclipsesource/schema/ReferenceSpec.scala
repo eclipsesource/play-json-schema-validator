@@ -120,14 +120,14 @@ class ReferenceSpec extends Specification with JsonSpec {
             "schemaPath" -> "#/allOf/0/definitions/positiveInteger",
             "errors" -> Json.obj(),
             "keyword" -> "minimum",
-            "msgs"  -> Json.arr( "minimum violated: -1 is less than 0"),
+            "msgs"  -> Json.arr("-1 is smaller than required minimum value of 0."),
             "value" -> -1,
             "instancePath" -> "/minLength"
           )
         )
       )
     )
-    (firstError \ "msgs").get must beEqualTo(Json.arr("Instance does not match all schemas"))
+    (firstError \ "msgs").get must beEqualTo(Json.arr("Instance does not match all schemas."))
     result.isError must beTrue
   }
 

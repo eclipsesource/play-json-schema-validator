@@ -5,6 +5,7 @@ import com.eclipsesource.schema.internal.serialization.{JSONSchemaReads, JSONSch
 import com.eclipsesource.schema.internal.validation.VA
 import com.eclipsesource.schema.internal.validators._
 import com.eclipsesource.schema.internal.{Keywords, Results, SchemaRefResolver, SchemaUtil}
+import com.osinka.i18n.{Lang, Messages}
 import play.api.data.validation.ValidationError
 import play.api.libs.json._
 
@@ -18,7 +19,8 @@ package object schema
   import SchemaRefResolver._
 
   implicit def noValidator[S <: SchemaType] = new SchemaTypeValidator[S] {
-    override def validate(schema: S, json: => JsValue, resolutionContext: SchemaResolutionContext): VA[JsValue] = Success(json)
+    override def validate(schema: S, json: => JsValue, resolutionContext: SchemaResolutionContext)
+                         (implicit lang: Lang): VA[JsValue] = Success(json)
   }
 
   implicit class SchemaTypeExtensionOps[S <: SchemaType](schemaType: S) {
@@ -30,12 +32,13 @@ package object schema
     implicit val numberValidator = NumberValidator
     implicit val integerValidator = IntegerValidator
     implicit val stringValidator = StringValidator
-    implicit val booleanValidator = noValidator[SchemaBoolean]
-    implicit val nullValidator = noValidator[SchemaNull]
+    implicit val booleanValidator: SchemaTypeValidator[SchemaBoolean] = noValidator[SchemaBoolean]
+    implicit val nullValidator: SchemaTypeValidator[SchemaNull] = noValidator[SchemaNull]
 
     def prettyPrint: String = SchemaUtil.prettyPrint(schemaType)
 
-    private def resolveRefAndValidate(json: JsValue, schemaObject: SchemaObject, context: SchemaResolutionContext) = {
+    private def resolveRefAndValidate(json: JsValue, schemaObject: SchemaObject, context: SchemaResolutionContext)
+                                     (implicit lang: Lang) = {
 
       def determineResolutionRoot(ref: Ref, schemaObject: SchemaObject, context: SchemaResolutionContext): SchemaType = {
         val fromRoot = ref.isAbsolute || ref.isFragment
@@ -53,10 +56,10 @@ package object schema
         val root = determineResolutionRoot(normalizedRef, schemaObject, context)
 
         context.refResolver.resolve(root, normalizedRef, context.scope) match {
-          case -\/(ValidationError(messages, errors@_*)) =>
+          case -\/(ValidationError(_, errors@_*)) =>
             Results.failureWithPath(
               Keywords.Ref,
-              s"Could not resolve ref ${ref.value}",
+              Messages("err.unresolved.ref", ref.value),
               context,
               json)
           case \/-(ResolvedResult(resolved, scope)) =>
@@ -68,13 +71,14 @@ package object schema
       result.getOrElse(
         Results.failureWithPath(
           Keywords.Ref,
-          s"Expected to find unvisited ref at ${context.schemaPath}",
+          Messages("err.unvisited.ref.expected", context.schemaPath),
           context,
           json)
       )
     }
 
-    def validate(json: JsValue, resolutionContext: SchemaResolutionContext): VA[JsValue] = {
+    def validate(json: JsValue, resolutionContext: SchemaResolutionContext)
+                (implicit lang: Lang): VA[JsValue] = {
 
       // refine resolution scope
       val updatedScope: GenResolutionScope[SchemaType] = resolutionContext.refResolver
@@ -122,14 +126,14 @@ package object schema
         case _ =>
           Results.failureWithPath(
             Keywords.Any.Type,
-            s"Expected $schemaType, was ${SchemaUtil.typeOfAsString(json)}.",
+            Messages("err.expected.type", schemaType, SchemaUtil.typeOfAsString(json)),
             context,
             json)
       }
     }
 
     private[schema] def validateConstraints(json: => JsValue, resolutionContext: SchemaResolutionContext)
-                                           (implicit validator: SchemaTypeValidator[S]): VA[JsValue] = {
+                                           (implicit validator: SchemaTypeValidator[S], lang: Lang): VA[JsValue] = {
       Results.merge(
         validator.validate(schemaType, json, resolutionContext),
         AnyConstraintValidator.validate(json, schemaType, resolutionContext)
@@ -140,7 +144,7 @@ package object schema
   private implicit class SchemaObjectExtension(schemaObject: SchemaObject) {
     def hasUnvisitedRef(resolutionContext: SchemaResolutionContext): Boolean = {
       resolutionContext.refResolver.refTypeClass.findRef(schemaObject)
-        .map { case ref => !resolutionContext.hasBeenVisited(ref) }
+        .map(ref => !resolutionContext.hasBeenVisited(ref))
         .isDefined
     }
 

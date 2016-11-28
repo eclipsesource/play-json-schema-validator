@@ -4,13 +4,14 @@ import com.eclipsesource.schema.internal.SchemaRefResolver.SchemaResolutionConte
 import com.eclipsesource.schema.internal.{Keywords, SchemaUtil}
 import com.eclipsesource.schema.internal.constraints.Constraints.{Maximum, Minimum, NumberConstraints}
 import com.eclipsesource.schema.internal.validation.Rule
+import com.osinka.i18n.{Lang, Messages}
 import play.api.libs.json.{JsNumber, JsValue}
 
 import scalaz.Success
 
 trait NumberConstraintsValidator {
 
-  val validateMin: scalaz.Reader[(NumberConstraints, SchemaResolutionContext), Rule[JsValue, JsValue]] = {
+  def validateMin(implicit lang: Lang): scalaz.Reader[(NumberConstraints, SchemaResolutionContext), Rule[JsValue, JsValue]] = {
 
     def isValid(n: JsNumber, minConstraint: Minimum) = {
       if (minConstraint.isExclusive.getOrElse(false)) {
@@ -29,11 +30,14 @@ trait NumberConstraintsValidator {
               Success(number)
             } else {
               val isExclusive = min.isExclusive.getOrElse(false)
-              val minType = if (isExclusive) "exclusive minimum" else "minimum"
-              val comparison = if (isExclusive) "less than or equal to" else "less than"
+              val msg = if (isExclusive) {
+                Messages("num.min.exclusive", number, min.min)
+              } else {
+                Messages("num.min", number, min.min)
+              }
               failure(
                 Keywords.Number.Min,
-                s"$minType violated: $number is $comparison ${min.min}",
+                msg,
                 context.schemaPath,
                 context.instancePath,
                 number
@@ -45,7 +49,7 @@ trait NumberConstraintsValidator {
     }
   }
 
-  val validateMax: scalaz.Reader[(NumberConstraints, SchemaResolutionContext), Rule[JsValue, JsValue]] = {
+  def validateMax(implicit lang: Lang): scalaz.Reader[(NumberConstraints, SchemaResolutionContext), Rule[JsValue, JsValue]] = {
 
     def isValid(n: JsNumber, maxConstraint: Maximum) = {
       if (maxConstraint.isExclusive.getOrElse(false)) {
@@ -64,11 +68,14 @@ trait NumberConstraintsValidator {
               Success(number)
             } else {
               val isExclusive = max.isExclusive.getOrElse(false)
-              val maxType = if (isExclusive) "exclusive maximum" else "maximum"
-              val comparison = if (isExclusive) "bigger than or equal to" else "bigger than"
+              val msg = if (isExclusive) {
+                Messages("num.max.exclusive", number, max.max)
+              } else {
+                Messages("num.max", number, max.max)
+              }
               failure(
                 Keywords.Number.Max,
-                s"$maxType violated: $number is $comparison ${max.max}",
+                msg,
                 context.schemaPath,
                 context.instancePath,
                 number
@@ -80,7 +87,7 @@ trait NumberConstraintsValidator {
     }
   }
 
-  val validateMultipleOf: scalaz.Reader[(NumberConstraints, SchemaResolutionContext), Rule[JsValue, JsValue]] =
+  def validateMultipleOf(implicit lang: Lang): scalaz.Reader[(NumberConstraints, SchemaResolutionContext), Rule[JsValue, JsValue]] =
     scalaz.Reader { case (constraints, context) =>
       Rule.fromMapping[JsValue, JsValue] {
         case number@JsNumber(n) => constraints.multipleOf match {
@@ -90,7 +97,7 @@ trait NumberConstraintsValidator {
             } else {
               failure(
                 Keywords.Number.MultipleOf,
-                s"$number is not a multiple of $factor.",
+                Messages("num.multiple.of", number, factor),
                 context.schemaPath,
                 context.instancePath,
                 number
@@ -102,10 +109,11 @@ trait NumberConstraintsValidator {
       }
     }
 
-  private def expectedNumber(json: JsValue, context: SchemaResolutionContext) =
+  private def expectedNumber(json: JsValue, context: SchemaResolutionContext)
+                            (implicit lang: Lang) =
     failure(
       Keywords.Any.Type,
-      s"Wrong type. Expected number, was ${SchemaUtil.typeOfAsString(json)}",
+      Messages("err.expected.type", "number", SchemaUtil.typeOfAsString(json)),
       context.schemaPath,
       context.instancePath,
       json

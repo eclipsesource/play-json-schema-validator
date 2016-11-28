@@ -60,7 +60,7 @@ class AllOfSpec extends Specification with JsonSpec {
     val firstError    = errors.toJson(0)
     val firstSubError = (firstError \ "errors" \ "/allOf/0").as[JsArray].value.head
     (firstSubError \ "schemaPath").get.as[String] must beEqualTo("#/allOf/0")
-    (firstSubError \ "msgs").get.as[JsArray] must beEqualTo(Json.arr("Property bar missing"))
+    (firstSubError \ "msgs").get.as[JsArray] must beEqualTo(Json.arr("Property bar missing."))
     result.isError must beTrue
   }
 
@@ -71,7 +71,7 @@ class AllOfSpec extends Specification with JsonSpec {
     val firstError    = errors.toJson(0)
     val firstSubError = (firstError \ "errors" \ "/allOf/1").as[JsArray].value.head
     (firstSubError \ "schemaPath").get.as[String] must beEqualTo("#/allOf/1")
-    (firstSubError \ "msgs").get.as[JsArray] must beEqualTo(Json.arr("Property foo missing"))
+    (firstSubError \ "msgs").get.as[JsArray] must beEqualTo(Json.arr("Property foo missing."))
     result.isError must beTrue
   }
 
@@ -82,7 +82,7 @@ class AllOfSpec extends Specification with JsonSpec {
     val firstError    = errors.toJson(0)
     val firstSubError = (firstError \ "errors" \ "/allOf/0").as[JsArray].value.head
     (firstSubError \ "schemaPath").get.as[String] must beEqualTo("#/allOf/0/properties/bar")
-    (firstSubError \ "msgs").get.as[JsArray].value.head.as[String] must beEqualTo("Expected integer, was string.")
+    (firstSubError \ "msgs").get.as[JsArray].value.head.as[String] must beEqualTo("Wrong type. Expected integer, was string.")
     result.isError must beTrue
   }
 
@@ -90,7 +90,7 @@ class AllOfSpec extends Specification with JsonSpec {
     val instance = JsObject(Seq("foo" -> JsString("quux"), "baz" -> JsNull))
     val result   = validator.validate(Schemas.withBaseSchema, instance)
     val errors   = result.asEither.left.get
-    (errors.toJson(0) \ "msgs").as[JsArray].head.as[String] must beEqualTo("Property bar missing")
+    (errors.toJson(0) \ "msgs").as[JsArray].head.as[String] must beEqualTo("Property bar missing.")
     result.isError must beTrue
   }
 

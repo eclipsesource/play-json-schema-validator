@@ -29,9 +29,9 @@ object SchemaUtil {
 
   def toJson(errors:  Seq[(JsPath, Seq[ValidationError])]): JsArray = {
     val emptyErrors = Json.arr()
-    errors.foldLeft(emptyErrors) { case (accumulatedErrors, (path, validationErrors)) =>
+    errors.foldLeft(emptyErrors) { case (accumulatedErrors, (_, validationErrors)) =>
       val maybeError = validationErrors.foldLeft(None: Option[JsObject])((aggregatedError, err) => err.args.headOption match {
-        case Some(o@JsObject(fields)) =>
+        case Some(o@JsObject(_)) =>
           Some(
             aggregatedError.fold(
               deepMerge(o, Json.obj("msgs" -> err.messages))

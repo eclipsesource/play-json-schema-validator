@@ -68,7 +68,7 @@ class RefRemoteSpec extends Specification with JsonSpec {
     val errors     = result.asEither.left.get
     val firstError = errors.toJson(0)
     (firstError \ "resolutionScope").get.as[String] must beEqualTo("http://localhost:1234/folder/")
-    (firstError \ "msgs").get.as[JsArray].value.head.as[String] must beEqualTo("Could not resolve ref folderInteger.json")
+    (firstError \ "msgs").get.as[JsArray].value.head.as[String] must beEqualTo("Could not resolve ref folderInteger.json.")
     result.isError must beTrue
   }
 

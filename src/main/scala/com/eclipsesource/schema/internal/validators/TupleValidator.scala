@@ -1,16 +1,18 @@
 package com.eclipsesource.schema.internal.validators
 
 import com.eclipsesource.schema._
-import com.eclipsesource.schema.internal.{Keywords, Results}
+import com.eclipsesource.schema.internal.{Keywords, Results, SchemaUtil}
 import com.eclipsesource.schema.internal.SchemaRefResolver._
 import com.eclipsesource.schema.internal.validation.VA
+import com.osinka.i18n.{Lang, Messages}
 import play.api.libs.json.{JsArray, JsBoolean, JsValue}
 
 import scalaz.{Failure, Success}
 
 object TupleValidator extends SchemaTypeValidator[SchemaTuple] with ArrayConstraintValidator {
 
-  override def validate(schema: SchemaTuple, json: => JsValue, context: SchemaResolutionContext): VA[JsValue] = json match {
+  override def validate(schema: SchemaTuple, json: => JsValue, context: SchemaResolutionContext)
+                       (implicit lang: Lang): VA[JsValue] = json match {
     case JsArray(values) =>
       val instanceSize = values.size
       val schemaSize = schema.items.size
@@ -23,13 +25,12 @@ object TupleValidator extends SchemaTypeValidator[SchemaTuple] with ArrayConstra
             Seq(
               Results.failureWithPath(
                 Keywords.Array.AdditionalItems,
-                s"Too many items. Expected $schemaSize items, found $instanceSize.",
+                Messages("arr.max", instanceSize, schemaSize),
                 context,
                 json
               )
             )
-          case SchemaValue(JsBoolean(true)) =>
-            values.map(Success(_))
+          case SchemaValue(JsBoolean(true)) => values.map(Success(_))
           case items =>
             val instanceValuesValidated: Seq[VA[JsValue]] = schema.items.zipWithIndex.map { case (item, idx) =>
               item.validate(
@@ -79,10 +80,9 @@ object TupleValidator extends SchemaTypeValidator[SchemaTuple] with ArrayConstra
 
     case other => Results.failureWithPath(
       Keywords.Any.Type,
-      s"Expected array, was $other",
+      Messages("err.expected.type", "array", SchemaUtil.typeOfAsString(other)),
       context,
       json
     )
   }
-
 }

@@ -174,7 +174,7 @@ class SchemaValidatorSpec extends PlaySpecification {
     val result = SchemaValidator().validate(schema, instance)
     result.isError must beTrue
     result.asEither must beLeft.which { _.head._2.head.message must beEqualTo(
-      """Could not resolve ref #/does/not/exist"""
+      """Could not resolve ref #/does/not/exist."""
     )}
   }
 
@@ -298,12 +298,12 @@ class SchemaValidatorSpec extends PlaySpecification {
 
     // invalid since empty object matches no schema
     validator.validate(schema)(Json.obj()) must beLike {
-      case JsError(errors) => errors.head._2.head.message must beEqualTo(s"Instance does not match any schema")
+      case JsError(errors) => errors.head._2.head.message must beEqualTo(s"Instance does not match any schema.")
     }
 
     // invalid since object with both fields matches both schemas
     validator.validate(schema)(Json.obj("name" -> "foo", "name2" -> "bar")) must beLike {
-      case JsError(errors) => errors.head._2.head.message must beEqualTo(s"Instance matches more than one schema")
+      case JsError(errors) => errors.head._2.head.message must beEqualTo(s"Instance matches more than one schema.")
     }
 
     // valid with name field

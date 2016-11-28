@@ -6,6 +6,7 @@ import com.eclipsesource.schema._
 import com.eclipsesource.schema.internal.SchemaRefResolver._
 import com.eclipsesource.schema.internal._
 import com.eclipsesource.schema.internal.validation.VA
+import com.osinka.i18n.{Lang, Messages}
 import play.api.libs.json._
 
 import scalaz.{ReaderWriterState, Success}
@@ -14,27 +15,27 @@ object ObjectValidator extends SchemaTypeValidator[SchemaObject] {
 
   private def resultOnly(va: VA[JsValue]) = ((), (), va)
 
-  override def validate(schema: SchemaObject, json: => JsValue, context: SchemaResolutionContext): VA[JsValue] = {
+  override def validate(schema: SchemaObject, json: => JsValue, context: SchemaResolutionContext)
+                       (implicit lang: Lang): VA[JsValue] = {
     json match {
-      case jsObject@JsObject(props) =>
+      case jsObject@JsObject(_) =>
         val validation = for {
-        // TODO: updatedSchema is schema
-          updatedSchema <- validateDependencies(schema, jsObject)
-          remaining <- validateProps(updatedSchema, jsObject)
-          unmatched <- validatePatternProps(updatedSchema, jsObject.fields)
-          _ <- validateAdditionalProps(updatedSchema, unmatched.intersect(remaining), json)
-          _ <- validateMinProperties(updatedSchema, jsObject)
-          _ <- validateMaxProperties(updatedSchema, jsObject)
-        } yield updatedSchema
+          _ <- validateDependencies(schema, jsObject)
+          remaining <- validateProps(schema, jsObject)
+          unmatched <- validatePatternProps(schema, jsObject.fields)
+          _ <- validateAdditionalProps(schema, unmatched.intersect(remaining), json)
+          _ <- validateMinProperties(schema, jsObject)
+          _ <- validateMaxProperties(schema, jsObject)
+        } yield schema
 
         val (_, _, result) = validation.run(context, Success(json))
         result
-      case _ =>
-        Success(json)
+      case _ => Success(json)
     }
   }
 
-  private def validateProps(schema: SchemaObject, json: => JsObject): ValidationStep[Props] =
+  private def validateProps(schema: SchemaObject, json: => JsObject)
+                           (implicit lang: Lang): ValidationStep[Props] =
     ReaderWriterState { (context, status) =>
 
       val required = schema.constraints.required.getOrElse(List.empty[String])
@@ -45,7 +46,7 @@ object ObjectValidator extends SchemaTypeValidator[SchemaObject] {
             attr.name ->
               Results.failureWithPath(
                 Keywords.Object.Required,
-                s"Property ${attr.name} missing",
+                Messages("obj.required.prop", attr.name),
                 context,
                 json
               ) :: props
@@ -72,7 +73,7 @@ object ObjectValidator extends SchemaTypeValidator[SchemaObject] {
               val result = req ->
                 Results.failureWithPath(
                   Keywords.Object.Required,
-                  s"Property $req missing",
+                  Messages("obj.required.prop", req),
                   context,
                   json
                 )
@@ -91,7 +92,8 @@ object ObjectValidator extends SchemaTypeValidator[SchemaObject] {
       ((), unvalidatedProps, Results.merge(status, Results.aggregateAsObject(result, context)))
     }
 
-  private def validatePatternProps(schema: SchemaObject, props: Props): ValidationStep[Props] =
+  private def validatePatternProps(schema: SchemaObject, props: Props)
+                                  (implicit lang: Lang): ValidationStep[Props] =
     ReaderWriterState { (context, status) =>
 
       // find all matching properties and validate them
@@ -122,7 +124,8 @@ object ObjectValidator extends SchemaTypeValidator[SchemaObject] {
       ((), unmatchedProps, Results.merge(status, Results.aggregateAsObject(validated, context)))
     }
 
-  private def validateAdditionalProps(schema: SchemaObject, unmatchedFields: Props, json: JsValue): ValidationStep[Unit] = {
+  private def validateAdditionalProps(schema: SchemaObject, unmatchedFields: Props, json: JsValue)
+                                     (implicit lang: Lang): ValidationStep[Unit] = {
 
     def validateUnmatched(schemaType: SchemaType, context: SchemaResolutionContext): VA[JsValue] = {
       val validated = unmatchedFields.map { attr =>
@@ -151,7 +154,7 @@ object ObjectValidator extends SchemaTypeValidator[SchemaObject] {
               Results.merge(status,
                 Results.failureWithPath(
                   Keywords.Object.AdditionalProperties,
-                  s"Additional properties are not allowed but found ${unmatchedFields.map(f => s"'${f._1}'").mkString(" and ")}.",
+                  Messages("obj.additional.props", unmatchedFields.map { case (name, _) => s"'$name'" }.mkString(" and ")),
                   context,
                   json
                 )
@@ -164,12 +167,14 @@ object ObjectValidator extends SchemaTypeValidator[SchemaObject] {
     }
   }
 
-  private def validateDependencies(schema: SchemaObject, json: JsObject): ValidationStep[SchemaObject] = {
+  private def validateDependencies(schema: SchemaObject, json: JsObject)
+                                  (implicit lang: Lang): ValidationStep[SchemaObject] = {
 
     def validatePropertyDependency(propName: String, dependencies: Seq[String], context: SchemaResolutionContext): VA[JsValue] = {
 
       // check if property is present at all
-      val mandatoryProps = json.fields.find(_._1 == propName)
+      val mandatoryProps = json.fields
+        .find(_._1 == propName)
         .map(_ => dependencies)
         .getOrElse(Seq.empty[String])
 
@@ -177,7 +182,7 @@ object ObjectValidator extends SchemaTypeValidator[SchemaObject] {
       val result = mandatoryProps.map(prop => json.fields.find(_._1 == prop).fold(
         prop -> Results.failureWithPath(
           Keywords.Object.Dependencies,
-          s"Missing property dependency $prop.",
+          Messages("obj.missing.prop.dep", prop),
           context.updateScope(_.copy(
             schemaPath = context.schemaPath \ prop,
             instancePath = context.instancePath \ prop
@@ -209,16 +214,17 @@ object ObjectValidator extends SchemaTypeValidator[SchemaObject] {
     }
   }
 
-  def validateMaxProperties(schema: SchemaObject, json: JsObject): ReaderWriterState[SchemaResolutionContext, Unit, VA[JsValue], Unit] = {
+  def validateMaxProperties(schema: SchemaObject, json: JsObject)
+                           (implicit lang: Lang): ReaderWriterState[SchemaResolutionContext, Unit, VA[JsValue], Unit] = {
     ReaderWriterState { (context, status) =>
       val size = json.fields.size
-      val result: VA[JsValue] = schema.constraints.maxProperties match {
+      val result = schema.constraints.maxProperties match {
         case None => Success(json)
         case Some(max) =>
           if (size <= max)  Success(json)
           else  Results.failureWithPath(
             Keywords.Object.MaxProperties,
-            s"Found $size properties, but only a maximum of $max properties is allowed",
+            Messages("obj.max.props", size, max),
             context,
             json
           )
@@ -227,17 +233,18 @@ object ObjectValidator extends SchemaTypeValidator[SchemaObject] {
     }
   }
 
-  def validateMinProperties(schema: SchemaObject, json: JsObject): ReaderWriterState[SchemaResolutionContext, Unit, VA[JsValue], Unit] = {
+  def validateMinProperties(schema: SchemaObject, json: JsObject)
+                           (implicit lang: Lang): ReaderWriterState[SchemaResolutionContext, Unit, VA[JsValue], Unit] = {
     ReaderWriterState { (context, status) =>
       val size = json.fields.size
-      val result: VA[JsValue] = schema.constraints.minProperties match {
+      val result= schema.constraints.minProperties match {
         case None => Success(json)
         case Some(min) => if (size >= min) {
           Success(json)
         } else {
           Results.failureWithPath(
             Keywords.Object.MinProperties,
-            s"Found $size properties, but at least $min ${if (min == 1) "property needs" else "properties need"} to be present.",
+            Messages("obj.min.props", size, min),
             context,
             json
           )

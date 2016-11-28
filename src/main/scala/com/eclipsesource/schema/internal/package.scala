@@ -5,6 +5,7 @@ import com.eclipsesource.schema.internal.validation.VA
 import play.api.data.validation.ValidationError
 import play.api.libs.json._
 
+import scala.language.reflectiveCalls
 import scala.util.{Failure, Success, Try}
 import scalaz.{ReaderWriterState, Semigroup}
 
@@ -25,7 +26,7 @@ package object internal {
   implicit class EitherExtensions[A, B](either: Either[A, B]) {
     def orElse(e: => Either[A, B]): Either[A, B] = either match {
       case r@Right(_) => r
-      case l@Left(_)  => e
+      case Left(_)  => e
     }
   }
 
