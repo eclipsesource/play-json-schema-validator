@@ -1,9 +1,9 @@
 package com.eclipsesource.schema.internal
 
-
 import com.eclipsesource.schema._
 import com.eclipsesource.schema.internal.refs._
 import com.eclipsesource.schema.internal.validators.DefaultFormats
+import com.osinka.i18n.{Lang, Messages}
 import play.api.data.validation.ValidationError
 import play.api.libs.json.{JsArray, JsString}
 
@@ -14,22 +14,25 @@ object SchemaRefResolver {
   implicit val schemaRefInstance = new CanHaveRef[SchemaType] {
 
     // TODO make inner method
-    private def resolveConstraint(schema: SchemaType, constraint: String): Either[ValidationError, SchemaType] = {
+    private def resolveConstraint(schema: SchemaType, constraint: String)
+                                 (implicit lang: Lang): Either[ValidationError, SchemaType] = {
       schema.constraints.resolvePath(constraint).fold[Either[ValidationError, SchemaType]](
-        Left(ValidationError(s"Could not resolve $constraint"))
+        Left(ValidationError(Messages("err.unresolved.ref", constraint)))
       )(schema => Right(schema))
     }
 
     private def findAttribute(maybeObj: Option[SchemaObject], prop: String): Option[SchemaType] =
       maybeObj.flatMap(_.properties.collectFirst { case attr if attr.name == prop => attr.schemaType})
 
-    private def findSchemaAttribute(props: Seq[SchemaAttribute], propName: String): Either[ValidationError, SchemaType] = {
+    private def findSchemaAttribute(props: Seq[SchemaAttribute], propName: String)
+                                   (implicit lang: Lang): Either[ValidationError, SchemaType] = {
       props.collectFirst {
         case SchemaAttribute(name, s) if name == propName => s
-      }.toRight(ValidationError(s"Could not find property $propName"))
+      }.toRight(ValidationError(Messages("err.prop.not.found", propName)))
     }
 
-    override def resolve(schema: SchemaType, fragment: String): Either[ValidationError, SchemaType] = {
+    override def resolve(schema: SchemaType, fragment: String)
+                        (implicit lang: Lang = Lang.Default): Either[ValidationError, SchemaType] = {
 
       schema match {
 
@@ -61,10 +64,10 @@ object SchemaRefResolver {
           fragment match {
             case Keywords.Array.Items => Right(tuple)
             case idx if isValidIndex(idx) => Right(items(idx.toInt))
-            case other => resolveConstraint(tuple, fragment)
+            case _ => resolveConstraint(tuple, fragment)
           }
 
-        case schemaValue@SchemaValue(value) => (value, fragment) match {
+        case SchemaValue(value) => (value, fragment) match {
           case (arr: JsArray, index) if Try {
             index.toInt
           }.isSuccess =>
@@ -72,9 +75,9 @@ object SchemaRefResolver {
             if (idx > 0 && idx < arr.value.size) {
               Right(SchemaValue(arr.value(idx)))
             } else {
-              Left(ValidationError(s"Array index $index out of bounds"))
+              Left(ValidationError(Messages("out.of.bounds", index)))
             }
-          case other => Left(ValidationError(s"Invalid array index $fragment"))
+          case _ => Left(ValidationError(Messages("arr.invalid.index", fragment)))
         }
 
         case p: PrimitiveSchemaType => resolveConstraint(p, fragment)
@@ -98,8 +101,10 @@ object SchemaRefResolver {
   case class SchemaResolutionContext(refResolver: SchemaRefResolver,
                                      scope: SchemaResolutionScope,
                                      formats: Map[String, SchemaStringFormat] = DefaultFormats.formats) extends GenResolutionContext[SchemaType] {
+
     def updateScope(scopeUpdateFn: SchemaResolutionScope => SchemaResolutionScope): SchemaResolutionContext =
       copy(scope = scopeUpdateFn(scope))
+
   }
   type SchemaResolutionScope = GenResolutionScope[SchemaType]
   type SchemaRefResolver = GenRefResolver[SchemaType]

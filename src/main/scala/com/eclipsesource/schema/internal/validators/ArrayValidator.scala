@@ -4,6 +4,7 @@ import com.eclipsesource.schema.SchemaArray
 import com.eclipsesource.schema.internal.SchemaRefResolver._
 import com.eclipsesource.schema.internal.validation.VA
 import com.eclipsesource.schema.internal.{Keywords, Results, SchemaUtil}
+import com.osinka.i18n.{Lang, Messages}
 import play.api.libs.json.{JsArray, JsValue}
 
 import scalaz.{Failure, Success}
@@ -11,7 +12,8 @@ import scalaz.{Failure, Success}
 
 object ArrayValidator extends SchemaTypeValidator[SchemaArray] with ArrayConstraintValidator {
 
-  override def validate(schema: SchemaArray, json: => JsValue, context: SchemaResolutionContext): VA[JsValue] = json match {
+  override def validate(schema: SchemaArray, json: => JsValue, context: SchemaResolutionContext)
+                       (implicit lang: Lang): VA[JsValue] = json match {
     case JsArray(values) =>
       val elements: Seq[VA[JsValue]] = values.zipWithIndex.map { case (jsValue, idx) =>
         schema.item.validate(
@@ -27,10 +29,10 @@ object ArrayValidator extends SchemaTypeValidator[SchemaArray] with ArrayConstra
         val updatedArr = JsArray(elements.collect { case Success(js) => js })
         validate(updatedArr, schema.constraints, context)
       }
-    case other =>
+    case _ =>
       Results.failureWithPath(
         Keywords.Any.Type,
-        s"Wrong type. Expected array, was ${SchemaUtil.typeOfAsString(json)}",
+        Messages("err.expected.type", SchemaUtil.typeOfAsString(json)),
         context,
         json
       )

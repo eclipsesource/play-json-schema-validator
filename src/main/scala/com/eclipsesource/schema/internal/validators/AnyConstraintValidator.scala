@@ -4,15 +4,16 @@ import com.eclipsesource.schema.{SchemaObject, SchemaType}
 import com.eclipsesource.schema.internal.SchemaRefResolver.SchemaResolutionContext
 import com.eclipsesource.schema.internal._
 import com.eclipsesource.schema.internal.validation.{Rule, VA}
+import com.osinka.i18n.{Lang, Messages}
 import play.api.libs.json._
 
 import scala.annotation.tailrec
-
 import scalaz.{Failure, Success}
 
 object AnyConstraintValidator {
 
-  def validate(json: JsValue, schema: SchemaType, resolutionContext: SchemaResolutionContext): VA[JsValue] = {
+  def validate(json: JsValue, schema: SchemaType, resolutionContext: SchemaResolutionContext)
+              (implicit lang: Lang): VA[JsValue] = {
     val reader: scalaz.Reader[(SchemaType, SchemaResolutionContext), Rule[JsValue, JsValue]] = for {
       allOfRule <- validateAllOf
       anyOfRule <- validateAnyOf
@@ -23,7 +24,7 @@ object AnyConstraintValidator {
     reader.run((schema, resolutionContext)).repath(_.compose(resolutionContext.instancePath)).validate(json)
   }
 
-  def validateNot: scalaz.Reader[(SchemaType, SchemaResolutionContext), Rule[JsValue, JsValue]] =
+  def validateNot(implicit lang: Lang): scalaz.Reader[(SchemaType, SchemaResolutionContext), Rule[JsValue, JsValue]] =
     scalaz.Reader { case (schema ,context) =>
       Rule.fromMapping { json =>
         schema.constraints.any.not.map(schema =>
@@ -32,7 +33,7 @@ object AnyConstraintValidator {
           } else {
             failure(
               Keywords.Any.Not,
-              s"$json matches schema '$schema' although it should not.",
+              Messages("any.not", json),
               context.schemaPath,
               context.instancePath,
               json
@@ -43,7 +44,7 @@ object AnyConstraintValidator {
     }
 
 
-  def validateAllOf: scalaz.Reader[(SchemaType, SchemaResolutionContext), Rule[JsValue, JsValue]] =
+  def validateAllOf(implicit lang: Lang): scalaz.Reader[(SchemaType, SchemaResolutionContext), Rule[JsValue, JsValue]] =
     scalaz.Reader { case (schema, context) =>
       Rule.fromMapping { json =>
         schema.constraints.any.allOf.map(
@@ -56,7 +57,7 @@ object AnyConstraintValidator {
             } else {
               failure(
                 Keywords.Any.AllOf,
-                s"Instance does not match all schemas",
+                Messages("any.all"),
                 context.schemaPath,
                 context.instancePath,
                 json,
@@ -68,7 +69,7 @@ object AnyConstraintValidator {
       }
     }
 
-  def validateAnyOf: scalaz.Reader[(SchemaType, SchemaResolutionContext), Rule[JsValue, JsValue]] = {
+  def validateAnyOf(implicit lang: Lang): scalaz.Reader[(SchemaType, SchemaResolutionContext), Rule[JsValue, JsValue]] = {
 
     @tailrec
     def untilFirstSuccess(json: JsValue, baseSchema: SchemaType, context: SchemaResolutionContext,
@@ -76,8 +77,8 @@ object AnyConstraintValidator {
       case s::ss =>
         val mergedSchema = mergeSchema(s, baseSchema)
         mergedSchema.validate(json, context) match {
-          case Success(e) => Nil
-          case failure@Failure(errors) => untilFirstSuccess(json, baseSchema, context, ss, failure :: results)
+          case Success(_) => Nil
+          case failure@Failure(_) => untilFirstSuccess(json, baseSchema, context, ss, failure :: results)
         }
       case Nil => results.reverse
     }
@@ -91,7 +92,7 @@ object AnyConstraintValidator {
                 case Nil => Success(json)
                 case errors => failure(
                   Keywords.Any.AnyOf,
-                  "Instance does not match any of the schemas",
+                  Messages("any.any"),
                   context.schemaPath,
                   context.instancePath,
                   json,
@@ -105,7 +106,7 @@ object AnyConstraintValidator {
     }
   }
 
-  def validateOneOf: scalaz.Reader[(SchemaType, SchemaResolutionContext), Rule[JsValue, JsValue]] =
+  def validateOneOf(implicit lang: Lang): scalaz.Reader[(SchemaType, SchemaResolutionContext), Rule[JsValue, JsValue]] =
     scalaz.Reader { case (schema, context) =>
       Rule.fromMapping { json =>
         schema.constraints.any.oneOf.map(
@@ -116,7 +117,7 @@ object AnyConstraintValidator {
               case 0 =>
                 failure(
                   Keywords.Any.OneOf,
-                  s"Instance does not match any schema",
+                  Messages("any.one.of.none"),
                   context.schemaPath,
                   context.instancePath,
                   json,
@@ -125,13 +126,13 @@ object AnyConstraintValidator {
               case 1 => Success(json)
               case _ =>
                 val matchedPaths = allValidationResults.zipWithIndex.foldLeft(List.empty[String]) {
-                  case (arr, (Success(result), idx)) =>
+                  case (arr, (Success(_), idx)) =>
                     arr :+ s"/oneOf/$idx"
                   case (arr, _) => arr
                 }
                 failure(
                   Keywords.Any.OneOf,
-                  s"Instance matches more than one schema",
+                  Messages("any.one.of.many"),
                   context.schemaPath,
                   context.instancePath,
                   json,
@@ -143,7 +144,7 @@ object AnyConstraintValidator {
       }
     }
 
-  def validateEnum: scalaz.Reader[(SchemaType, SchemaResolutionContext), Rule[JsValue, JsValue]] = {
+  def validateEnum(implicit lang: Lang): scalaz.Reader[(SchemaType, SchemaResolutionContext), Rule[JsValue, JsValue]] = {
     scalaz.Reader { case (schema, context) =>
       val enums = schema.constraints.any.enum
       Rule.fromMapping { json =>
@@ -152,13 +153,11 @@ object AnyConstraintValidator {
           case Some(values) =>
             failure(
               Keywords.Any.Enum,
-              "Instance is invalid enum value",
+              Messages("any.enum"),
               context.schemaPath,
               context.instancePath,
               json,
-              Json.obj(
-                "enum" -> values
-              )
+              Json.obj("enum" -> values)
             )
           case None => Success(json)
         }
@@ -170,8 +169,10 @@ object AnyConstraintValidator {
 
     def repath(prefix: String)(obj: JsObject): JsObject = {
       val fields = obj.fields.map {
-        case ("schemaPath", JsString(schemaPath)) if schemaPath.startsWith("#") => ("schemaPath", JsString(s"#$prefix${schemaPath.drop(1)}"))
-        case ("schemaPath", JsString(schemaPath)) => ("schemaPath", JsString(s"$prefix$schemaPath"))
+        case ("schemaPath", JsString(schemaPath)) if schemaPath.startsWith("#") =>
+          ("schemaPath", JsString(s"#$prefix${schemaPath.drop(1)}"))
+        case ("schemaPath", JsString(schemaPath)) =>
+          ("schemaPath", JsString(s"$prefix$schemaPath"))
         case field => field
       }
       JsObject(fields)

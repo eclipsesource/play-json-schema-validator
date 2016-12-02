@@ -1,5 +1,6 @@
 package com.eclipsesource.schema.internal.refs
 
+import com.osinka.i18n.{Lang, Messages}
 import play.api.data.validation.ValidationError
 import play.api.libs.json._
 
@@ -12,13 +13,14 @@ object JsValueRefResolver {
     def findRef(json: JsValue) = None
     override def anchorsOf(a: JsValue): Map[Ref, JsValue] = Map.empty
 
-    override def resolve(json: JsValue, fragment: String): Either[ValidationError, JsValue] = {
+    override def resolve(json: JsValue, fragment: String)
+                        (implicit lang: Lang): Either[ValidationError, JsValue] = {
       def fragmentIsInt = Try(fragment.toInt).isSuccess
       json match {
         case obj: JsObject => (obj \ fragment).toEither
         case arr: JsArray if fragmentIsInt => (arr \ fragment.toInt).toEither
-        case arr: JsArray => Left(ValidationError(s"Invalid array index $fragment"))
-        case _ => Left(ValidationError(s"Fragment $fragment could not be resolved"))
+        case _: JsArray => Left(ValidationError(Messages("arr.invalid.index"), fragment))
+        case _ => Left(ValidationError(Messages("err.prop.not.found", fragment)))
       }
     }
   }
@@ -28,7 +30,8 @@ object JsValueRefResolver {
   type JsValueRefResolver = GenRefResolver[JsValue]
   type Errors = ValidationError
 
-  def resolve(path: String, root: JsValue): Either[Errors, JsValue] = {
+  def resolve(path: String, root: JsValue)
+             (implicit lang: Lang = Lang.Default): Either[Errors, JsValue] = {
     val resolver = new JsValueRefResolver
     resolver.resolve(Ref(path), new JsValueResolutionScope(root)).right.map(_.resolved)
   }

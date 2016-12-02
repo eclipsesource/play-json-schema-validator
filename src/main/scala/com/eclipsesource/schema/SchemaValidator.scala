@@ -6,6 +6,7 @@ import com.eclipsesource.schema.internal.SchemaRefResolver._
 import com.eclipsesource.schema.internal.refs.Ref
 import com.eclipsesource.schema.internal.validators.DefaultFormats
 import com.eclipsesource.schema.urlhandlers.UrlHandler
+import com.osinka.i18n.Lang
 import play.api.data.validation.ValidationError
 import play.api.libs.json._
 
@@ -17,8 +18,12 @@ trait Customizations {
   def formats: Map[String, SchemaStringFormat]
 }
 
+trait HasLang {
+  implicit val lang: Lang
+}
+
 trait CanValidate {
-  self: Customizations =>
+  self: Customizations with HasLang =>
 
   /**
     * Validate the given JsValue against the schema located at the given URL.
@@ -28,10 +33,9 @@ trait CanValidate {
     * @return a JsResult holding the validation result
     */
   def validate(schemaUrl: URL, input: => JsValue): JsResult[JsValue] = {
-
     def buildContext(schema: SchemaType): SchemaResolutionContext = {
       val id = schema.constraints.any.id.map(Ref)
-      new SchemaResolutionContext(refResolver,
+      SchemaResolutionContext(refResolver,
         new SchemaResolutionScope(schema, id.orElse(Some(Ref(schemaUrl.toString)))),
         formats = formats
       )
@@ -52,7 +56,7 @@ trait CanValidate {
     * @param input the value to be validated
     * @return a JsResult holding the validation result
     */
-  def validate[A](schemaUrl: URL, input: => JsValue, reads: Reads[A]) : JsResult[A] = {
+  def validate[A](schemaUrl: URL, input: => JsValue, reads: Reads[A]): JsResult[A] = {
     validate(schemaUrl, input).fold(
       valid = readWith(reads),
       invalid = errors => JsError(essentialErrorInfo(errors, Some(input)))
@@ -102,7 +106,7 @@ trait CanValidate {
     */
   def validate(schema: SchemaType)(input: => JsValue): JsResult[JsValue] = {
     val id = schema.constraints.any.id.map(Ref)
-    val context = new SchemaResolutionContext(
+    val context = SchemaResolutionContext(
       refResolver,
       new SchemaResolutionScope(schema, id),
       formats = formats
@@ -121,7 +125,7 @@ trait CanValidate {
     * @param input the value to be validated
     * @return a JsResult holding the validation result
     */
-  def validate[A](schema: SchemaType, input: => JsValue, reads: Reads[A]) : JsResult[A] = {
+  def validate[A](schema: SchemaType, input: => JsValue, reads: Reads[A]): JsResult[A] = {
     val result = validate(schema)(input)
     result.fold(
       valid = readWith(reads),
@@ -203,7 +207,8 @@ trait CanValidate {
   */
 case class SchemaValidator(refResolver: SchemaRefResolver = new SchemaRefResolver,
                            formats: Map[String, SchemaStringFormat] = DefaultFormats.formats)
-  extends CanValidate with Customizations {
+                          (implicit val lang: Lang = Lang.Default)
+  extends CanValidate with Customizations with HasLang {
 
   /**
     * Add a URLStreamHandler that is capable of handling absolute with a specific scheme.

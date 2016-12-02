@@ -21,7 +21,7 @@ class ErrorReportingSpec extends Specification {
           |}""".stripMargin).get
       val result = validator.validate(schema)(Json.obj("foo" -> "bar"))
       result.asEither must beLeft.like { case error => (error.toJson(0) \ "msgs").get.as[JsArray].value.head ==
-        JsString("Expected integer, was string.")
+        JsString("Wrong type. Expected integer, was string.")
       }
       result.asEither must beLeft.like { case error => (error.toJson(0) \ "keyword").get ==
         JsString(Keywords.Any.Type)
@@ -296,11 +296,10 @@ class ErrorReportingSpec extends Specification {
           |  }
           |]
           |}""".stripMargin).get
-      val result = validator.validate(schema)(Json.obj("foo" -> "baz"))
-      result.isError must beTrue
-      result.asEither must beLeft.like { case error =>
-        error.toJson(0) \ "msgs" == JsDefined(JsArray(Seq(JsString("Instance does not match all schemas"))))
-      }
+      val result     = validator.validate(schema)(Json.obj("foo" -> "baz"))
+      val errors     = result.asEither.left.get
+      val firstError = errors.toJson(0)
+      (firstError \ "msgs").get.as[JsArray].head.as[String] must beEqualTo("Instance does not match all schemas.")
     }
 
     "handle oneOf validation errors (two or more match)" in {
@@ -316,11 +315,10 @@ class ErrorReportingSpec extends Specification {
           |  ]
           |}""".stripMargin).get
 
-      val result = validator.validate(schema)(JsNumber(3))
-      result.isError must beTrue
-      result.asEither must beLeft.like { case error =>
-        error.toJson(0) \ "msgs" == JsDefined(JsArray(Seq(JsString("Instance matches more than one schema"))))
-      }
+      val result     = validator.validate(schema)(JsNumber(3))
+      val errors     = result.asEither.left.get
+      val firstError = errors.toJson(0)
+      (firstError \ "msgs").get.as[JsArray].head.as[String] must beEqualTo("Instance matches more than one schema.")
     }
 
     "handle oneOf validation errors (none matches)" in {
@@ -338,10 +336,9 @@ class ErrorReportingSpec extends Specification {
           stripMargin).get
 
       val result = validator.validate(schema)(JsNumber(1.14))
-      result.isError must beTrue
-      result.asEither must beLeft.like { case error =>
-        (error.toJson(0) \ "msgs") == JsDefined(JsArray(Seq(JsString("Instance does not match any schema"))))
-      }
+      val errors     = result.asEither.left.get
+      val firstError = errors.toJson(0)
+      (firstError \ "msgs").get.as[JsArray].head.as[String] must beEqualTo("Instance does not match any schema.")
     }
 
     "report correct anyOf error path" in {
@@ -380,18 +377,16 @@ class ErrorReportingSpec extends Specification {
       }
     }
 
-    "reporting errors for more than one missing properties" in {
+    "reporting errors for more than one missing property" in {
       val schema = JsonSource.schemaFromString(
         """{
           |"minProperties": 2
           }""".stripMargin).get
       val invalidData = Json.obj()
       val result = validator.validate(schema, invalidData)
-      result.isError must beTrue
-      result.asEither must beLeft.like { case error =>
-        val msgs = (error.toJson(0) \ "msgs").get.as[JsArray]
-        msgs(0).get must beEqualTo(JsString("Found 0 properties, but at least 2 properties need to be present."))
-      }
+      val errors     = result.asEither.left.get
+      val firstError = errors.toJson(0)
+      (firstError \ "msgs").get.as[JsArray].head.as[String] must beEqualTo("Found 0 properties, but a minimum of 2 is required.")
     }
 
     // TODO: test with fge

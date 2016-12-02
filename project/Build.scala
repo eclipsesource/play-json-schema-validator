@@ -9,6 +9,7 @@ object Version {
   final val scalaz        = "7.2.0"
   final val specs2        = "3.7.2"
   final val guava         = "19.0"
+  final val i18n          = "1.0.0"
 }
 
 object Library {
@@ -17,6 +18,7 @@ object Library {
   final val playJson      = "com.typesafe.play" %% "play-json"              % Version.play
   final val playTest      = "com.typesafe.play" %% "play-specs2"            % Version.play           % "test"
   final val specs2        = "org.specs2"        %% "specs2-core"            % Version.specs2         % "test"
+  final val i18n          = "com.osinka.i18n"   %% "scala-i18n"             % Version.i18n
 }
 
 object Dependencies {
@@ -27,7 +29,8 @@ object Dependencies {
     playJson,
     scalaz,
     specs2,
-    guava
+    guava,
+    i18n
   )
 }
 

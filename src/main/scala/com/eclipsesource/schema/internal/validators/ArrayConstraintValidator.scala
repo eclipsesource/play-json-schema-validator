@@ -4,13 +4,15 @@ import com.eclipsesource.schema.internal.SchemaRefResolver._
 import com.eclipsesource.schema.internal.{Keywords, SchemaUtil}
 import com.eclipsesource.schema.internal.constraints.Constraints.ArrayConstraints
 import com.eclipsesource.schema.internal.validation.{Rule, VA}
+import com.osinka.i18n.{Lang, Messages}
 import play.api.libs.json.{JsArray, JsValue}
 
 import scalaz.Success
 
 trait ArrayConstraintValidator {
 
-  def validate(json: JsValue, arrayConstraints: ArrayConstraints, resolutionContext: SchemaResolutionContext): VA[JsValue] = {
+  def validate(json: JsValue, arrayConstraints: ArrayConstraints, resolutionContext: SchemaResolutionContext)
+              (implicit lang: Lang): VA[JsValue] = {
     val reader = for {
       minItemsRule <- validateMinItems
       maxItemsRule <- validateMaxItems
@@ -19,7 +21,7 @@ trait ArrayConstraintValidator {
     reader.run((arrayConstraints, resolutionContext)).repath(_.compose(resolutionContext.instancePath)).validate(json)
   }
 
-  def validateMaxItems: scalaz.Reader[(ArrayConstraints, SchemaResolutionContext), Rule[JsValue, JsValue]] =
+  def validateMaxItems(implicit lang: Lang): scalaz.Reader[(ArrayConstraints, SchemaResolutionContext), Rule[JsValue, JsValue]] =
     scalaz.Reader { case (constraints, context) =>
       val maxItems = constraints.maxItems
       Rule.fromMapping {
@@ -29,7 +31,7 @@ trait ArrayConstraintValidator {
           } else {
             failure(
               Keywords.Array.MaxItems,
-              s"Too many items. ${values.size} items found, but only $max item(s) are allowed.",
+              Messages("arr.max", values.size, max),
               context.schemaPath,
               context.instancePath,
               json
@@ -41,7 +43,7 @@ trait ArrayConstraintValidator {
       }
     }
 
-  def validateMinItems: scalaz.Reader[(ArrayConstraints, SchemaResolutionContext), Rule[JsValue, JsValue]] =
+  def validateMinItems(implicit lang: Lang): scalaz.Reader[(ArrayConstraints, SchemaResolutionContext), Rule[JsValue, JsValue]] =
     scalaz.Reader { case (constraints, context) =>
       val minItems = constraints.minItems.getOrElse(0)
       Rule.fromMapping {
@@ -51,7 +53,7 @@ trait ArrayConstraintValidator {
           } else {
             failure(
               Keywords.Array.MinItems,
-              s"Not enough items. ${values.size} items found, but at least $minItems item(s) need to be present.",
+              Messages("arr.min", values.size, minItems),
               context.schemaPath,
               context.instancePath,
               json
@@ -61,7 +63,7 @@ trait ArrayConstraintValidator {
       }
     }
 
-  def validateUniqueness: scalaz.Reader[(ArrayConstraints, SchemaResolutionContext), Rule[JsValue, JsValue]] =
+  def validateUniqueness(implicit lang: Lang): scalaz.Reader[(ArrayConstraints, SchemaResolutionContext), Rule[JsValue, JsValue]] =
     scalaz.Reader { case (constraints, context) =>
       val isUnique = constraints.unique.getOrElse(false)
       Rule.fromMapping {
@@ -71,7 +73,7 @@ trait ArrayConstraintValidator {
           } else {
             failure(
               Keywords.Array.UniqueItems,
-              s"[${values.mkString(", ")}] contains duplicates",
+              Messages("arr.dups"),
               context.schemaPath,
               context.instancePath,
               json
@@ -82,10 +84,11 @@ trait ArrayConstraintValidator {
       }
     }
 
-  private def expectedArray(json: JsValue, context: SchemaResolutionContext) =
+  private def expectedArray(json: JsValue, context: SchemaResolutionContext)
+                           (implicit lang: Lang) =
     failure(
       Keywords.Any.Type,
-      s"Wrong type. Expected array, was ${SchemaUtil.typeOfAsString(json)}",
+      Messages("err.expected.type", "array", SchemaUtil.typeOfAsString(json)),
       context.schemaPath,
       context.instancePath,
       json

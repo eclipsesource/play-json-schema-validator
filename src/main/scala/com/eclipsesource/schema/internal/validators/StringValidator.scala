@@ -8,13 +8,15 @@ import com.eclipsesource.schema.internal.Keywords
 import com.eclipsesource.schema.internal.SchemaRefResolver._
 import com.eclipsesource.schema.internal.constraints.Constraints.StringConstraints
 import com.eclipsesource.schema.internal.validation.{Rule, VA}
+import com.osinka.i18n.{Lang, Messages}
 import play.api.libs.json.{JsString, JsValue}
 
 import scalaz.Success
 
 object StringValidator extends SchemaTypeValidator[SchemaString] {
 
-  def validate(schema: SchemaString, json: => JsValue, context: SchemaResolutionContext): VA[JsValue] = {
+  def validate(schema: SchemaString, json: => JsValue, context: SchemaResolutionContext)
+              (implicit lang: Lang): VA[JsValue] = {
     val reader = for {
       minLength <- validateMinLength
       maxLength <- validateMaxLength
@@ -26,7 +28,7 @@ object StringValidator extends SchemaTypeValidator[SchemaString] {
       .validate(json)
   }
 
-  val validatePattern: scalaz.Reader[(StringConstraints, SchemaResolutionContext), Rule[JsValue, JsValue]] =
+  def validatePattern(implicit lang: Lang): scalaz.Reader[(StringConstraints, SchemaResolutionContext), Rule[JsValue, JsValue]] =
     scalaz.Reader { case (constraints, context) =>
       val format: Option[String] = constraints.pattern
       Rule.fromMapping {
@@ -39,7 +41,7 @@ object StringValidator extends SchemaTypeValidator[SchemaString] {
             } else {
               failure(
                 Keywords.String.Pattern,
-                s"$string does not match pattern $pattern",
+                Messages("str.pattern", string, pattern),
                 context.schemaPath,
                 context.instancePath,
                 json
@@ -50,7 +52,7 @@ object StringValidator extends SchemaTypeValidator[SchemaString] {
       }
     }
 
-  val validateMinLength: scalaz.Reader[(StringConstraints, SchemaResolutionContext), Rule[JsValue, JsValue]] =
+  def validateMinLength(implicit lang: Lang): scalaz.Reader[(StringConstraints, SchemaResolutionContext), Rule[JsValue, JsValue]] =
     scalaz.Reader { case (constraints, context) =>
       val minLength = constraints.minLength.getOrElse(0)
       Rule.fromMapping {
@@ -60,7 +62,7 @@ object StringValidator extends SchemaTypeValidator[SchemaString] {
           } else {
             failure(
               Keywords.String.MinLength,
-              s"$string violates min length of $minLength",
+              Messages("str.min.length", string, minLength),
               context.schemaPath,
               context.instancePath,
               json
@@ -69,7 +71,7 @@ object StringValidator extends SchemaTypeValidator[SchemaString] {
       }
     }
 
-  val validateMaxLength: scalaz.Reader[(StringConstraints, SchemaResolutionContext), Rule[JsValue, JsValue]] =
+  def validateMaxLength(implicit lang: Lang): scalaz.Reader[(StringConstraints, SchemaResolutionContext), Rule[JsValue, JsValue]] =
     scalaz.Reader { case (constraints, context) =>
       val maxLength = constraints.maxLength
       Rule.fromMapping {
@@ -81,7 +83,7 @@ object StringValidator extends SchemaTypeValidator[SchemaString] {
             } else {
               failure(
                 Keywords.String.MaxLength,
-                s"$string violates max length of $max",
+                Messages("str.max.length", string, max),
                 context.schemaPath,
                 context.instancePath,
                 json
@@ -92,7 +94,7 @@ object StringValidator extends SchemaTypeValidator[SchemaString] {
     }
 
 
-  val validateFormat: scalaz.Reader[(StringConstraints, SchemaResolutionContext), Rule[JsValue, JsValue]] =
+  def validateFormat(implicit lang: Lang): scalaz.Reader[(StringConstraints, SchemaResolutionContext), Rule[JsValue, JsValue]] =
     scalaz.Reader { case (constraints, context) =>
 
       val format = for {
@@ -110,7 +112,7 @@ object StringValidator extends SchemaTypeValidator[SchemaString] {
               } else {
                 failure(
                   Keywords.String.Format,
-                  s"$string does not match format ${f.name}",
+                  Messages("str.format", string, f.name),
                   context.schemaPath,
                   context.instancePath,
                   json
@@ -119,14 +121,15 @@ object StringValidator extends SchemaTypeValidator[SchemaString] {
             // unknown format
             case None => unknownFormat(json, context, constraints.format.getOrElse(""))
           }
-        case json@JsString(string) => Success(json)
+        case json@JsString(_) => Success(json)
       }
     }
 
-  private def unknownFormat(json: JsValue, context: SchemaResolutionContext, format: String) =
+  private def unknownFormat(json: JsValue, context: SchemaResolutionContext, format: String)
+                           (implicit lang: Lang) =
     failure(
       Keywords.String.Format,
-      s"Unknown format $format",
+      Messages("str.unknown.format", format),
       context.schemaPath,
       context.instancePath,
       json

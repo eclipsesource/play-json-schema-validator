@@ -4,6 +4,7 @@ import java.net.{URL, URLDecoder, URLStreamHandler}
 
 import com.eclipsesource.schema.internal._
 import com.eclipsesource.schema.internal.url.UrlStreamResolverFactory
+import com.osinka.i18n.{Lang, Messages}
 import play.api.data.validation.ValidationError
 import play.api.libs.json._
 
@@ -26,7 +27,7 @@ case class GenRefResolver[A : CanHaveRef : Reads]
   private[schema] var cache: DocumentCache[A] = DocumentCache[A]()
 ) {
 
-  val refTypeClass = implicitly[CanHaveRef[A]]
+  val refTypeClass: CanHaveRef[A] = implicitly[CanHaveRef[A]]
 
   /**
     * Update the resolution scope.
@@ -42,19 +43,21 @@ case class GenRefResolver[A : CanHaveRef : Reads]
       // puts the unresolved document into the cache
       updatedId.foreach(id => cache = cache.add(id)(a))
       scope.copy(id = updatedId)
-    case other => scope
+    case _ => scope
   }
 
-  private[schema] def resolveSchema(url: String, scope: GenResolutionScope[A]): Either[ValidationError, A] =
+  private[schema] def resolveSchema(url: String, scope: GenResolutionScope[A])
+                                   (implicit lang: Lang = Lang.Default): Either[ValidationError, A] =
     resolve(scope.documentRoot, Ref(url), scope).map(_.resolved).toEither
 
-  private[schema] def resolve(ref: Ref, scope: GenResolutionScope[A]): Either[ValidationError, ResolvedResult[A]] =
+  private[schema] def resolve(ref: Ref, scope: GenResolutionScope[A])
+                             (implicit lang: Lang = Lang.Default): Either[ValidationError, ResolvedResult[A]] =
     resolve(scope.documentRoot, ref, scope).toEither
 
-  private[schema] def resolve(current: A, ref: Ref, scope: GenResolutionScope[A]): \/[ValidationError, ResolvedResult[A]] = {
+  private[schema] def resolve(current: A, ref: Ref, scope: GenResolutionScope[A])
+                             (implicit lang: Lang): \/[ValidationError, ResolvedResult[A]] = {
 
-    def hasRef(obj: A): Boolean =
-      refTypeClass.findRef(obj).fold(false) { case r => !scope.hasBeenVisited(r) }
+    def hasRef(obj: A)  = refTypeClass.findRef(obj).fold(false)(r => !scope.hasBeenVisited(r))
 
     // update resolution scope, if applicable
     val updatedScope = updateResolutionScope(scope, current)
@@ -103,14 +106,16 @@ case class GenRefResolver[A : CanHaveRef : Reads]
     }
 
     result match {
-      case \/-(resolvedResult@ResolvedResult(r, s)) =>
-        refTypeClass.findRef(r).fold(result)(foundRef => continueResolving(foundRef)(resolvedResult))
-      case other => resolutionFailure(ref)(updatedScope).left
+      case \/-(resolvedResult@ResolvedResult(resolved, _)) =>
+        refTypeClass.findRef(resolved)
+          .fold(result)(foundRef => continueResolving(foundRef)(resolvedResult))
+      case _ => resolutionFailure(ref)(updatedScope).left
     }
   }
 
   // protocol-less relative URL resolution
-  private def resolveWithRelativeUrlHandlers(ref: Ref, scope: GenResolutionScope[A]): \/[ValidationError, ResolvedResult[A]] = {
+  private def resolveWithRelativeUrlHandlers(ref: Ref, scope: GenResolutionScope[A])
+                                            (implicit lang: Lang): \/[ValidationError, ResolvedResult[A]] = {
     val normalized = Refs.normalize(ref, scope.id, Some(resolverFactory))
     val foundResult = resolverFactory.relativeUrlHandlers.map { case (_, handler) =>
       val url  = new URL(null, normalized.value, handler)
@@ -123,16 +128,18 @@ case class GenRefResolver[A : CanHaveRef : Reads]
     )
   }
 
-  private def continueResolving(ref: Ref)(resolvedResult: ResolvedResult[A]): \/[ValidationError, ResolvedResult[A]] = {
+  private def continueResolving(ref: Ref)(resolvedResult: ResolvedResult[A])
+                               (implicit lang: Lang): \/[ValidationError, ResolvedResult[A]] = {
     resolve(resolvedResult.resolved, ref, resolvedResult.scope)
   }
 
-  private def matchAnchorIdAndResolve(current: A, ref: Ref, scope: GenResolutionScope[A]): \/[ValidationError, ResolvedResult[A]] = {
+  private def matchAnchorIdAndResolve(current: A, ref: Ref, scope: GenResolutionScope[A])
+                                     (implicit lang: Lang): \/[ValidationError, ResolvedResult[A]] = {
     val foundId = refTypeClass.findScopeRefinement(current)
     val normalized = Refs.normalize(ref, foundId, Some(resolverFactory))
 
     foundId.fold[\/[ValidationError, ResolvedResult[A]]] {
-      ValidationError(s"Resolution scope ID must not be empty.").left
+      ValidationError(Messages("err.res.scope.id.empty")).left
     } { id =>
       if (ref == id) ResolvedResult(current, scope).right
       else {
@@ -142,7 +149,8 @@ case class GenRefResolver[A : CanHaveRef : Reads]
     }
   }
 
-  private def resolveAnchorId(ref: Ref, scope: GenResolutionScope[A], a: A): \/[ValidationError, ResolvedResult[A]] = {
+  private def resolveAnchorId(ref: Ref, scope: GenResolutionScope[A], a: A)
+                             (implicit lang: Lang): \/[ValidationError, ResolvedResult[A]] = {
     val normalized = Refs.normalize(ref, scope.id, Some(resolverFactory))
     val knownAnchors = refTypeClass.anchorsOf(a)
     knownAnchors.get(normalized)
@@ -150,7 +158,8 @@ case class GenRefResolver[A : CanHaveRef : Reads]
   }
 
   // TODO: change error reporting format
-  private def resolutionFailure(ref: Ref)(scope: GenResolutionScope[A]): ValidationError =
+  private def resolutionFailure(ref: Ref)(scope: GenResolutionScope[A])
+                               (implicit lang: Lang): ValidationError =
     ValidationError(s"Could not resolve ref ${ref.value}")
 
   /**
@@ -161,7 +170,8 @@ case class GenRefResolver[A : CanHaveRef : Reads]
     * @param instance the instance which the fragments are to be resolved against
     * @return the resolved result, if any
     */
-  private def resolveFragments(fragments: List[String], scope: GenResolutionScope[A], instance: A): \/[ValidationError, ResolvedResult[A]] = {
+  private def resolveFragments(fragments: List[String], scope: GenResolutionScope[A], instance: A)
+                              (implicit lang: Lang): \/[ValidationError, ResolvedResult[A]] = {
     (fragments, instance) match {
       case (Nil, result) => ResolvedResult(result, scope).right
       case (fragment :: rest, resolvable) =>
@@ -197,7 +207,7 @@ case class GenRefResolver[A : CanHaveRef : Reads]
     * @param scope the current resolution scope
     * @return the fetched instance, if any
     */
-  private def fetch(url: URL, scope: GenResolutionScope[A]): \/[ValidationError, A] = {
+  private def fetch(url: URL, scope: GenResolutionScope[A])(implicit lang: Lang): \/[ValidationError, A] = {
 
     def parseJson(source: Source): \/[ValidationError, JsValue] = \/.fromEither(Try {
       Json.parse(source.getLines().mkString)
@@ -205,7 +215,7 @@ case class GenRefResolver[A : CanHaveRef : Reads]
 
     def readJson(json: JsValue): \/[ValidationError, A] = \/.fromEither(Json.fromJson[A](json).asEither)
       .leftMap(errors =>
-        ValidationError("Could not parse JSON", JsError.toJson(errors))
+        ValidationError(Messages("err.parse.json"), JsError.toJson(errors))
       )
 
     val ref = Ref(url.toString)
@@ -213,7 +223,7 @@ case class GenRefResolver[A : CanHaveRef : Reads]
     def readSource(source: Source): \/[ValidationError, A] = {
       using(source) { src =>
         val resolved = for {
-          json <- parseJson(source)
+          json <- parseJson(src)
           resolvedSchema <- readJson(json)
         } yield resolvedSchema
         resolved.map { res =>
@@ -224,8 +234,8 @@ case class GenRefResolver[A : CanHaveRef : Reads]
     }
 
     cache.get(ref) match {
-      case cached@Some(a) => a.right
-      case otherwise => for {
+      case Some(a) => a.right
+      case _ => for {
         source <- \/.fromEither(Try { Source.fromURL(url) }.toEither)
         read <- readSource(source)
       } yield read
@@ -240,7 +250,8 @@ case class GenRefResolver[A : CanHaveRef : Reads]
     * @param scope the resolution scope
     * @return the resolved schema
     */
-  private def resolveRelative(ref: Ref, scope: GenResolutionScope[A]): \/[ValidationError, ResolvedResult[A]] = {
+  private def resolveRelative(ref: Ref, scope: GenResolutionScope[A])
+                             (implicit lang: Lang): \/[ValidationError, ResolvedResult[A]] = {
     // pass in resolver factory to recognize custom schemes
     val normalized = Refs.normalize(ref, scope.id, Some(resolverFactory))
     for {
@@ -253,7 +264,8 @@ case class GenRefResolver[A : CanHaveRef : Reads]
     } yield result
   }
 
-  private def resolveDocument(ref: Ref, scope: GenResolutionScope[A]): \/[ValidationError, ResolvedResult[A]] = {
+  private def resolveDocument(ref: Ref, scope: GenResolutionScope[A])
+                             (implicit lang: Lang): \/[ValidationError, ResolvedResult[A]] = {
     for {
       documentUrl <- createUrl(ref.documentName)
       instance    <- fetch(documentUrl, scope)
