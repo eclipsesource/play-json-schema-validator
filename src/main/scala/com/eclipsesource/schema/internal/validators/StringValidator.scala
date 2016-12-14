@@ -118,22 +118,12 @@ object StringValidator extends SchemaTypeValidator[SchemaString] {
                   json
                 )
               }
-            // unknown format
-            case None => unknownFormat(json, context, constraints.format.getOrElse(""))
+            // validation of unknown format should succeed
+            case None => Success(json)
           }
         case json@JsString(_) => Success(json)
       }
     }
-
-  private def unknownFormat(json: JsValue, context: SchemaResolutionContext, format: String)
-                           (implicit lang: Lang) =
-    failure(
-      Keywords.String.Format,
-      Messages("str.unknown.format", format),
-      context.schemaPath,
-      context.instancePath,
-      json
-    )
 
   private def lengthOf(text: String, locale: java.util.Locale = java.util.Locale.ENGLISH): Int = {
     val charIterator = java.text.BreakIterator.getCharacterInstance(locale)

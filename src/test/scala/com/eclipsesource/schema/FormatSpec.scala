@@ -9,16 +9,13 @@ class FormatSpec extends Specification with JsonSpec {
   validate("optional/format")
 
   "Format" should {
-    "not validate unknown format" in {
-      val formatName = "unknown"
+
+    "validate unknown format" in {
       val schema = JsonSource.schemaFromString(
-        s"""{"format": "$formatName"}"""
+        s"""{"format": "unknown"}"""
       ).get
       val result = SchemaValidator().validate(schema, JsString("some string"))
-      result.asEither must beLeft.like { case error =>
-        val JsDefined(obj) = error.toJson(0)
-        obj \ "msgs" == JsDefined(JsArray(Seq(JsString(s"Unknown format '$formatName'."))))
-      }
+      result.isSuccess must beTrue
     }
 
     "validate UUIDs" in {

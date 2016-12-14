@@ -14,7 +14,6 @@ str.pattern          = ''{0}'' does not match pattern {1}.
 str.min.length       = ''{0}'' does not match minimum length of {1}.
 str.max.length       = ''{0}'' exceeds maximum length of {1}.
 str.format           = ''{0}'' does not match format {1}.
-str.unknown.format   = Unknown format ''{0}''.
 
 num.multiple.of      = {0} is not a multiple of {1}.
 num.max              = {0} exceeds maximum value of {1}.
