@@ -1,8 +1,8 @@
 package com.eclipsesource.schema.internal
 
 import com.eclipsesource.schema.internal.validation.Validated
-import play.api.data.validation.ValidationError
-import play.api.libs.json.{JsPath, JsObject, JsValue, Json}
+import play.api.libs.json._
+
 import scalaz.Failure
 
 package object validators {
@@ -15,13 +15,13 @@ package object validators {
               instancePath: JsPath,
               instance: JsValue,
               additionalInfo: JsObject = Json.obj()
-             ): Validated[ValidationError, JsValue] = {
+             ): Validated[JsonValidationError, JsValue] = {
 
     def dropSlashIfAny(path: String) = if (path.startsWith("/#")) path.substring(1) else path
 
     Failure(
       Seq(
-      ValidationError(msg,
+      JsonValidationError(msg,
         Json.obj(
           "keyword" -> keyword,
           "schemaPath" -> dropSlashIfAny(schemaPath.toString()),

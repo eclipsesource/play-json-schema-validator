@@ -1,7 +1,7 @@
 package com.eclipsesource.schema.internal.refs
 
 import com.osinka.i18n.Lang
-import play.api.data.validation.ValidationError
+import play.api.libs.json.JsonValidationError
 
 
 /**
@@ -20,7 +20,7 @@ trait CanHaveRef[A] {
     * @param fragment the fragment to be resolved
     * @return a right-based Either containing the result
     */
-  def resolve(a: A, fragment: String)(implicit lang: Lang): Either[ValidationError, A]
+  def resolve(a: A, fragment: String)(implicit lang: Lang): Either[JsonValidationError, A]
 
   /**
     * Whether the given document value has an id field which can alter resolution scope.

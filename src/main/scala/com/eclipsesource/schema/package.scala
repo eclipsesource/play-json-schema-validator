@@ -6,7 +6,6 @@ import com.eclipsesource.schema.internal.validation.VA
 import com.eclipsesource.schema.internal.validators._
 import com.eclipsesource.schema.internal.{Keywords, Results, SchemaRefResolver, SchemaUtil}
 import com.osinka.i18n.{Lang, Messages}
-import play.api.data.validation.ValidationError
 import play.api.libs.json._
 
 import scalaz.{-\/, Failure, Success, \/-}
@@ -56,7 +55,7 @@ package object schema
         val root = determineResolutionRoot(normalizedRef, schemaObject, context)
 
         context.refResolver.resolve(root, normalizedRef, context.scope) match {
-          case -\/(ValidationError(_, errors@_*)) =>
+          case -\/(JsonValidationError(_, errors@_*)) =>
             Results.failureWithPath(
               Keywords.Ref,
               Messages("err.unresolved.ref", ref.value),
@@ -159,7 +158,7 @@ package object schema
     }
   }
 
-  implicit class FailureExtensions(errors: Seq[(JsPath, Seq[ValidationError])]) {
+  implicit class FailureExtensions(errors: Seq[(JsPath, Seq[JsonValidationError])]) {
     def toJson: JsArray = SchemaUtil.toJson(errors)
   }
 }

@@ -1,7 +1,6 @@
 package com.eclipsesource.schema.internal
 
 import com.eclipsesource.schema.{SchemaArray, SchemaObject, SchemaType}
-import play.api.data.validation.ValidationError
 import play.api.libs.json._
 
 object SchemaUtil {
@@ -27,7 +26,7 @@ object SchemaUtil {
     }
   }
 
-  def toJson(errors:  Seq[(JsPath, Seq[ValidationError])]): JsArray = {
+  def toJson(errors:  Seq[(JsPath, Seq[JsonValidationError])]): JsArray = {
     val emptyErrors = Json.arr()
     errors.foldLeft(emptyErrors) { case (accumulatedErrors, (_, validationErrors)) =>
       val maybeError = validationErrors.foldLeft(None: Option[JsObject])((aggregatedError, err) => err.args.headOption match {
