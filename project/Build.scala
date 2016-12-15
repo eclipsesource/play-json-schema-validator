@@ -1,12 +1,11 @@
 
 import sbt.Keys._
 import sbt._
-import sbtrelease.ReleasePlugin
-import sbtrelease.ReleasePlugin._
 
 object Version {
+  // TODO: remove snapshots once stable builds are available
   final val playJson      = "2.6.0-SNAPSHOT"
-  final val playTest      = "2.6.0-2016-12-14-9242c9e-SNAPSHOT"
+  final val playTest      = "2.6.0-+"
   final val scalaz        = "7.2.8"
   final val specs2        = "3.8.6"
   final val guava         = "19.0"
