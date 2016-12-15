@@ -1,7 +1,6 @@
 package com.eclipsesource.schema.internal.validators
 
 import java.text.BreakIterator
-import java.util.regex.Pattern
 
 import com.eclipsesource.schema.SchemaString
 import com.eclipsesource.schema.internal.Keywords
@@ -9,8 +8,10 @@ import com.eclipsesource.schema.internal.SchemaRefResolver._
 import com.eclipsesource.schema.internal.constraints.Constraints.StringConstraints
 import com.eclipsesource.schema.internal.validation.{Rule, VA}
 import com.osinka.i18n.{Lang, Messages}
+import jdk.nashorn.internal.runtime.regexp.RegExpFactory
 import play.api.libs.json.{JsString, JsValue}
 
+import scala.util.Try
 import scalaz.Success
 
 object StringValidator extends SchemaTypeValidator[SchemaString] {
@@ -34,19 +35,29 @@ object StringValidator extends SchemaTypeValidator[SchemaString] {
       Rule.fromMapping {
         case json@JsString(string) => format match {
           case Some(pattern) =>
-            val compiled = Pattern.compile(pattern)
-            val matcher = compiled.matcher(string)
-            if (matcher.find()) {
-              Success(json)
-            } else {
-              failure(
-                Keywords.String.Pattern,
-                Messages("str.pattern", string, pattern),
-                context.schemaPath,
-                context.instancePath,
-                json
-              )
-            }
+            Try {
+              new RegExpFactory().compile(pattern, "")
+            }.fold( _ => failure(
+              Keywords.String.Pattern,
+              Messages("invalid.pattern", pattern),
+              context.schemaPath,
+              context.instancePath,
+              json
+            ), regex => {
+                val matcher = regex.`match`(string)
+                if (matcher.search(0)) {
+                  Success(json)
+                } else {
+                  failure(
+                    Keywords.String.Pattern,
+                    Messages("str.pattern", string, pattern),
+                    context.schemaPath,
+                    context.instancePath,
+                    json
+                  )
+                }
+              }
+            )
           case None => Success(json)
         }
       }

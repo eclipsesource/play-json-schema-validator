@@ -4,17 +4,21 @@ import java.util.regex.Pattern
 
 import com.eclipsesource.schema.SchemaStringFormat
 import com.google.common.net.InetAddresses
+import jdk.nashorn.internal.runtime.regexp.RegExpFactory
+
+import scala.util.Try
 
 object DefaultFormats {
 
   val formats: Map[String, SchemaStringFormat] = Map(
-    UrlFormat.name      -> UrlFormat,
+    UriFormat.name      -> UriFormat,
     HostnameFormat.name -> HostnameFormat,
     EmailFormat.name    -> EmailFormat,
     IPv4Format.name     -> IPv4Format,
     IPv6Format.name     -> IPv6Format,
     DatetimeFormat.name -> DatetimeFormat,
-    UuidFormat.name     -> UuidFormat
+    UuidFormat.name     -> UuidFormat,
+    RegexFormat.name    -> RegexFormat
   )
 
   def get(format: String): Option[SchemaStringFormat] = formats.get(format)
@@ -39,7 +43,7 @@ object DefaultFormats {
     override def validate(ipv6: String): Boolean = InetAddresses.isInetAddress(ipv6)
   }
 
-  object UrlFormat extends SchemaStringFormat {
+  object UriFormat extends SchemaStringFormat {
 
     // modified version of
     // http://codereview.stackexchange.com/questions/78768/regex-to-parse-uris-for-their-correctness-according-to-rfc-3986
@@ -82,8 +86,16 @@ object DefaultFormats {
   }
 
   object UuidFormat extends SchemaStringFormat {
-    val UuidPattern = Pattern.compile("[0-9a-f]{8}-([0-9a-f]{4}-){3}[0-9a-f]{12}")
+    val UuidPattern: Pattern = Pattern.compile("[0-9a-f]{8}-([0-9a-f]{4}-){3}[0-9a-f]{12}")
     override def name: String = "uuid"
     override def validate(uuid: String): Boolean = UuidPattern.matcher(uuid).find
+  }
+
+  object RegexFormat extends SchemaStringFormat {
+    override def name: String = "regex"
+    override def validate(regex: String): Boolean =
+      Try {
+        new RegExpFactory().compile(regex, "")
+      }.isSuccess
   }
 }
