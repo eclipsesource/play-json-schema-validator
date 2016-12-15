@@ -1,7 +1,6 @@
 package com.eclipsesource.schema.internal.validation
 
-import play.api.data.validation.ValidationError
-import play.api.libs.json.JsPath
+import play.api.libs.json.{JsPath, JsonValidationError}
 
 import scalaz.{Failure, Success}
 
@@ -136,7 +135,7 @@ object Rule {
 
 //  implicit def zero[O] = toRule(RuleLike.zero[O])
 
-  def apply[I, O](m: Mapping[(JsPath, Seq[ValidationError]), I, O]) = new Rule[I, O] {
+  def apply[I, O](m: Mapping[(JsPath, Seq[JsonValidationError]), I, O]) = new Rule[I, O] {
     def validate(data: I): VA[O] = m(data)
   }
 
@@ -144,7 +143,7 @@ object Rule {
 //    def validate(data: I): VA[O] = r.validate(data)
 //  }
 
-  def fromMapping[I, O](f: Mapping[ValidationError, I, O]): Rule[I, O] =
+  def fromMapping[I, O](f: Mapping[JsonValidationError, I, O]): Rule[I, O] =
     Rule[I, O](f(_: I).leftMap(errs => Seq(JsPath -> errs)))
 
 //  implicit def applicativeRule[I] = new Applicative[({ type λ[O] = Rule[I, O] })#λ] {

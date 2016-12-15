@@ -2,7 +2,6 @@ package com.eclipsesource.schema
 
 import com.eclipsesource.schema.internal.SchemaRefResolver.SchemaResolutionContext
 import com.eclipsesource.schema.internal.validation.VA
-import play.api.data.validation.ValidationError
 import play.api.libs.json._
 
 import scala.language.reflectiveCalls
@@ -17,9 +16,9 @@ package object internal {
   }
 
   implicit class TryExtensions[A](t: Try[A]) {
-    def toEither: Either[ValidationError, A] =  t match {
+    def toJsonEither: Either[JsonValidationError, A] =  t match {
       case Success(result) => Right(result)
-      case Failure(throwable) => Left(ValidationError(throwable.getMessage))
+      case Failure(throwable) => Left(JsonValidationError(throwable.getMessage))
     }
   }
 
