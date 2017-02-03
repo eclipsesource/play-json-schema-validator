@@ -43,9 +43,12 @@ class FormatSpec extends Specification with JsonSpec {
     }
 
     "validate custom formats" in {
-      val lowerCaseOnlyFormat = new SchemaStringFormat {
+      val lowerCaseOnlyFormat = new SchemaFormat {
         override def name: String = "my-format"
-        override def validate(s: String): Boolean = s.filterNot(_.isWhitespace).forall(_.isLower)
+        override def validate(json: JsValue): Boolean = json match {
+          case JsString(s) => s.filterNot(_.isWhitespace).forall(_.isLower)
+          case _ => false
+        }
       }
       val schema = JsonSource.schemaFromString(
         """
@@ -58,6 +61,50 @@ class FormatSpec extends Specification with JsonSpec {
       validator.validate(schema, JsString("this is all valid")).isSuccess must beTrue
       validator.validate(schema, JsString("Invalid")).isError must beTrue
     }
-  }
 
+    "validate int32 format" in {
+      val schema = JsonSource.schemaFromString(
+        """
+          |{
+          |  "type": "number",
+          |  "format": "int32"
+          | }
+        """.stripMargin).get
+      validator.validate(schema, JsNumber(Integer.MAX_VALUE)).isSuccess must beTrue
+      validator.validate(schema, JsNumber(BigDecimal.valueOf(Integer.MAX_VALUE) + 1)).isError must beTrue
+    }
+
+
+    "validate int64 format" in {
+      val schema = JsonSource.schemaFromString(
+        """
+          |{
+          |  "type": "number",
+          |  "format": "int64"
+          | }
+        """.stripMargin).get
+      validator.validate(schema, JsNumber(Long.MaxValue)).isSuccess must beTrue
+      validator.validate(schema, JsNumber(BigDecimal.valueOf(Long.MaxValue) + 1)).isError must beTrue
+    }
+
+    "validate custom number range format" in {
+      val rangeFormat = new SchemaFormat {
+        override def name: String = "range0To10"
+        override def validate(json: JsValue): Boolean = json match {
+          case JsNumber(n) => n >= 0 && n <= 10
+          case _ => false
+        }
+      }
+      val validatorWithRangeFormat = validator.addFormat(rangeFormat)
+      val schema = JsonSource.schemaFromString(
+        """
+          |{
+          |  "type": "number",
+          |  "format": "range0To10"
+          | }
+        """.stripMargin).get
+      validatorWithRangeFormat.validate(schema, JsNumber(10)).isSuccess must beTrue
+      validatorWithRangeFormat.validate(schema, JsNumber(-1)).isError must beTrue
+    }
+  }
 }
