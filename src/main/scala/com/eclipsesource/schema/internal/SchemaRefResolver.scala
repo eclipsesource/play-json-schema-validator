@@ -99,7 +99,7 @@ object SchemaRefResolver {
 
   case class SchemaResolutionContext(refResolver: SchemaRefResolver,
                                      scope: SchemaResolutionScope,
-                                     formats: Map[String, SchemaStringFormat] = DefaultFormats.formats) extends GenResolutionContext[SchemaType] {
+                                     formats: Map[String, SchemaFormat] = DefaultFormats.formats) extends GenResolutionContext[SchemaType] {
 
     def updateScope(scopeUpdateFn: SchemaResolutionScope => SchemaResolutionScope): SchemaResolutionContext =
       copy(scope = scopeUpdateFn(scope))

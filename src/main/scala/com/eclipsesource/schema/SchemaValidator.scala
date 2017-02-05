@@ -14,7 +14,7 @@ import play.api.libs.json._
   */
 trait Customizations {
   def refResolver: SchemaRefResolver
-  def formats: Map[String, SchemaStringFormat]
+  def formats: Map[String, SchemaFormat]
 }
 
 trait HasLang {
@@ -205,7 +205,7 @@ trait CanValidate {
   * @param refResolver the reference resolver
   */
 case class SchemaValidator(refResolver: SchemaRefResolver = new SchemaRefResolver,
-                           formats: Map[String, SchemaStringFormat] = DefaultFormats.formats)
+                           formats: Map[String, SchemaFormat] = DefaultFormats.formats)
                           (implicit val lang: Lang = Lang.Default)
   extends CanValidate with Customizations with HasLang {
 
@@ -240,7 +240,7 @@ case class SchemaValidator(refResolver: SchemaRefResolver = new SchemaRefResolve
     * @param format the custom format
     * @return a new validator instance containing the custom format
     */
-  def addFormat(format: SchemaStringFormat): SchemaValidator =
+  def addFormat(format: SchemaFormat): SchemaValidator =
     copy(formats = formats + (format.name -> format))
 
   /**

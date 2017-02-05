@@ -44,10 +44,11 @@ trait JSONSchemaReads {
       (__ \ Keywords.Number.ExclusiveMin).readNullable[Boolean] and
       (__ \ Keywords.Number.ExclusiveMax).readNullable[Boolean] and
       (__ \ Keywords.Number.MultipleOf).readNullable[BigDecimal] and
+      (__ \ Keywords.String.Format).readNullable[String] and
       anyConstraintReader
       ).tupled.flatMap { read =>
 
-      val (min, max, exclusiveMin, exclusiveMax, multipleOf, anyConstraints) = read
+      val (min, max, exclusiveMin, exclusiveMax, multipleOf, format, anyConstraints) = read
       val minimum = min.map(Minimum(_, exclusiveMin))
       val maximum = max.map(Maximum(_, exclusiveMax))
       val typeAsString = anyConstraints.schemaTypeAsString
@@ -61,7 +62,7 @@ trait JSONSchemaReads {
         && multipleOf.isEmpty)) {
         Reads.apply(_ => JsError("Expected number"))
       } else {
-        Reads.pure(SchemaNumber(NumberConstraints(minimum, maximum, multipleOf, anyConstraints)))
+        Reads.pure(SchemaNumber(NumberConstraints(minimum, maximum, multipleOf, format, anyConstraints)))
       }
     }
   }
@@ -72,14 +73,15 @@ trait JSONSchemaReads {
       (__ \ Keywords.Number.ExclusiveMin).readNullable[Boolean] and
       (__ \ Keywords.Number.ExclusiveMax).readNullable[Boolean] and
       (__ \ Keywords.Number.MultipleOf).readNullable[BigDecimal] and
+      (__ \ Keywords.String.Format).readNullable[String] and
       anyConstraintReader
       ).tupled.flatMap(read => {
 
-      val (min, max, exclusiveMin, exclusiveMax, multipleOf, anyConstraints) = read
+      val (min, max, exclusiveMin, exclusiveMax, multipleOf, format, anyConstraints) = read
       val minimum = min.map(Minimum(_, exclusiveMin))
       val maximum = max.map(Maximum(_, exclusiveMax))
       val typeAsString = anyConstraints.schemaTypeAsString
-      val schema = SchemaInteger(NumberConstraints(minimum, maximum, multipleOf, anyConstraints))
+      val schema = SchemaInteger(NumberConstraints(minimum, maximum, multipleOf, format, anyConstraints))
 
       if (typeAsString.exists(_ != "integer")
         || (typeAsString.isEmpty

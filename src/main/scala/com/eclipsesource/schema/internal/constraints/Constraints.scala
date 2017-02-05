@@ -149,6 +149,7 @@ object Constraints {
   case class NumberConstraints(min: Option[Minimum] = None,
                                max: Option[Maximum] = None,
                                multipleOf: Option[BigDecimal] = None,
+                               format:  Option[String] = None,
                                any: AnyConstraint = AnyConstraint())
     extends HasAnyConstraint {
 
@@ -158,6 +159,7 @@ object Constraints {
       case Keywords.Number.Min => min.map(m => SchemaValue(JsNumber(m.min)))
       case Keywords.Number.Max => max.map(m => SchemaValue(JsNumber(m.max)))
       case Keywords.Number.MultipleOf => multipleOf.map(m => SchemaValue(JsNumber(m)))
+      case Keywords.String.Format => format.map(f => SchemaValue(JsString(f)))
       case other => any.resolvePath(other)
     }
 
@@ -168,6 +170,7 @@ object Constraints {
           max orElse otherConstraints.max,
           // TODO: we could look for the gcd here
           multipleOf orElse otherConstraints.multipleOf,
+          format orElse otherConstraints.format,
           any.merge(otherConstraints.any)
         )
       case withAnyConstraint: HasAnyConstraint => copy(any = any.merge(withAnyConstraint.any))

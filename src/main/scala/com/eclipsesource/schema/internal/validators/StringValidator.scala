@@ -118,7 +118,7 @@ object StringValidator extends SchemaTypeValidator[SchemaString] {
           format match {
             // format found
             case Some(f) =>
-              if (f.validate(string)) {
+              if (f.validate(json)) {
                 Success(json)
               } else {
                 failure(
