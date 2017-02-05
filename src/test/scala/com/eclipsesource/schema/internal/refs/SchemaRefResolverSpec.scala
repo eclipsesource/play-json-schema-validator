@@ -291,7 +291,7 @@ class SchemaRefResolverSpec extends Specification {
 
       val context = new SchemaResolutionScope(schema)
       val resolver = new SchemaRefResolver
-      val arrayDef = resolver.resolveSchema("#/definitions/schemaArray", context)
+      val arrayDef: Either[ValidationError, SchemaType] = resolver.resolveSchema("#/definitions/schemaArray", context)
       val anyOf = resolver.resolveSchema("#/properties/anyOf", context)
       anyOf must beRight.which(_.isInstanceOf[SchemaArray])
       arrayDef must beRight.which(_.isInstanceOf[SchemaArray])

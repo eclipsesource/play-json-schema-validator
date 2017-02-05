@@ -7,6 +7,7 @@ import com.eclipsesource.schema.internal.refs.Ref
 import com.eclipsesource.schema.internal.validators.DefaultFormats
 import com.eclipsesource.schema.urlhandlers.UrlHandler
 import com.osinka.i18n.Lang
+import play.api.data.validation.ValidationError
 import play.api.libs.json._
 
 /**
@@ -233,7 +234,7 @@ case class SchemaValidator(refResolver: SchemaRefResolver = new SchemaRefResolve
       case JsError(errors) => JsError(essentialErrorInfo(errors, Some(json)))
     }
 
-  private def essentialErrorInfo(errors: Seq[(JsPath, Seq[JsonValidationError])], json: Option[JsValue]): Seq[(JsPath, Seq[JsonValidationError])] = {
+  private def essentialErrorInfo(errors: Seq[(JsPath, Seq[ValidationError])], json: Option[JsValue]): Seq[(JsPath, Seq[ValidationError])] = {
 
     def dropObjPrefix(path: String): String = {
       if (path.startsWith("/obj")) {
@@ -247,7 +248,7 @@ case class SchemaValidator(refResolver: SchemaRefResolver = new SchemaRefResolve
       path ->
         validationErrors.map(err =>
           err.args.size match {
-            case 0 => JsonValidationError(err.message,
+            case 0 => ValidationError(err.message,
               Json.obj(
                 "schemaPath" -> "n/a",
                 "instancePath" -> dropObjPrefix(path.toString()),
