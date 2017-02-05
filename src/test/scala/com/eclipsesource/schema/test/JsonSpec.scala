@@ -5,6 +5,7 @@ import java.net.URL
 import com.eclipsesource.schema._
 import org.specs2._
 import execute._
+import play.api.data.validation.ValidationError
 import specification.core._
 import org.specs2.specification.dsl.mutable.FragmentBuilder
 import play.api.libs.json._
@@ -12,7 +13,7 @@ import play.api.libs.functional.syntax._
 
 case class JsonSchemaSpec(description: String, schema: SchemaType, tests: Seq[JsonSchemaTest])
 case class JsonSchemaTest(description: String, data: JsValue, valid: Boolean)
-case class SpecResult(description: String, valid: Boolean, error: Option[Seq[(JsPath, Seq[JsonValidationError])]])
+case class SpecResult(description: String, valid: Boolean, error: Option[Seq[(JsPath, Seq[ValidationError])]])
 
 trait JsonSpec extends FragmentBuilder {
 

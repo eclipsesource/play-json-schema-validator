@@ -3,11 +3,9 @@ import sbt.Keys._
 import sbt._
 
 object Version {
-  // TODO: remove snapshots once stable builds are available
-  final val playJson      = "2.6.0-SNAPSHOT"
-  final val playTest      = "2.6.0-+"
-  final val scalaz        = "7.2.8"
-  final val specs2        = "3.8.6"
+  final val play          = "2.5.12"
+  final val scalaz        = "7.2.0"
+  final val specs2        = "3.7.2"
   final val guava         = "19.0"
   final val i18n          = "1.0.1"
 }
@@ -15,8 +13,8 @@ object Version {
 object Library {
   final val guava         = "com.google.guava"  % "guava"                   % Version.guava
   final val scalaz        = "org.scalaz"        %% "scalaz-core"            % Version.scalaz
-  final val playJson      = "com.typesafe.play" %% "play-json"              % Version.playJson
-  final val playTest      = "com.typesafe.play" %% "play-specs2"            % Version.playTest       % "test"
+  final val playJson      = "com.typesafe.play" %% "play-json"              % Version.play
+  final val playTest      = "com.typesafe.play" %% "play-specs2"            % Version.play           % "test"
   final val specs2        = "org.specs2"        %% "specs2-core"            % Version.specs2         % "test"
   final val i18n          = "com.osinka.i18n"   %% "scala-i18n"             % Version.i18n
 
@@ -48,7 +46,7 @@ object Build extends Build {
 
   val commonSettings = Seq(
       organization := "com.eclipsesource",
-      scalaVersion := "2.12.1",
+      scalaVersion := "2.11.6",
       licenses := Seq("Apache-2.0" -> url("http://www.apache.org/licenses/LICENSE-2.0")),
       Keys.fork in Test := false,
       Keys.parallelExecution in Test := false

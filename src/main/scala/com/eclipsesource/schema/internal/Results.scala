@@ -2,6 +2,7 @@ package com.eclipsesource.schema.internal
 
 import com.eclipsesource.schema.internal.SchemaRefResolver.SchemaResolutionContext
 import com.eclipsesource.schema.internal.validation.VA
+import play.api.data.validation.ValidationError
 import play.api.libs.json._
 
 import scalaz.{Failure, Success}
@@ -38,7 +39,7 @@ object Results {
     def dropSlashIfAny(path: String) = if (path.startsWith("/#")) path.substring(1) else path
 
     Failure(Seq(context.instancePath ->
-      Seq(JsonValidationError(msg,
+      Seq(ValidationError(msg,
          Json.obj(
            "keyword" -> keyword,
           "schemaPath" -> dropSlashIfAny(context.schemaPath.toString()),

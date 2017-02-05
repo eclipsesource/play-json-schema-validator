@@ -1,6 +1,7 @@
 package com.eclipsesource.schema.internal.refs
 
 import com.osinka.i18n.{Lang, Messages}
+import play.api.data.validation.ValidationError
 import play.api.libs.json._
 
 import scala.util.Try
@@ -13,13 +14,13 @@ object JsValueRefResolver {
     override def anchorsOf(a: JsValue): Map[Ref, JsValue] = Map.empty
 
     override def resolve(json: JsValue, fragment: String)
-                        (implicit lang: Lang): Either[JsonValidationError, JsValue] = {
+                        (implicit lang: Lang): Either[ValidationError, JsValue] = {
       def fragmentIsInt = Try(fragment.toInt).isSuccess
       json match {
         case obj: JsObject => (obj \ fragment).toEither
         case arr: JsArray if fragmentIsInt => (arr \ fragment.toInt).toEither
-        case _: JsArray => Left(JsonValidationError(Messages("arr.invalid.index"), fragment))
-        case _ => Left(JsonValidationError(Messages("err.prop.not.found", fragment)))
+        case _: JsArray => Left(ValidationError(Messages("arr.invalid.index"), fragment))
+        case _ => Left(ValidationError(Messages("err.prop.not.found", fragment)))
       }
     }
   }
@@ -27,7 +28,7 @@ object JsValueRefResolver {
   type JsValueResolutionContext = GenResolutionContext[JsValue]
   type JsValueResolutionScope =  GenResolutionScope[JsValue]
   type JsValueRefResolver = GenRefResolver[JsValue]
-  type Errors = JsonValidationError
+  type Errors = ValidationError
 
   def resolve(path: String, root: JsValue)
              (implicit lang: Lang = Lang.Default): Either[Errors, JsValue] = {
@@ -42,7 +43,7 @@ object JsValueRefResolver {
     def longestContinuousSeq: Either[Errors, (Int, String)] = {
       val seq = relativeRef.takeWhile(_.isDigit)
       if (seq.isEmpty)
-        Left(JsonValidationError("Invalid relative JSON Pointer"))
+        Left(ValidationError("Invalid relative JSON Pointer"))
       else
         Right((seq.toInt, relativeRef.drop(seq.length)))
     }
@@ -54,14 +55,14 @@ object JsValueRefResolver {
       case n if idxWithRest._2.endsWith("#")=>
         val splitted = resolveFrom.split("/")
         if (n + 1 >= splitted.size) {
-          Left(JsonValidationError("ERROR"))
+          Left(ValidationError("ERROR"))
         } else {
           Right(splitted.dropRight(n + 1).mkString("/") + idxWithRest._2)
         }
       case n =>
         val splitted = resolveFrom.split("/")
         if (n >= splitted.size) {
-          Left(JsonValidationError("ERROR"))
+          Left(ValidationError("ERROR"))
         } else {
           Right(splitted.dropRight(n).mkString("/") + idxWithRest._2)
         }
@@ -83,7 +84,7 @@ object JsValueRefResolver {
       case Right(ref) if ref == "#" =>
         resolve(ref, obj)
       case Right(ref) if ref == "##" =>
-        Left(JsonValidationError("ERROR"))
+        Left(ValidationError("ERROR"))
       case Right(ref) if ref.endsWith("#") =>
         val last = ref.split("/").last
         Right(JsString(last.substring(0, last.length - 1)))

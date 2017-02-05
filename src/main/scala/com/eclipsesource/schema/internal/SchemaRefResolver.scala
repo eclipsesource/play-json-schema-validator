@@ -4,7 +4,8 @@ import com.eclipsesource.schema._
 import com.eclipsesource.schema.internal.refs._
 import com.eclipsesource.schema.internal.validators.DefaultFormats
 import com.osinka.i18n.{Lang, Messages}
-import play.api.libs.json.{JsArray, JsString, JsonValidationError}
+import play.api.data.validation.ValidationError
+import play.api.libs.json.{JsArray, JsString}
 
 import scala.util.Try
 
@@ -14,9 +15,9 @@ object SchemaRefResolver {
 
     // TODO make inner method
     private def resolveConstraint(schema: SchemaType, constraint: String)
-                                 (implicit lang: Lang): Either[JsonValidationError, SchemaType] = {
-      schema.constraints.resolvePath(constraint).fold[Either[JsonValidationError, SchemaType]](
-        Left(JsonValidationError(Messages("err.unresolved.ref", constraint)))
+                                 (implicit lang: Lang): Either[ValidationError, SchemaType] = {
+      schema.constraints.resolvePath(constraint).fold[Either[ValidationError, SchemaType]](
+        Left(ValidationError(Messages("err.unresolved.ref", constraint)))
       )(schema => Right(schema))
     }
 
@@ -24,14 +25,14 @@ object SchemaRefResolver {
       maybeObj.flatMap(_.properties.collectFirst { case attr if attr.name == prop => attr.schemaType})
 
     private def findSchemaAttribute(props: Seq[SchemaAttribute], propName: String)
-                                   (implicit lang: Lang): Either[JsonValidationError, SchemaType] = {
+                                   (implicit lang: Lang): Either[ValidationError, SchemaType] = {
       props.collectFirst {
         case SchemaAttribute(name, s) if name == propName => s
-      }.toRight(JsonValidationError(Messages("err.prop.not.found", propName)))
+      }.toRight(ValidationError(Messages("err.prop.not.found", propName)))
     }
 
     override def resolve(schema: SchemaType, fragment: String)
-                        (implicit lang: Lang = Lang.Default): Either[JsonValidationError, SchemaType] = {
+                        (implicit lang: Lang = Lang.Default): Either[ValidationError, SchemaType] = {
 
       schema match {
 
@@ -74,9 +75,9 @@ object SchemaRefResolver {
             if (idx > 0 && idx < arr.value.size) {
               Right(SchemaValue(arr.value(idx)))
             } else {
-              Left(JsonValidationError(Messages("out.of.bounds", index)))
+              Left(ValidationError(Messages("out.of.bounds", index)))
             }
-          case _ => Left(JsonValidationError(Messages("arr.invalid.index", fragment)))
+          case _ => Left(ValidationError(Messages("arr.invalid.index", fragment)))
         }
 
         case p: PrimitiveSchemaType => resolveConstraint(p, fragment)
