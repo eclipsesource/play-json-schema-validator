@@ -118,4 +118,36 @@ trait NumberConstraintsValidator {
       context.instancePath,
       json
     )
+
+
+  def validateFormat(implicit lang: Lang): scalaz.Reader[(NumberConstraints, SchemaResolutionContext), Rule[JsValue, JsValue]] =
+    scalaz.Reader { case (constraints, context) =>
+
+      val format = for {
+        formatName <- constraints.format
+        f <- context.formats.get(formatName)
+      } yield f
+
+      Rule.fromMapping {
+        case json@JsNumber(number) if constraints.format.isDefined =>
+          format match {
+            // format found
+            case Some(f) =>
+              if (f.validate(json)) {
+                Success(json)
+              } else {
+                failure(
+                  Keywords.String.Format,
+                  Messages("str.format", number, f.name),
+                  context.schemaPath,
+                  context.instancePath,
+                  json
+                )
+              }
+            // validation of unknown format should succeed
+            case None => Success(json)
+          }
+        case json@JsNumber(_) => Success(json)
+      }
+    }
 }
