@@ -75,7 +75,11 @@ object SchemaRefResolver {
             if (idx > 0 && idx < arr.value.size) {
               Right(SchemaValue(arr.value(idx)))
             } else {
-              Left(ValidationError(Messages("arr.out.of.bounds", index)))
+<<<<<<< HEAD
+              Left(ValidationError(Messages("out.of.bounds", index)))
+=======
+              Left(JsonValidationError(Messages("arr.out.of.bounds", index)))
+>>>>>>> 78cd75a... Fix for issue #92: duplicate entries in messages.txt have been removed
             }
           case _ => Left(ValidationError(Messages("arr.invalid.index", fragment)))
         }
