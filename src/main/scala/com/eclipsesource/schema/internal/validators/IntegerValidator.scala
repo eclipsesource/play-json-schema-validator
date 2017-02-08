@@ -33,8 +33,9 @@ object IntegerValidator extends SchemaTypeValidator[SchemaInteger] with NumberCo
       maxRule <- validateMax
       minRule <- validateMin
       multipleOfRule <- validateMultipleOf
+      format <- validateFormat
       intRule <- isInt
-    } yield maxRule |+| minRule |+| multipleOfRule |+| intRule
+    } yield maxRule |+| minRule |+| multipleOfRule |+| format |+| intRule
     reader.run((schema.constraints, context)).repath(_.compose(context.instancePath)).validate(json)
   }
 }
