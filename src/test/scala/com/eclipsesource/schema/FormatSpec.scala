@@ -139,5 +139,24 @@ class FormatSpec extends Specification with JsonSpec {
       validatorWithRangeFormat.validate(numberSchema, JsNumber(10)).isSuccess must beTrue
       validatorWithRangeFormat.validate(numberSchema, JsNumber(-1)).isError must beTrue
     }
+
+    "validate integer against double max boundary" in {
+      val schema = JsonSource.schemaFromString(
+        """
+          |{
+          |  "type" : "object",
+          |  "properties" : {
+          |    "intprop" : {
+          |      "type" : "integer",
+          |      "format" : "int32"
+          |    }
+          |  }
+          |}
+        """.stripMargin).get
+      val instance = Json.obj(
+        "intprop" -> -1.7976931348623157E+308
+      )
+      validator.validate(schema, instance).isError must beTrue
+    }
   }
 }
