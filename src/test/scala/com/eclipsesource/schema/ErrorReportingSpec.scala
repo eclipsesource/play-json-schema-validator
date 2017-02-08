@@ -474,5 +474,35 @@ class ErrorReportingSpec extends Specification {
         (error.toJson(0) \ "instancePath") == JsDefined(JsString("/billing_address/city"))
       }
     }
+
+    "report match error" in {
+      val schema = JsonSource.schemaFromString(
+        """
+          |{
+          |  "type": "string",
+          |  "pattern": "^[A-Za-z0-9]+$"
+          |}
+        """.stripMargin).get
+      val result = validator.validate(schema)(JsString("asdfasdf*"))
+      result.isError must beTrue
+      val errors     = result.asEither.left.get
+      val firstError = errors.toJson(0)
+      (firstError \ "msgs").get.as[JsArray].head.as[String] must beEqualTo("'asdfasdf*' does not match pattern '^[A-Za-z0-9]+$'.")
+    }
+
+    "report invalid pattern error" in {
+      val schema = JsonSource.schemaFromString(
+        """
+          |{
+          |  "type": "string",
+          |  "pattern": "***"
+          |}
+        """.stripMargin).get
+      val result = validator.validate(schema)(JsString("asdfasdf*"))
+      result.isError must beTrue
+      val errors     = result.asEither.left.get
+      val firstError = errors.toJson(0)
+      (firstError \ "msgs").get.as[JsArray].head.as[String] must beEqualTo("Invalid pattern '***'.")
+    }
   }
 }
