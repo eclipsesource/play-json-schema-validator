@@ -78,11 +78,13 @@ class FormatSpec extends Specification with JsonSpec {
           | }
         """.stripMargin).get
 
-      validator.validate(integerSchema, JsNumber(Integer.MAX_VALUE)).isSuccess must beTrue
-      validator.validate(integerSchema, JsNumber(BigDecimal.valueOf(Integer.MAX_VALUE) + 1)).isError must beTrue
+      validator.validate(integerSchema, JsNumber(Int.MinValue)).isSuccess must beTrue
+      validator.validate(integerSchema, JsNumber(Int.MaxValue)).isSuccess must beTrue
+      validator.validate(integerSchema, JsNumber(BigDecimal.valueOf(Int.MaxValue) + 1)).isError must beTrue
 
-      validator.validate(numberSchema, JsNumber(Integer.MAX_VALUE)).isSuccess must beTrue
-      validator.validate(numberSchema, JsNumber(BigDecimal.valueOf(Integer.MAX_VALUE) + 1)).isError must beTrue
+      validator.validate(numberSchema, JsNumber(Int.MinValue)).isSuccess must beTrue
+      validator.validate(numberSchema, JsNumber(Int.MaxValue)).isSuccess must beTrue
+      validator.validate(numberSchema, JsNumber(BigDecimal.valueOf(Int.MaxValue) + 1)).isError must beTrue
     }
 
 
@@ -102,8 +104,11 @@ class FormatSpec extends Specification with JsonSpec {
           | }
         """.stripMargin).get
 
+      validator.validate(integerSchema, JsNumber(Long.MinValue)).isSuccess must beTrue
       validator.validate(integerSchema, JsNumber(Long.MaxValue)).isSuccess must beTrue
       validator.validate(integerSchema, JsNumber(BigDecimal.valueOf(Long.MaxValue) + 1)).isError must beTrue
+
+      validator.validate(numberSchema, JsNumber(Long.MinValue)).isSuccess must beTrue
       validator.validate(numberSchema, JsNumber(Long.MaxValue)).isSuccess must beTrue
       validator.validate(numberSchema, JsNumber(BigDecimal.valueOf(Long.MaxValue) + 1)).isError must beTrue
     }
@@ -140,7 +145,7 @@ class FormatSpec extends Specification with JsonSpec {
       validatorWithRangeFormat.validate(numberSchema, JsNumber(-1)).isError must beTrue
     }
 
-    "validate integer against double max boundary" in {
+    "validate integer with int32 format against double max boundary" in {
       val schema = JsonSource.schemaFromString(
         """
           |{
@@ -157,6 +162,24 @@ class FormatSpec extends Specification with JsonSpec {
         "intprop" -> -1.7976931348623157E+308
       )
       validator.validate(schema, instance).isError must beTrue
+    }
+
+    "validate integer without format against double max boundary" in {
+      val schema = JsonSource.schemaFromString(
+        """
+          |{
+          |  "type" : "object",
+          |  "properties" : {
+          |    "intprop" : {
+          |      "type" : "integer"
+          |    }
+          |  }
+          |}
+        """.stripMargin).get
+      val instance = Json.obj(
+        "intprop" -> -1.7976931348623157E+308
+      )
+      validator.validate(schema, instance).isSuccess must beTrue
     }
   }
 }
