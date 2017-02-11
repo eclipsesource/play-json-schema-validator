@@ -27,6 +27,7 @@ case class GenRefResolver[A : CanHaveRef : Reads]
   private[schema] var cache: DocumentCache[A] = DocumentCache[A]()
 ) {
 
+  val MaxDepth: Int = 100
   val refTypeClass: CanHaveRef[A] = implicitly[CanHaveRef[A]]
 
   /**
@@ -60,56 +61,60 @@ case class GenRefResolver[A : CanHaveRef : Reads]
     def hasRef(obj: A)  = refTypeClass.findRef(obj).fold(false)(r => !scope.hasBeenVisited(r))
 
     // update resolution scope, if applicable
-    val updatedScope = updateResolutionScope(scope, current)
+    val updatedScope = updateResolutionScope(scope.copy(depth = scope.depth + 1), current)
 
-    val result: \/[ValidationError, ResolvedResult[A]] = (current, ref) match {
+    if (scope.depth >= MaxDepth) {
+      ValidationError(Messages("err.max.depth")).left
+    } else {
+      val result: \/[ValidationError, ResolvedResult[A]] = (current, ref) match {
 
-      // current schema id is part of to be resolved id
-      case (_, _) if refTypeClass.findScopeRefinement(current).exists(id => ref.startsWith(id)) =>
-        matchAnchorIdAndResolve(current, ref, scope)
+        // current schema id is part of to be resolved id
+        case (_, _) if refTypeClass.findScopeRefinement(current).exists(id => ref.startsWith(id)) =>
+          matchAnchorIdAndResolve(current, ref, scope)
 
-      // if current instance has a ref, resolve that one first
-      case (_, _) if hasRef(current) =>
-        val Some(anotherRef) = refTypeClass.findRef(current)
-        // TODO should we check whether we need to update the document root in case current == documentRoot?
-        resolve(current, anotherRef, updatedScope.addVisited(ref)) flatMap continueResolving(ref)
+        // if current instance has a ref, resolve that one first
+        case (_, _) if hasRef(current) =>
+          val Some(anotherRef) = refTypeClass.findRef(current)
+          // TODO should we check whether we need to update the document root in case current == documentRoot?
+          resolve(current, anotherRef, updatedScope.addVisited(ref)) flatMap continueResolving(ref)
 
-      case (_, _) if  ref.isAbsolute =>
-        // could be an id
-        resolveAnchorId(ref, updatedScope, current) orElse
-          // protocol-ful relative refs; relative refs with custom schemes will be recognized as absolute
-          resolveRelative(ref, scope) orElse
-          resolveDocument(ref, updatedScope)
-
-      // since the cache may contain unresolved refs, this must come after the previous case
-      case (_, _) if cache.contains(ref) =>
-        ResolvedResult(cache(ref), scope).right
-
-      // resolve root only
-      case (_, Refs.`#`) =>
-        ResolvedResult(updatedScope.documentRoot, updatedScope.copy(schemaPath = JsPath \ "#")).right
-
-      // resolve root and continue with the rest of the ref
-      case (_, _) if ref.isFragment && !ref.isAnchor =>
-        resolve(updatedScope.documentRoot, ref.dropHashAtStart,
-          updatedScope.copy(
-            id = updatedScope.id.map(_.withHashAtEnd),
-            schemaPath = JsPath \ "#"
-          )
-        )
-
-      case (_, _) =>
-        resolveFragments(toSegments(ref), updatedScope, current) orElse
-          resolveRelative(ref, updatedScope) orElse
+        case (_, _) if ref.isAbsolute =>
+          // could be an id
           resolveAnchorId(ref, updatedScope, current) orElse
-          resolveWithRelativeUrlHandlers(ref, scope)
-    }
+            // protocol-ful relative refs; relative refs with custom schemes will be recognized as absolute
+            resolveRelative(ref, scope) orElse
+            resolveDocument(ref, updatedScope)
 
-    result match {
-      case \/-(resolvedResult@ResolvedResult(resolved, _)) =>
-        refTypeClass.findRef(resolved)
-          .fold(result)(foundRef => continueResolving(foundRef)(resolvedResult))
-      case _ => resolutionFailure(ref)(updatedScope).left
+        // since the cache may contain unresolved refs, this must come after the previous case
+        case (_, _) if cache.contains(ref) =>
+          ResolvedResult(cache(ref), scope).right
+
+        // resolve root only
+        case (_, Refs.`#`) =>
+          ResolvedResult(updatedScope.documentRoot, updatedScope.copy(schemaPath = JsPath \ "#")).right
+
+        // resolve root and continue with the rest of the ref
+        case (_, _) if ref.isFragment && !ref.isAnchor =>
+          resolve(updatedScope.documentRoot, ref.dropHashAtStart,
+            updatedScope.copy(
+              id = updatedScope.id.map(_.withHashAtEnd),
+              schemaPath = JsPath \ "#"
+            )
+          )
+
+        case (_, _) =>
+          resolveFragments(toSegments(ref), updatedScope, current) orElse
+            resolveAnchorId(ref, updatedScope, current) orElse
+            resolveRelative(ref, updatedScope) orElse
+            resolveWithRelativeUrlHandlers(ref, scope)
+      }
+
+      result match {
+        case \/-(resolvedResult@ResolvedResult(resolved, _)) =>
+          refTypeClass.findRef(resolved)
+            .fold(result)(foundRef => continueResolving(foundRef)(resolvedResult))
+        case _ => resolutionFailure(ref)(updatedScope).left
+      }
     }
   }
 
@@ -153,7 +158,15 @@ case class GenRefResolver[A : CanHaveRef : Reads]
                              (implicit lang: Lang): \/[ValidationError, ResolvedResult[A]] = {
     val normalized = Refs.normalize(ref, scope.id, Some(resolverFactory))
     val knownAnchors = refTypeClass.anchorsOf(a)
-    knownAnchors.get(normalized)
+    val normalizedAnchorIdMap = knownAnchors.map { case (r, s) =>
+      if (!r.isAbsolute && !r.isFragment) {
+        // anchor id must start with #
+        Refs.normalize(r.prepend(Ref("#")), scope.id, Some(resolverFactory)) -> s
+      } else {
+        Refs.normalize(r, scope.id, Some(resolverFactory)) -> s
+      }
+    }
+    normalizedAnchorIdMap.get(normalized)
       .map(r => ResolvedResult(r, scope).right).getOrElse(resolutionFailure(normalized)(scope).left)
   }
 
