@@ -307,6 +307,17 @@ case class GenRefResolver[A : CanHaveRef : Reads]
     } yield result
   }
 
+  private def resolveDocument(ref: Ref, scope: GenResolutionScope[A])
+                             (implicit lang: Lang): \/[ValidationError, ResolvedResult[A]] = {
+    for {
+      documentUrl <- createUrl(ref.documentName)
+      instance    <- fetch(documentUrl, scope)
+      result      <- ref.fragments
+        .map(frags => resolve(instance, frags, scope.copy(documentRoot = instance)))
+        .getOrElse(ResolvedResult(instance, scope.copy(schemaPath = JsPath \ "#")).right)
+    } yield result
+  }
+
   /**
     * Split the given ref into single segments.
     * Only the fragments of the given ref will be considered.
