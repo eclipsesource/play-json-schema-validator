@@ -315,4 +315,11 @@ class SchemaValidatorSpec extends PlaySpecification {
     // invalid because not listed in enum
     SchemaValidator().validate(schema)(Json.obj("name" -> "quux")).isError must beTrue
   }
+
+  "verify cache hit (issue #98)" in {
+    val talk = Talk(Location("Munich"))
+    val validator = SchemaValidator()
+    validator.validate(resourceUrl, talk)
+    validator.refResolver.cache.mapping.isEmpty must beFalse
+  }
 }
