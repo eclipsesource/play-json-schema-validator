@@ -225,10 +225,10 @@ case class GenRefResolver[A : CanHaveRef : Reads]
           json <- parseJson(src)
           resolvedSchema <- readJson(json)
         } yield resolvedSchema
-        resolved.map { res =>
-          cache.add(Refs.normalize(ref, scope.id, Some(resolverFactory)))(res)
-          res
+        resolved.foreach { res =>
+          cache = cache.add(Refs.normalize(ref, scope.id, Some(resolverFactory)))(res)
         }
+        resolved
       }
     }
 
