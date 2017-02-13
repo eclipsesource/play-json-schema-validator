@@ -37,3 +37,4 @@ err.prop.not.found     = Could not find property {0}.
 err.unvisited.ref.expected = Expected to find unvisited ref at {0}.
 err.res.scope.id.empty = Resolution scope ID must not be empty.
 err.parse.json         = Could not parse JSON.
+err.max.depth          = Maximum recursion depth reached.
