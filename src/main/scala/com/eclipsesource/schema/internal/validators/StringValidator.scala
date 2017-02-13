@@ -39,7 +39,7 @@ object StringValidator extends SchemaTypeValidator[SchemaString] {
               new RegExpFactory().compile(pattern, "")
             }.fold( _ => failure(
               Keywords.String.Pattern,
-              Messages("invalid.pattern", pattern),
+              Messages("str.invalid.pattern", pattern),
               context.schemaPath,
               context.instancePath,
               json

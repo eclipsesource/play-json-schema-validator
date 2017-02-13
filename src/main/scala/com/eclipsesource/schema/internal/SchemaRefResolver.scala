@@ -74,7 +74,7 @@ object SchemaRefResolver {
             if (idx > 0 && idx < arr.value.size) {
               Right(SchemaValue(arr.value(idx)))
             } else {
-              Left(JsonValidationError(Messages("out.of.bounds", index)))
+              Left(JsonValidationError(Messages("arr.out.of.bounds", index)))
             }
           case _ => Left(JsonValidationError(Messages("arr.invalid.index", fragment)))
         }
