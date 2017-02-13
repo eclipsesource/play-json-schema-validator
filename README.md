@@ -19,11 +19,11 @@ Then add the dependency:
 
 ```
 libraryDependencies ++= Seq(
- "com.eclipsesource" %% "play-json-schema-validator" % "0.8.7"
+ "com.eclipsesource" %% "play-json-schema-validator" % "0.8.8"
 )
 ```
-
-
+ 
+ 
 ## Usage
 
 *Note*: For usage instructions prior to 0.8.0, please see the wiki.
@@ -43,19 +43,19 @@ Schemas can be parsed by passing the schema string to `Json.fromJson`, for insta
 
 With a schema at hand, we can now validate `JsValue`s via the `SchemaValidator` (note that since 0.8.0 the validator is a class and not an object anymore):
 
-```Scala
+```Scala 
 val validator = new SchemaValidator()
 validator.validate(schema, json)
 ```
 
 `validate` returns a `JsResult[A]`. `JsResult` can either be a `JsSuccess` or a `JsError`.
-`validate` is also provided with overloaded alternatives where Play's `Reads` or `Writes` instances can be passed additionally.
+`validate` is also provided with overloaded alternatives where Play's `Reads` or `Writes` instances can be passed additionally. 
 This is useful for mapping `JsValue`s onto case classes and vice versa:
 
 ```Scala
 validate[A](schemaUrl: URL, input: => JsValue, reads: Reads[A]) : JsResult[A]
-validate[A](schemaUrl: URL, input: A, writes: Writes[A]): JsResult[JsValue]
-validate[A: Format](schemaUrl: URL, input: A): JsResult[A]
+validate[A](schemaUrl: URL, input: A, writes: Writes[A]): JsResult[JsValue] 
+validate[A: Format](schemaUrl: URL, input: A): JsResult[A] 
 ```
 
 ## Error Reporting
@@ -69,7 +69,7 @@ import com.eclipsesource.schema._ // brings toJson into scope
 val result = validator.validate(schema, json, Post.reads)
 result.fold(
   invalid = { errors =>  BadRequest(errors.toJson) },
-  valid = { post => ... }
+  valid = { post => ... } 
 )
 ```
 
@@ -103,7 +103,7 @@ the generated error report's `schemaPath` property will point to `#/properties/f
 
 In case the schema to validate against makes use of the `id` property to alter resolution scope (or if the schema has been loaded via an `URL`), the error report also contains a `resolutionScope` property.
 
-### anyOf, oneOf, allOf
+### anyOf, oneOf, allOf 
 In case of `allOf`, `anyOf` and `oneOf`,  the `errors` array property holds the actual sub errors. For instance, if we have a schema like the following:
 
 ```Javascript
@@ -114,7 +114,7 @@ In case of `allOf`, `anyOf` and `oneOf`,  the `errors` array property holds the 
   ]
 }
 ```
-and we validate the value `1.5`, the `toJson` method returns this error:
+and we validate the value `1.5`, the `toJson` method returns this error: 
 
 ```Javascript
 [ {
