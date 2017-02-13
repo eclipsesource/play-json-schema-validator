@@ -63,28 +63,54 @@ class FormatSpec extends Specification with JsonSpec {
     }
 
     "validate int32 format" in {
-      val schema = JsonSource.schemaFromString(
+      val integerSchema = JsonSource.schemaFromString(
+        """
+          |{
+          |  "type": "integer",
+          |  "format": "int32"
+          | }
+        """.stripMargin).get
+      val numberSchema = JsonSource.schemaFromString(
         """
           |{
           |  "type": "number",
           |  "format": "int32"
           | }
         """.stripMargin).get
-      validator.validate(schema, JsNumber(Integer.MAX_VALUE)).isSuccess must beTrue
-      validator.validate(schema, JsNumber(BigDecimal.valueOf(Integer.MAX_VALUE) + 1)).isError must beTrue
+
+      validator.validate(integerSchema, JsNumber(Int.MinValue)).isSuccess must beTrue
+      validator.validate(integerSchema, JsNumber(Int.MaxValue)).isSuccess must beTrue
+      validator.validate(integerSchema, JsNumber(BigDecimal.valueOf(Int.MaxValue) + 1)).isError must beTrue
+
+      validator.validate(numberSchema, JsNumber(Int.MinValue)).isSuccess must beTrue
+      validator.validate(numberSchema, JsNumber(Int.MaxValue)).isSuccess must beTrue
+      validator.validate(numberSchema, JsNumber(BigDecimal.valueOf(Int.MaxValue) + 1)).isError must beTrue
     }
 
 
     "validate int64 format" in {
-      val schema = JsonSource.schemaFromString(
+      val numberSchema = JsonSource.schemaFromString(
         """
           |{
           |  "type": "number",
           |  "format": "int64"
           | }
         """.stripMargin).get
-      validator.validate(schema, JsNumber(Long.MaxValue)).isSuccess must beTrue
-      validator.validate(schema, JsNumber(BigDecimal.valueOf(Long.MaxValue) + 1)).isError must beTrue
+      val integerSchema = JsonSource.schemaFromString(
+        """
+          |{
+          |  "type": "integer",
+          |  "format": "int64"
+          | }
+        """.stripMargin).get
+
+      validator.validate(integerSchema, JsNumber(Long.MinValue)).isSuccess must beTrue
+      validator.validate(integerSchema, JsNumber(Long.MaxValue)).isSuccess must beTrue
+      validator.validate(integerSchema, JsNumber(BigDecimal.valueOf(Long.MaxValue) + 1)).isError must beTrue
+
+      validator.validate(numberSchema, JsNumber(Long.MinValue)).isSuccess must beTrue
+      validator.validate(numberSchema, JsNumber(Long.MaxValue)).isSuccess must beTrue
+      validator.validate(numberSchema, JsNumber(BigDecimal.valueOf(Long.MaxValue) + 1)).isError must beTrue
     }
 
     "validate custom number range format" in {
@@ -96,15 +122,64 @@ class FormatSpec extends Specification with JsonSpec {
         }
       }
       val validatorWithRangeFormat = validator.addFormat(rangeFormat)
-      val schema = JsonSource.schemaFromString(
+      val numberSchema = JsonSource.schemaFromString(
         """
           |{
           |  "type": "number",
           |  "format": "range0To10"
           | }
         """.stripMargin).get
-      validatorWithRangeFormat.validate(schema, JsNumber(10)).isSuccess must beTrue
-      validatorWithRangeFormat.validate(schema, JsNumber(-1)).isError must beTrue
+
+      val integerSchema = JsonSource.schemaFromString(
+        """
+          |{
+          |  "type": "integer",
+          |  "format": "range0To10"
+          | }
+        """.stripMargin).get
+
+      validatorWithRangeFormat.validate(integerSchema, JsNumber(10)).isSuccess must beTrue
+      validatorWithRangeFormat.validate(integerSchema, JsNumber(-1)).isError must beTrue
+
+      validatorWithRangeFormat.validate(numberSchema, JsNumber(10)).isSuccess must beTrue
+      validatorWithRangeFormat.validate(numberSchema, JsNumber(-1)).isError must beTrue
+    }
+
+    "validate integer with int32 format against double max boundary" in {
+      val schema = JsonSource.schemaFromString(
+        """
+          |{
+          |  "type" : "object",
+          |  "properties" : {
+          |    "intprop" : {
+          |      "type" : "integer",
+          |      "format" : "int32"
+          |    }
+          |  }
+          |}
+        """.stripMargin).get
+      val instance = Json.obj(
+        "intprop" -> -1.7976931348623157E+308
+      )
+      validator.validate(schema, instance).isError must beTrue
+    }
+
+    "validate integer without format against double max boundary" in {
+      val schema = JsonSource.schemaFromString(
+        """
+          |{
+          |  "type" : "object",
+          |  "properties" : {
+          |    "intprop" : {
+          |      "type" : "integer"
+          |    }
+          |  }
+          |}
+        """.stripMargin).get
+      val instance = Json.obj(
+        "intprop" -> -1.7976931348623157E+308
+      )
+      validator.validate(schema, instance).isSuccess must beTrue
     }
   }
 }
