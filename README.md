@@ -30,6 +30,7 @@ libraryDependencies ++= Seq(
 )
 ```
  
+ 
 ## Usage
 
 *Note*: For usage instructions prior to 0.8.0, please see the wiki.
