@@ -1,6 +1,5 @@
-package com.eclipsesource.schema.internal.serialization
+package com.eclipsesource.schema
 
-import com.eclipsesource.schema.{JsonSource, SchemaValidator}
 import org.specs2.mutable.Specification
 import play.api.libs.json.Json
 
