@@ -1,7 +1,5 @@
-package com.eclipsesource.schema.jsonforms
+package com.eclipsesource.schema
 
-import com.eclipsesource.schema._
-import com.eclipsesource.schema.internal.validation.VA
 import org.specs2.mutable.Specification
 import play.api.libs.json._
 
