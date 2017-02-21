@@ -1,9 +1,9 @@
 package com.eclipsesource.schema
 
-import java.net.{URL, URLConnection, URLStreamHandler}
+import java.net.URL
 
-import com.eclipsesource.schema.urlhandlers.ClasspathUrlHandler
 import controllers.Assets
+import play.api.Application
 import play.api.inject.guice.GuiceApplicationBuilder
 import play.api.libs.functional.syntax._
 import play.api.libs.json._
@@ -16,9 +16,9 @@ class SchemaValidatorSpec extends PlaySpecification {
     case (_, path) => Assets.versioned("/", path)
   }
 
-  def createApp = new GuiceApplicationBuilder().routes(routes).build()
+  def createApp: Application = new GuiceApplicationBuilder().routes(routes).build()
 
-  val schema = JsonSource.schemaFromString(
+  val schema: SchemaType = JsonSource.schemaFromString(
     """{
       |  "type": "object",
       |  "properties": {
@@ -38,14 +38,14 @@ class SchemaValidatorSpec extends PlaySpecification {
   case class Location(name: String)
   case class Talk(location: Location)
 
-  implicit val locationReads = Json.reads[Location]
-  val talkReads = Json.reads[Talk]
-  implicit val locationWrites = Json.writes[Location]
-  val talkWrites = Json.writes[Talk]
-  implicit val talkFormat = Json.format[Talk]
+  implicit val locationReads: Reads[Location] = Json.reads[Location]
+  val talkReads: Reads[Talk] = Json.reads[Talk]
+  implicit val locationWrites: OWrites[Location] = Json.writes[Location]
+  val talkWrites: OWrites[Talk] = Json.writes[Talk]
+  implicit val talkFormat: OFormat[Talk] = Json.format[Talk]
 
   val resourceUrl: URL = getClass.getResource("/talk.json")
-  val instance = Json.obj(
+  val instance: JsObject = Json.obj(
     "location" -> Json.obj(
       "name" -> "Munich"
     )
@@ -78,7 +78,7 @@ class SchemaValidatorSpec extends PlaySpecification {
           |}""".stripMargin).get
       val result = SchemaValidator().validate(schema)(Json.arr(1,2,3))
       result.asOpt must beSome.which {
-        case arr@JsArray(seq) => seq must haveLength(3)
+        case JsArray(seq) => seq must haveLength(3)
       }
     }
 
@@ -320,6 +320,13 @@ class SchemaValidatorSpec extends PlaySpecification {
     val talk = Talk(Location("Munich"))
     val validator = SchemaValidator()
     validator.validate(resourceUrl, talk)
-    validator.refResolver.cache.mapping.isEmpty must beFalse
+    validator.refResolver.cache.mapping.contains("http://json-schema.org/geo#") must beTrue
+  }
+
+  "verify cache hit for given URL" in {
+    val talk = Talk(Location("Munich"))
+    val validator = SchemaValidator()
+    validator.validate(resourceUrl, talk)
+    validator.refResolver.cache.mapping.contains(resourceUrl.toString) must beTrue
   }
 }
