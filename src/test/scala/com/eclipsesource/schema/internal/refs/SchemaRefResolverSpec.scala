@@ -1,20 +1,18 @@
 package com.eclipsesource.schema.internal.refs
 
-import com.eclipsesource.schema.internal.SchemaRefResolver._
 import com.eclipsesource.schema._
-import controllers.Assets
+import com.eclipsesource.schema.internal.SchemaRefResolver._
+import com.eclipsesource.schema.test.Assets
 import org.specs2.mutable.Specification
-import play.api.data.validation.ValidationError
+import play.api.Application
 import play.api.inject.guice.GuiceApplicationBuilder
 import play.api.libs.json._
-import play.api.mvc.Handler
 import play.api.test.WithServer
 
 class SchemaRefResolverSpec extends Specification {
 
-  val routes: PartialFunction[(String, String), Handler] = {
-    case (_, path) => Assets.versioned("/", path)
-  }
+  def createApp: Application = new GuiceApplicationBuilder()
+    .routes(Assets.routes(getClass)).build()
 
   val resolver = new SchemaRefResolver
 
@@ -105,7 +103,7 @@ class SchemaRefResolverSpec extends Specification {
     }
 
     "resolve anyOf constraint" in
-      new WithServer(app = new GuiceApplicationBuilder().routes(routes).build(), port = 1234) {
+      new WithServer(app = createApp, port = 1234) {
 
         val schema = JsonSource.schemaFromString(
           """{
@@ -123,7 +121,7 @@ class SchemaRefResolverSpec extends Specification {
       }
 
     "resolve oneOf constraint" in
-      new WithServer(app = new GuiceApplicationBuilder().routes(routes).build(), port = 1234) {
+      new WithServer(app = createApp, port = 1234) {
         val schema = JsonSource.schemaFromString(
           """{
             |  "oneOf": [{ "$ref": "http://localhost:1234/talk.json#/properties/title" }]
@@ -140,7 +138,7 @@ class SchemaRefResolverSpec extends Specification {
       }
 
     "resolve allOf constraint" in
-      new WithServer(app = new GuiceApplicationBuilder().routes(routes).build(), port = 1234) {
+      new WithServer(app = createApp, port = 1234) {
         val schema = JsonSource.schemaFromString(
           """{
             |"allOf": [{ "$ref": "http://localhost:1234/talk.json#/properties/title" }]
@@ -159,7 +157,7 @@ class SchemaRefResolverSpec extends Specification {
       }
 
     "resolve definitions constraint" in
-      new WithServer(app = new GuiceApplicationBuilder().routes(routes).build(), port = 1234) {
+      new WithServer(app = createApp, port = 1234) {
         val schema = JsonSource.schemaFromString(
           """{
             |  "definitions": {
@@ -174,7 +172,7 @@ class SchemaRefResolverSpec extends Specification {
       }
 
     "should resolve definitions constraint" in
-      new WithServer(app = new GuiceApplicationBuilder().routes(routes).build(), port = 1234) {
+      new WithServer(app = createApp, port = 1234) {
         val schema = JsonSource.schemaFromString(
           """{
             |  "minLength": 10,
@@ -189,7 +187,7 @@ class SchemaRefResolverSpec extends Specification {
       }
 
     "resolve dependencies constraint" in
-      new WithServer(app = new GuiceApplicationBuilder().routes(routes).build(), port = 1234) {
+      new WithServer(app = createApp, port = 1234) {
 
         val schema = JsonSource.schemaFromString(
           """{
@@ -204,7 +202,7 @@ class SchemaRefResolverSpec extends Specification {
       }
 
     "resolve patternProperties constraint" in
-      new WithServer(app = new GuiceApplicationBuilder().routes(routes).build(), port = 1234) {
+      new WithServer(app = createApp, port = 1234) {
 
         val schema = JsonSource.schemaFromString(
           """{
@@ -218,7 +216,7 @@ class SchemaRefResolverSpec extends Specification {
       }
 
     "should resolve additionalProperties constraint" in
-      new WithServer(app = new GuiceApplicationBuilder().routes(routes).build(), port = 1234) {
+      new WithServer(app = createApp, port = 1234) {
 
         val schema = JsonSource.schemaFromString(
           """{
@@ -230,7 +228,7 @@ class SchemaRefResolverSpec extends Specification {
       }
 
     "should resolve definitions constraint" in
-      new WithServer(app = new GuiceApplicationBuilder().routes(routes).build(), port = 1234) {
+      new WithServer(app = createApp, port = 1234) {
 
         val schema = JsonSource.schemaFromString(
           """{
@@ -251,7 +249,7 @@ class SchemaRefResolverSpec extends Specification {
       }
 
     "resolve additionalProperties constraint" in
-      new WithServer(app = new GuiceApplicationBuilder().routes(routes).build(), port = 1234) {
+      new WithServer(app = createApp, port = 1234) {
 
         val schema = JsonSource.schemaFromString(
           """{

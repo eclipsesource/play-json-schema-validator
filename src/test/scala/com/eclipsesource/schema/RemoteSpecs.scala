@@ -1,16 +1,17 @@
 package com.eclipsesource.schema
 
-import com.eclipsesource.schema.test.JsonSpec
-import controllers.Assets
+import com.eclipsesource.schema.test.{Assets, JsonSpec}
+import org.specs2.mutable.Specification
 import org.specs2.specification.AfterAll
+import org.specs2.specification.core.Fragments
 import org.specs2.specification.dsl.Online
+import play.api.Application
 import play.api.inject.guice.GuiceApplicationBuilder
-import play.api.mvc.Handler
-import play.api.test.{PlaySpecification, TestServer}
+import play.api.test.TestServer
 
-class RemoteSpecs extends PlaySpecification with JsonSpec with Online with AfterAll {
+class RemoteSpecs extends Specification with JsonSpec with Online with AfterAll {
 
-  override val validator = {
+  override val validator: SchemaValidator = {
     SchemaValidator().addSchema(
       "http://localhost:1234/scope_foo.json",
       JsonSource.schemaFromString(
@@ -23,25 +24,24 @@ class RemoteSpecs extends PlaySpecification with JsonSpec with Online with After
     )
   }
 
-  val routes: PartialFunction[(String, String), Handler] = {
-    case (_, path) => Assets.versioned("/remotes", path)
-  }
-
-  def createApp = new GuiceApplicationBuilder().routes(routes).build()
+  def createApp: Application = new GuiceApplicationBuilder()
+    .routes(Assets.routes(getClass, "remotes/")).build()
 
   lazy val server = TestServer(port = 1234, createApp)
 
-  def afterAll = {
-    server.stop; Thread.sleep(1000)
+  def afterAll: Unit = {
+    server.stop
+    Thread.sleep(1000)
   }
 
-  def validateAjv(testName: String) = validate(testName, "ajv_tests")
+  def validateAjv(testName: String): Fragments = validate(testName, "ajv_tests")
 
   sequential
 
   "Validation from remote resources is possible" >> {
     {
-      server.start; Thread.sleep(1000)
+      server.start
+      Thread.sleep(1000)
     } must not(throwAn[Exception]) continueWith {
       validateMultiple(
         "ajv_tests" -> Seq(

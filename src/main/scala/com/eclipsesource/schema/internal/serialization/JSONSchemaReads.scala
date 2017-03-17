@@ -19,7 +19,8 @@ trait JSONSchemaReads {
     case "number"  => numberReader.map(asSchemaType)
     case "array"   => delegatingArrayReader.map(asSchemaType) orElse delegatingTupleReader.map(asSchemaType)
     case "object"  => delegatingObjectReader.map(asSchemaType)
-    case "null"    => nullReader.map(s => s : SchemaType)
+    case "null"    => nullReader.map(asSchemaType)
+    case other     => Reads.apply(_ => JsError(s"Invalid JSON schema. Unknown $other type.")).map(asSchemaType)
   }.or {
     tupleReader.map(asSchemaType)
   }.or {

@@ -3,9 +3,9 @@ import sbt.Keys._
 import sbt._
 
 object Version {
-  // TODO: remove snapshots once stable builds are available
-  final val playJson      = "2.6.0-M2"
-  final val playTest      = "2.6.0-+"
+  // TODO: remove milestone versions once stable builds are available
+  final val playJson      = "2.6.0-M5"
+  final val playTest      = "2.6.0-M2"
   final val scalaz        = "7.2.8"
   final val specs2        = "3.8.6"
   final val guava         = "19.0"
@@ -19,7 +19,6 @@ object Library {
   final val playTest      = "com.typesafe.play" %% "play-specs2"            % Version.playTest       % "test"
   final val specs2        = "org.specs2"        %% "specs2-core"            % Version.specs2         % "test"
   final val i18n          = "com.osinka.i18n"   %% "scala-i18n"             % Version.i18n
-
 }
 
 object Dependencies {

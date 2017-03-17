@@ -21,8 +21,70 @@ trait HasLang {
   implicit val lang: Lang
 }
 
-trait CanValidate {
-  self: Customizations with HasLang =>
+/**
+  * The schema validator.
+  *
+  * @param refResolver the reference resolver
+  */
+case class SchemaValidator(refResolver: SchemaRefResolver = new SchemaRefResolver,
+                           formats: Map[String, SchemaFormat] = DefaultFormats.formats)
+                          (implicit val lang: Lang = Lang.Default)
+  extends Customizations with HasLang {
+
+  /**
+    * Add a URLStreamHandler that is capable of handling absolute with a specific scheme.
+    *
+    * @param handler the UrlHandler to be added
+    * @return a new validator instance
+    */
+  def addUrlHandler(handler: URLStreamHandler, scheme: String): SchemaValidator =
+    copy(refResolver =
+      refResolver.copy(resolverFactory =
+        refResolver.resolverFactory.addUrlHandler(scheme, handler)))
+
+  /**
+    * Add a relative URLStreamHandler that is capable of resolving relative references.
+    * Optionally takes a protocol that determines for which schemes the
+    * handler should be triggered.
+    *
+    * @param handler the relative handler to be added
+    * @return the validator instance with the handler being added
+    */
+  def addRelativeUrlHandler(handler: URLStreamHandler, scheme: String = UrlHandler.ProtocolLessScheme): SchemaValidator =
+    copy(refResolver =
+      refResolver.copy(resolverFactory =
+        refResolver.resolverFactory.addRelativeUrlHandler(scheme, handler)))
+
+
+  /**
+    * Add a custom format
+    *
+    * @param format the custom format
+    * @return a new validator instance containing the custom format
+    */
+  def addFormat(format: SchemaFormat): SchemaValidator =
+    copy(formats = formats + (format.name -> format))
+
+  /**
+    * Add a schema.
+    *
+    * @param id the id of the schema
+    * @param schema the schema
+    */
+  def addSchema(id: String, schema: SchemaType): SchemaValidator = {
+    copy(refResolver =
+      refResolver.copy(cache =
+        refResolver.cache.add(Ref(id))(schema))
+    )
+  }
+
+  private def buildContext(schema: SchemaType, schemaUrl: URL): SchemaResolutionContext = {
+    val id = schema.constraints.any.id.map(Ref)
+    SchemaResolutionContext(refResolver,
+      new SchemaResolutionScope(schema, id.orElse(Some(Ref(schemaUrl.toString)))),
+      formats = formats
+    )
+  }
 
   /**
     * Validate the given JsValue against the schema located at the given URL.
@@ -32,18 +94,21 @@ trait CanValidate {
     * @return a JsResult holding the validation result
     */
   def validate(schemaUrl: URL, input: => JsValue): JsResult[JsValue] = {
-    def buildContext(schema: SchemaType): SchemaResolutionContext = {
-      val id = schema.constraints.any.id.map(Ref)
-      SchemaResolutionContext(refResolver,
-        new SchemaResolutionScope(schema, id.orElse(Some(Ref(schemaUrl.toString)))),
-        formats = formats
-      )
+    val ref = Ref(schemaUrl.toString)
+    refResolver.cache.get(ref) match {
+      case None =>
+        for {
+          schema <- JsonSource.schemaFromUrl(schemaUrl)
+          context = buildContext(schema, schemaUrl)
+          result <- schema.validate(input, context).toJsResult
+        } yield {
+          refResolver.cache = refResolver.cache.add(ref)(schema)
+          result
+        }
+      case Some(schema) =>
+        val context = buildContext(schema, schemaUrl)
+        schema.validate(input, context).toJsResult
     }
-
-    for {
-      schema <- JsonSource.schemaFromUrl(schemaUrl)
-      result <- schema.validate(input, buildContext(schema)).toJsResult
-    } yield result
   }
 
   /**
@@ -110,10 +175,8 @@ trait CanValidate {
       new SchemaResolutionScope(schema, id),
       formats = formats
     )
-    schema.validate(
-      input,
-      context
-    ).toJsResult
+
+    schema.validate(input, context).toJsResult
   }
 
   /**
@@ -196,63 +259,5 @@ trait CanValidate {
           }
         )
     }
-  }
-}
-
-/**
-  * The schema validator.
-  *
-  * @param refResolver the reference resolver
-  */
-case class SchemaValidator(refResolver: SchemaRefResolver = new SchemaRefResolver,
-                           formats: Map[String, SchemaFormat] = DefaultFormats.formats)
-                          (implicit val lang: Lang = Lang.Default)
-  extends CanValidate with Customizations with HasLang {
-
-  /**
-    * Add a URLStreamHandler that is capable of handling absolute with a specific scheme.
-    *
-    * @param handler the UrlHandler to be added
-    * @return a new validator instance
-    */
-  def addUrlHandler(handler: URLStreamHandler, scheme: String): SchemaValidator =
-    copy(refResolver =
-      refResolver.copy(resolverFactory =
-        refResolver.resolverFactory.addUrlHandler(scheme, handler)))
-
-  /**
-    * Add a relative URLStreamHandler that is capable of resolving relative references.
-    * Optionally takes a protocol that determines for which schemes the
-    * handler should be triggered.
-    *
-    * @param handler the relative handler to be added
-    * @return the validator instance with the handler being added
-    */
-  def addRelativeUrlHandler(handler: URLStreamHandler, scheme: String = UrlHandler.ProtocolLessScheme): SchemaValidator =
-    copy(refResolver =
-      refResolver.copy(resolverFactory =
-        refResolver.resolverFactory.addRelativeUrlHandler(scheme, handler)))
-
-
-  /**
-    * Add a custom format
-    *
-    * @param format the custom format
-    * @return a new validator instance containing the custom format
-    */
-  def addFormat(format: SchemaFormat): SchemaValidator =
-    copy(formats = formats + (format.name -> format))
-
-  /**
-    * Add a schema.
-    *
-    * @param id the id of the schema
-    * @param schema the schema
-    */
-  def addSchema(id: String, schema: SchemaType): SchemaValidator = {
-    copy(refResolver =
-      refResolver.copy(cache =
-        refResolver.cache.add(Ref(id))(schema))
-    )
   }
 }
