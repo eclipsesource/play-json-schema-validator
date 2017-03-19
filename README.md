@@ -150,11 +150,11 @@ and we validate the value `1.5`, the `toJson` method returns this error:
 
 ## Customization of Error reporting
 
-The validator allows your to alter error messages via [scala-i18n](https://github.com/osinka/scala-i18n),
+The validator allows you to alter error messages via [scala-i18n](https://github.com/osinka/scala-i18n),
  e.g. for localizing errors reports.
 You can alter messages by placing a `messages_XX.txt` into your resources folder (by default `conf`).
 The keys used for replacing messages can be found [here](https://github.com/eclipsesource/play-json-schema-validator/blob/master/src/main/resources/messages.txt).
- In case you use the validator within a Play application, you'll need to convert Play's `Lang`, e.g. via an implicit conversion:
+In case you use the validator within a Play application, you'll need to convert Play's `Lang` and make it implicitly available for the `SchemaValidator`, e.g. via:
  
  ```Scala
 implicit def fromPlayLang(lang: Lang): com.osinka.i18n.Lang = com.osinka.i18n.Lang(lang.locale)
