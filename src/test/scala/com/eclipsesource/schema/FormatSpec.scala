@@ -17,6 +17,19 @@ class FormatSpec extends Specification with JsonSpec {
       result.isSuccess must beTrue
     }
 
+    "validate emails" in {
+      val schema = JsonSource.schemaFromString(
+        """
+          |{
+          |  "type": "string",
+          |  "format": "email"
+          |}
+        """.stripMargin).get
+      val validator = SchemaValidator()
+      validator.validate(schema, JsString("a%d33@example.co.uk")).isSuccess must beTrue
+      validator.validate(schema, JsString(".@.....")).isError must beTrue
+    }
+
     "validate UUIDs" in {
       val schema = JsonSource.schemaFromString(
         """
