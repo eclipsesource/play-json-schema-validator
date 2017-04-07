@@ -6,8 +6,7 @@ This is a JSON schema (draft v4) validation library for Scala based on Play's JS
 
 If you experience any issues or have feature requests etc., please don't hesitate to [file an issue](https://github.com/eclipsesource/play-json-schema-validator/issues/new). Thanks!
 
-<a name="Installation">
-## Installation
+## <a name="Installation">Installation 
 
 Add an additional resolver to your `build.sbt` file:
 
