@@ -14,20 +14,20 @@ Add an additional resolver to your `build.sbt` file:
 resolvers += "emueller-bintray" at "http://dl.bintray.com/emueller/maven"
 ```
 
-Then add the dependency (Scala 2.12 only, Scala 2.11 support is discontinued with 0.9.x):
+Then add the dependency (**Scala 2.12** only, Scala 2.11 support is discontinued with 0.9.x):
 
 ```Scala
 libraryDependencies ++= Seq(
- "com.eclipsesource" %% "play-json-schema-validator" % "0.9.0"
+  "com.eclipsesource" %% "play-json-schema-validator" % "0.9.0"
 )
 ```
  
 For Scala 2.11 use:
   
 ```Scala
-  libraryDependencies ++= Seq(
-   "com.eclipsesource" %% "play-json-schema-validator" % "0.8.8"
-  )
+libraryDependencies ++= Seq(
+  "com.eclipsesource" %% "play-json-schema-validator" % "0.8.8"
+)
 ```
  
 ## Usage
