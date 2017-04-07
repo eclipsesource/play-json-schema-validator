@@ -94,9 +94,8 @@ object DefaultFormats {
   }
 
   object EmailFormat extends SchemaFormat {
-
-    // http://stackoverflow.com/questions/201323/using-a-regular-expression-to-validate-an-email-address
-    private val CompiledEmailPattern = Pattern.compile("^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\\.[a-zA-Z0-9-.]+$")
+    val Email = "^([a-zA-Z0-9.!#$%&’'*+/=?^_`{|}~-]+)@([a-zA-Z0-9-]+(?:\\.[a-zA-Z0-9-]+)*)$"
+    private val CompiledEmailPattern = Pattern.compile(Email)
 
     override def name: String = "email"
     override def validate(json: JsValue): Boolean = json match {
