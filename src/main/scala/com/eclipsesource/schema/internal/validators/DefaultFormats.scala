@@ -1,5 +1,7 @@
 package com.eclipsesource.schema.internal.validators
 
+import java.time.OffsetDateTime
+import java.time.format.DateTimeParseException
 import java.util.regex.Pattern
 
 import com.eclipsesource.schema.SchemaFormat
@@ -8,6 +10,7 @@ import jdk.nashorn.internal.runtime.regexp.RegExpFactory
 import play.api.libs.json.{JsNumber, JsString, JsValue}
 
 import scala.util.Try
+import scalaz.\/
 
 object DefaultFormats {
 
@@ -27,14 +30,14 @@ object DefaultFormats {
   def get(format: String): Option[SchemaFormat] = formats.get(format)
 
   object DatetimeFormat extends SchemaFormat {
-    private val CompiledDatetimePattern = Pattern.compile(
-      "^([0-9]{4})-([0-9]{2})-([0-9]{2})([Tt]([0-9]{2}):([0-9]{2}):([0-9]{2})(\\.[0-9]+)?)?(([Zz]|([+-])([0-9]{2}):([0-9]{2})))?"
-    )
+
     override def name: String = "date-time"
 
     // http://hg.mozilla.org/comm-central/rev/031732472726
     override def validate(json: JsValue): Boolean = json match {
-      case JsString(dateTime) => CompiledDatetimePattern.matcher(dateTime).find
+      case JsString(dateTime) =>
+        \/.fromTryCatchThrowable[OffsetDateTime, DateTimeParseException](OffsetDateTime.parse(dateTime))
+          .fold(_ => false, _ => true)
       case _ => false
     }
   }
