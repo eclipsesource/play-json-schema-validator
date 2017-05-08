@@ -1,5 +1,8 @@
 package com.eclipsesource.schema
 
+import java.math.BigInteger
+
+import com.eclipsesource.schema.internal.validators.DefaultFormats.DatetimeFormat
 import org.specs2.mutable.Specification
 import com.eclipsesource.schema.test.JsonSpec
 import play.api.libs.json._
@@ -193,6 +196,32 @@ class FormatSpec extends Specification with JsonSpec {
         "intprop" -> -1.7976931348623157E+308
       )
       validator.validate(schema, instance).isSuccess must beTrue
+    }
+
+    "validate date-time format" in {
+
+      def validateDate(date: String): Boolean =
+        DatetimeFormat.validate(JsString(date))
+
+      validateDate("2007-12-03T10:15:30")         must beFalse
+      validateDate("2007-12-03 10:15:30+01:00")   must beFalse
+      validateDate("2007-12-03 10:15:30")         must beFalse
+      validateDate("2007-12-03 10:15")            must beFalse
+      validateDate("2007-12-03")                  must beFalse
+      validateDate("2007-12-03T10:15:30.1111111") must beFalse
+      validateDate("99999-12-03T10:15:30+01:00")  must beFalse
+      validateDate("-00000-12-03T10:15:30+01:00") must beFalse
+      validateDate("2007-12-32T10:15:30+01:00")   must beFalse
+      validateDate("2007-13-03T10:15:30+01:00")   must beFalse
+      validateDate("2007-12-03T25:15:30+01:00")   must beFalse
+      validateDate("2007-12-03T10:60:30+01:00")   must beFalse
+      validateDate("2007-12-03T10:15:60+01:00")   must beFalse
+      validateDate("2007-12-03T10:15:30+19:00")   must beFalse
+      validateDate("2007-12-03T10:15:30-19:00")   must beFalse
+      validateDate("2007-13-03T10:15:30+01:60")   must beFalse
+      validateDate("2007-12-03T10:15:30+20:00")   must beFalse
+      validateDate("2007-12-03T10:15:30+01:00.1") must beFalse
+      validateDate("2007:12:03T10:15:30+01:00.1") must beFalse
     }
   }
 }
