@@ -33,14 +33,14 @@ class SchemaValidatorSpec extends PlaySpecification {
   case class Location(name: String)
   case class Talk(location: Location)
 
-  implicit val locationReads = Json.reads[Location]
-  val talkReads = Json.reads[Talk]
-  implicit val locationWrites = Json.writes[Location]
-  val talkWrites = Json.writes[Talk]
-  implicit val talkFormat = Json.format[Talk]
+  implicit val locationReads: Reads[Location] = Json.reads[Location]
+  val talkReads: Reads[Talk] = Json.reads[Talk]
+  implicit val locationWrites: OWrites[Location] = Json.writes[Location]
+  val talkWrites: OWrites[Talk] = Json.writes[Talk]
+  implicit val talkFormat: OFormat[Talk] = Json.format[Talk]
 
   val resourceUrl: URL = getClass.getResource("/talk.json")
-  val instance = Json.obj(
+  val instance: JsObject = Json.obj(
     "location" -> Json.obj(
       "name" -> "Munich"
     )
@@ -316,5 +316,75 @@ class SchemaValidatorSpec extends PlaySpecification {
     val validator = SchemaValidator()
     validator.validate(resourceUrl, talk)
     validator.refResolver.cache.mapping.isEmpty must beFalse
+  }
+
+  "add dependencies via addSchema and validate (#98)" in {
+    val validator = SchemaValidator()
+    val commonSchema = JsonSource.schemaFromString(
+      """|{
+         |  "definitions": {
+         |    "foo": {"type": "string"}
+         |  }
+         |}
+      """.stripMargin
+    ).get
+    val result = validator
+      .addSchema("common-schema.json", commonSchema)
+      .validate(
+        JsonSource.schemaFromString(
+          """|{
+             |  "allOf": [
+             |    {
+             |      "properties": {
+             |        "something": {
+             |          "$ref": "common-schema.json#/definitions/foo"
+             |        }
+             |      }
+             |    }
+             |  ]
+             |}""".stripMargin).get,
+        Json.obj(
+          "something" -> "foo"
+        )
+      )
+    result.isSuccess must beTrue
+  }
+
+  "add dependencies via addSchema and fail (#98)" in {
+    val validator = SchemaValidator()
+    val commonSchema = JsonSource.schemaFromString(
+      """|{
+         |  "definitions": {
+         |    "foo": {"type": "integer"}
+         |  }
+         |}
+      """.stripMargin
+    ).get
+    val result = validator
+      .addSchema("common-schema.json", commonSchema)
+      .validate(
+        JsonSource.schemaFromString(
+          """|{
+             |  "allOf": [
+             |    {
+             |      "properties": {
+             |        "something": {
+             |          "$ref": "common-schema.json#/definitions/foo"
+             |        }
+             |      }
+             |    }
+             |  ]
+             |}""".stripMargin).get,
+        Json.obj(
+          "something" -> "foo"
+        )
+      )
+    val errors = result.asEither.left.get
+    val error = errors.toJson(0).get
+    error \ "errors" \ "/allOf/0" \ 0 \ "origin" must beEqualTo(JsDefined(JsString("#/allOf/0/properties/something")))
+    error \ "errors" \ "/allOf/0" \ 0 \ "resolutionScope" must beEqualTo(JsDefined(JsString("common-schema.json")))
+    error \ "errors" \ "/allOf/0" \ 0 \ "schemaPath" must beEqualTo(JsDefined(JsString("#/definitions/foo")))
+
+    result.isSuccess must beFalse
   }
 }

@@ -168,14 +168,18 @@ object AnyConstraintValidator {
   private def collectFailures(results: Seq[VA[JsValue]], prefix: String): JsObject = {
 
     def repath(prefix: String)(obj: JsObject): JsObject = {
-      val fields = obj.fields.map {
-        case ("schemaPath", JsString(schemaPath)) if schemaPath.startsWith("#") =>
-          ("schemaPath", JsString(s"#$prefix${schemaPath.drop(1)}"))
-        case ("schemaPath", JsString(schemaPath)) =>
-          ("schemaPath", JsString(s"$prefix$schemaPath"))
-        case field => field
-      }
-      JsObject(fields)
+      // prefix either schemaPath or origin, if it exists
+      val prefixedField = obj.fields
+        .find(field => field._1 == "origin")
+        .orElse(obj.fields.find(field => field._1 == "schemaPath"))
+        .map {
+          case (name, JsString(schemaPath)) if schemaPath.startsWith("#") =>
+            (name, JsString(s"#$prefix${schemaPath.drop(1)}"))
+        }
+      prefixedField.fold(obj)(field => {
+        val index = obj.fields.indexWhere(_._1 == field._1)
+        JsObject(obj.fields.updated(index, field))
+      })
     }
 
     results.zipWithIndex.foldLeft(Json.obj()) {

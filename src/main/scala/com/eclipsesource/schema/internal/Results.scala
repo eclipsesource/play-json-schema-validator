@@ -10,7 +10,7 @@ object Results {
 
   def merge(va1: VA[JsValue], va2: VA[JsValue]): VA[JsValue] = {
     (va1, va2) match {
-      case (Success(_), f@Failure(err)) => f
+      case (Success(_), f@Failure(_)) => f
       case (f@Failure(_), Success(_)) => f
       case (f1@Failure(errs1), f2@Failure(errs2))    => Failure((errs1 ++ errs2).distinct)
       case (s@Success(json), Success(_)) => s
@@ -39,13 +39,17 @@ object Results {
 
     Failure(Seq(context.instancePath ->
       Seq(JsonValidationError(msg,
-         Json.obj(
-           "keyword" -> keyword,
+        Json.obj(
+          "keyword" -> keyword,
           "schemaPath" -> dropSlashIfAny(context.schemaPath.toString()),
           "instancePath" -> context.instancePath.toString(),
           "value" -> instance,
           "errors" ->  additionalInfo
-        ) ++ context.scope.id.fold(Json.obj())(id => Json.obj("resolutionScope" -> id.value))
+        ) ++ context.scope.id.fold(Json.obj())(id =>
+          Json.obj("resolutionScope" -> id.value)
+        ) ++ context.scope.origin.fold(Json.obj())(origin =>
+          Json.obj("origin" -> dropSlashIfAny(origin.toString()))
+        )
       ))
     ))
   }
