@@ -132,12 +132,11 @@ package object schema
     }
 
     private[schema] def validateConstraints(json: => JsValue, resolutionContext: SchemaResolutionContext)
-                                           (implicit validator: SchemaTypeValidator[S], lang: Lang): VA[JsValue] = {
+                                           (implicit validator: SchemaTypeValidator[S], lang: Lang): VA[JsValue] =
       Results.merge(
         validator.validate(schemaType, json, resolutionContext),
         AnyConstraintValidator.validate(json, schemaType, resolutionContext)
       )
-    }
   }
 
   private implicit class SchemaObjectExtension(schemaObject: SchemaObject) {
