@@ -49,7 +49,7 @@ object AnyConstraintValidator {
       Rule.fromMapping { json =>
         schema.constraints.any.allOf.map(
           schemas => {
-            val mergedSchemas = mergeSchemas(schema, schemas)
+            val mergedSchemas: Seq[SchemaType] = mergeSchemas(schema, schemas)
             val allValidationResults: Seq[VA[JsValue]] = mergedSchemas.map(_.validate(json, context))
             val allMatch = allValidationResults.forall(_.isSuccess)
             if (allMatch) {
@@ -184,10 +184,9 @@ object AnyConstraintValidator {
 
     results.zipWithIndex.foldLeft(Json.obj()) {
       case (obj, (Failure(errors), idx)) =>
-        // TODO: why distinct?
         obj ++ Json.obj(s"$prefix/$idx" ->
           JsArray(
-            SchemaUtil.toJson(errors.distinct).value.map {
+            SchemaUtil.toJson(errors).value.map {
               case obj: JsObject => repath(s"$prefix/$idx")(obj)
               case js => js
             }
