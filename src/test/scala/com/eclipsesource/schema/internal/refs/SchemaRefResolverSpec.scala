@@ -9,6 +9,8 @@ import play.api.inject.guice.GuiceApplicationBuilder
 import play.api.libs.json._
 import play.api.test.WithServer
 
+import scalaz.\/
+
 class SchemaRefResolverSpec extends Specification {
 
   def createApp: Application = new GuiceApplicationBuilder()
@@ -361,6 +363,13 @@ class SchemaRefResolverSpec extends Specification {
       val scope = new SchemaResolutionScope(schema)
       val result = resolver.resolve(Ref("http://my.site/schema1#"), scope)
       result must beRight.which(r => r.resolved.isInstanceOf[SchemaInteger])
+    }
+
+    "resolve nil fragments" in {
+      val schema = JsonSource.schemaFromString("{}").get
+      // scope and schema do not matter in this test
+      val result = resolver.resolveFragments(Nil, new SchemaResolutionScope(schema), schema)
+      result.toEither must beRight.which(r => r.resolved == schema )
     }
 
     "resolve refs within mySiteSchema" in {

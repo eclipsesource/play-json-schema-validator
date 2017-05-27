@@ -15,7 +15,8 @@ case class GenResolutionScope[A : CanHaveRef](documentRoot: A,
                                               schemaPath: JsPath = JsPath \ "#",
                                               instancePath: JsPath = JsPath,
                                               visited: Set[Ref] = Set.empty[Ref], // tracks all visited refs
-                                              depth: Int = 0) {
+                                              depth: Int = 0,
+                                              origin: Option[JsPath] = None) {
 
   def hasBeenVisited: (Ref) => Boolean = visited.contains
   def addVisited(ref: Ref): GenResolutionScope[A] = copy(visited = visited + ref)
@@ -27,7 +28,5 @@ case class DocumentCache[A](private[schema] val mapping: Map[String, A] = Map.em
 
   def get(id: Ref): Option[A] = mapping.get(id.value)
 
-  def apply(id: Ref): A = mapping(id.value)
-
-  def contains(id: Ref): Boolean = mapping.contains(id.value)
+  def exists(pred: String => Boolean): Boolean = mapping.keys.exists(pred)
 }

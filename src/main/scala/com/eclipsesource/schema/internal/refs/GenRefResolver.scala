@@ -67,36 +67,45 @@ case class GenRefResolver[A : CanHaveRef : Reads]
     } else {
       val result: \/[JsonValidationError, ResolvedResult[A]] = (current, ref) match {
 
-        // current schema id is part of to be resolved id
+        // id in current is prefix of ref
         case (_, _) if refTypeClass.findScopeRefinement(current).exists(id => ref.startsWith(id)) =>
           matchAnchorIdAndResolve(current, ref, scope)
 
-        // if current instance has a ref, resolve that one first
+        // check if current instance contains the ref to be resolved
+        // or whether it's another one that needs to be resolved first
         case (_, _) if hasRef(current) =>
           val Some(anotherRef) = refTypeClass.findRef(current)
-          // TODO should we check whether we need to update the document root in case current == documentRoot?
-          resolve(current, anotherRef, updatedScope.addVisited(ref)) flatMap continueResolving(ref)
+          val result = resolve(current, anotherRef, updatedScope.addVisited(anotherRef))
+          if (anotherRef == ref) {
+            // was same ref
+            result
+          } else {
+            // current contained another ref, keep on resolving
+            result flatMap continueResolving(ref)
+          }
 
         case (_, _) if ref.isAbsolute =>
           // could be an id
           resolveAnchorId(ref, updatedScope, current) orElse
             // protocol-ful relative refs; relative refs with custom schemes will be recognized as absolute
-            resolveRelative(ref, scope) orElse
-            resolveDocument(ref, updatedScope)
+            resolveRef(ref, scope)
 
-        // since the cache may contain unresolved refs, this must come after the previous case
-        case (_, _) if cache.contains(ref) =>
-          ResolvedResult(cache(ref), scope).right
+        // since the cache may contain unresolved refs, this must be handled after the previous case
+        case (_, _) if cache.exists(id => ref.startsWith(id)) =>
+          resolveCache(ref, updatedScope)
 
         // resolve root only
         case (_, Refs.`#`) =>
-          ResolvedResult(updatedScope.documentRoot, updatedScope.copy(schemaPath = JsPath \ "#")).right
+          ResolvedResult(
+            updatedScope.documentRoot,
+            updatedScope.copy(schemaPath = JsPath \ "#")
+          ).right
 
-        // resolve root and continue with the rest of the ref
+        // resolve local root and continue with the rest of the ref
         case (_, _) if ref.isFragment && !ref.isAnchor =>
           resolve(updatedScope.documentRoot, ref.dropHashAtStart,
             updatedScope.copy(
-              id = updatedScope.id.map(_.withHashAtEnd),
+              id = updatedScope.id,
               schemaPath = JsPath \ "#"
             )
           )
@@ -104,7 +113,7 @@ case class GenRefResolver[A : CanHaveRef : Reads]
         case (_, _) =>
           resolveFragments(toSegments(ref), updatedScope, current) orElse
             resolveAnchorId(ref, updatedScope, current) orElse
-            resolveRelative(ref, updatedScope) orElse
+            resolveRef(ref, updatedScope) orElse
             resolveWithRelativeUrlHandlers(ref, scope)
       }
 
@@ -114,6 +123,21 @@ case class GenRefResolver[A : CanHaveRef : Reads]
             .fold(result)(foundRef => continueResolving(foundRef)(resolvedResult))
         case _ => resolutionFailure(ref)(updatedScope).left
       }
+    }
+  }
+
+  private def resolveCache(ref: Ref, updatedScope: GenResolutionScope[A])
+                          (implicit lang: Lang) = {
+    cache.mapping.find { case (id, s) => ref.value.startsWith(id) } match {
+      case Some((identifier, a)) if identifier == ref.value => ResolvedResult(a, updatedScope).right
+      case Some((identifier, a)) =>
+        resolve(a, ref.drop(identifier.length), updatedScope.copy(
+          // set document root to resolved sub-schema
+          documentRoot = a,
+          id = Some(Ref(identifier)),
+          schemaPath = JsPath \ "#",
+          origin = Some(updatedScope.schemaPath)
+        ))
     }
   }
 
@@ -175,17 +199,18 @@ case class GenRefResolver[A : CanHaveRef : Reads]
     JsonValidationError(s"Could not resolve ref ${ref.value}")
 
   /**
-    * Resolve a given list of fragments against a given schema.
+    * Resolve a given list of fragments against a given resolved schema instance.
     *
     * @param fragments a list of single fragments to be resolved
     * @param scope the initial resolution scope
-    * @param instance the instance which the fragments are to be resolved against
+    * @param instance a resolved schema instance
     * @return the resolved result, if any
     */
-  private def resolveFragments(fragments: List[String], scope: GenResolutionScope[A], instance: A)
-                              (implicit lang: Lang): \/[JsonValidationError, ResolvedResult[A]] = {
+  private[schema] def resolveFragments(fragments: List[String], scope: GenResolutionScope[A], instance: A)
+                              (implicit lang: Lang = Lang.Default): \/[JsonValidationError, ResolvedResult[A]] = {
+
     (fragments, instance) match {
-      case (Nil, result) => ResolvedResult(result, scope).right
+      case (Nil, _) => ResolvedResult(instance, scope).right
       case (fragment :: rest, resolvable) =>
         \/.fromEither(refTypeClass.resolve(resolvable, fragment)).flatMap { r =>
           rest match {
@@ -256,34 +281,28 @@ case class GenRefResolver[A : CanHaveRef : Reads]
 
 
   /**
-    * Resolve the given ref relatively against the base URL.
+    * Resolve the given ref. The given ref may be relative or absolute.
+    * If is relative it will be normalized against the current resolution scope.
     *
     * @param ref the ref to be resolved
-    * @param scope the resolution scope
+    * @param scope the resolution scope that will be used for normalization
     * @return the resolved schema
     */
-  private def resolveRelative(ref: Ref, scope: GenResolutionScope[A])
+  private def resolveRef(ref: Ref, scope: GenResolutionScope[A])
                              (implicit lang: Lang): \/[JsonValidationError, ResolvedResult[A]] = {
+
     // pass in resolver factory to recognize custom schemes
     val normalized = Refs.normalize(ref, scope.id, Some(resolverFactory))
     for {
-      url           <- createUrl(normalized)
+      url <- createUrl(normalized.documentName)
       fetchedSchema <- fetch(url, scope)
-      result        <- resolve(fetchedSchema,
-        ref.fragments.getOrElse(Refs.`#`),
-        scope.copy(documentRoot = fetchedSchema)
+      result <- resolve(fetchedSchema,
+        normalized.fragments.getOrElse(Refs.`#`),
+        scope.copy(
+          documentRoot = fetchedSchema,
+          origin = Some(scope.schemaPath)
+        )
       )
-    } yield result
-  }
-
-  private def resolveDocument(ref: Ref, scope: GenResolutionScope[A])
-                             (implicit lang: Lang): \/[JsonValidationError, ResolvedResult[A]] = {
-    for {
-      documentUrl <- createUrl(ref.documentName)
-      instance    <- fetch(documentUrl, scope)
-      result      <- ref.fragments
-        .map(frags => resolve(instance, frags, scope.copy(documentRoot = instance)))
-        .getOrElse(ResolvedResult(instance, scope.copy(schemaPath = JsPath \ "#")).right)
     } yield result
   }
 

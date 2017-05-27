@@ -98,6 +98,7 @@ case class Ref(value: String) {
   private final val ProtocolPattern = WithProtocol.r.pattern
 
   def startsWith(p: Ref) = value.startsWith(p.value)
+  def startsWith(s: String) = value.startsWith(s)
   def endsWith(s: String) = value.endsWith(s)
 
   /**
