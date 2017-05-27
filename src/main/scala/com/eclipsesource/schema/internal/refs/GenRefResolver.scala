@@ -58,7 +58,7 @@ case class GenRefResolver[A : CanHaveRef : Reads]
   private[schema] def resolve(current: A, ref: Ref, scope: GenResolutionScope[A])
                              (implicit lang: Lang): \/[ValidationError, ResolvedResult[A]] = {
 
-    def hasRef(obj: A)  = refTypeClass.findRef(obj).fold(false)(r => !scope.hasBeenVisited(r))
+    def hasRef(obj: A) = refTypeClass.findRef(obj).fold(false)(r => !scope.hasBeenVisited(r))
 
     // update resolution scope, if applicable
     val updatedScope = updateResolutionScope(scope.copy(depth = scope.depth + 1), current)
@@ -110,7 +110,6 @@ case class GenRefResolver[A : CanHaveRef : Reads]
               schemaPath = JsPath \ "#"
             )
           )
-        )
 
         case (_, _) =>
           resolveFragments(toSegments(ref), updatedScope, current) orElse
@@ -126,9 +125,10 @@ case class GenRefResolver[A : CanHaveRef : Reads]
         case _ => resolutionFailure(ref)(updatedScope).left
       }
     }
+  }
 
   private def resolveCache(ref: Ref, updatedScope: GenResolutionScope[A])
-                          (implicit lang: Lang) = {
+                          (implicit lang: Lang): \/[ValidationError, ResolvedResult[A]] = {
     cache.mapping.find { case (id, s) => ref.value.startsWith(id) } match {
       case Some((identifier, a)) if identifier == ref.value => ResolvedResult(a, updatedScope).right
       case Some((identifier, a)) =>
@@ -249,7 +249,7 @@ case class GenRefResolver[A : CanHaveRef : Reads]
 
     def parseJson(source: Source): \/[ValidationError, JsValue] = \/.fromEither(Try {
       Json.parse(source.getLines().mkString)
-    }.toJsonEither)
+    }.toEither)
 
     def readJson(json: JsValue): \/[ValidationError, A] = \/.fromEither(Json.fromJson[A](json).asEither)
       .leftMap(errors =>
@@ -274,7 +274,7 @@ case class GenRefResolver[A : CanHaveRef : Reads]
     cache.get(ref) match {
       case Some(a) => a.right
       case _ => for {
-        source <- \/.fromEither(Try { Source.fromURL(url) }.toJsonEither)
+        source <- \/.fromEither(Try { Source.fromURL(url) }.toEither)
         read <- readSource(source)
       } yield read
     }

@@ -1,16 +1,22 @@
 package com.eclipsesource.schema
 
-import com.eclipsesource.schema.test.{Assets, JsonSpec}
+import com.eclipsesource.schema.test.JsonSpec
+import controllers.Assets
 import org.specs2.mutable.Specification
 import play.api.Application
 import play.api.inject.guice.GuiceApplicationBuilder
 import play.api.libs.json._
+import play.api.mvc.Handler
 import play.api.test.WithServer
 
 class RefRemoteSpec extends Specification with JsonSpec {
 
+  val routes: PartialFunction[(String, String), Handler] = {
+    case (_, path) => Assets.versioned("/", path)
+  }
+
   def createApp: Application = new GuiceApplicationBuilder()
-    .routes(Assets.routes(getClass)).build()
+    .routes(routes).build()
 
   "remote ref - remote ref invalid" in new WithServer(createApp, port = 1234) {
     val validator = SchemaValidator()

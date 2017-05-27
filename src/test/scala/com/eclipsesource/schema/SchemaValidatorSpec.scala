@@ -2,16 +2,21 @@ package com.eclipsesource.schema
 
 import java.net.URL
 
-import com.eclipsesource.schema.test.Assets
+import controllers.Assets
 import play.api.Application
 import play.api.inject.guice.GuiceApplicationBuilder
 import play.api.libs.functional.syntax._
 import play.api.libs.json._
+import play.api.mvc.Handler
 import play.api.test.{PlaySpecification, WithServer}
 
 class SchemaValidatorSpec extends PlaySpecification {
 
-  def createApp: Application = new GuiceApplicationBuilder().routes(Assets.routes(getClass)).build()
+  val routes: PartialFunction[(String, String), Handler] = {
+    case (_, path) => Assets.versioned("/", path)
+  }
+
+  def createApp: Application = new GuiceApplicationBuilder().routes(routes).build()
 
   val schema: SchemaType = JsonSource.schemaFromString(
     """{

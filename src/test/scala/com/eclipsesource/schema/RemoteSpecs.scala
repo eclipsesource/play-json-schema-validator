@@ -1,15 +1,21 @@
 package com.eclipsesource.schema
 
-import com.eclipsesource.schema.test.{Assets, JsonSpec}
+import com.eclipsesource.schema.test.JsonSpec
+import controllers.Assets
 import org.specs2.mutable.Specification
 import org.specs2.specification.AfterAll
 import org.specs2.specification.core.Fragments
 import org.specs2.specification.dsl.Online
 import play.api.Application
 import play.api.inject.guice.GuiceApplicationBuilder
+import play.api.mvc.Handler
 import play.api.test.TestServer
 
 class RemoteSpecs extends Specification with JsonSpec with Online with AfterAll {
+
+  val routes: PartialFunction[(String, String), Handler] = {
+    case (_, path) => Assets.versioned("/remotes", path)
+  }
 
   override val validator: SchemaValidator = {
     SchemaValidator().addSchema(
@@ -25,7 +31,7 @@ class RemoteSpecs extends Specification with JsonSpec with Online with AfterAll 
   }
 
   def createApp: Application = new GuiceApplicationBuilder()
-    .routes(Assets.routes(getClass, "remotes/")).build()
+    .routes(routes).build()
 
   lazy val server = TestServer(port = 1234, createApp)
 

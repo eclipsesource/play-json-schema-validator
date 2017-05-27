@@ -2,19 +2,25 @@ package com.eclipsesource.schema.internal.refs
 
 import com.eclipsesource.schema._
 import com.eclipsesource.schema.internal.SchemaRefResolver._
-import com.eclipsesource.schema.test.Assets
+import controllers.Assets
 import org.specs2.mutable.Specification
 import play.api.Application
+import play.api.data.validation.ValidationError
 import play.api.inject.guice.GuiceApplicationBuilder
 import play.api.libs.json._
+import play.api.mvc.Handler
 import play.api.test.WithServer
 
 import scalaz.\/
 
 class SchemaRefResolverSpec extends Specification {
 
-  def createApp: Application = new GuiceApplicationBuilder()
-    .routes(Assets.routes(getClass)).build()
+
+  val routes: PartialFunction[(String, String), Handler] = {
+    case (_, path) => Assets.versioned("/", path)
+  }
+
+  def createApp: Application = new GuiceApplicationBuilder().routes(routes).build()
 
   val resolver = new SchemaRefResolver
 
