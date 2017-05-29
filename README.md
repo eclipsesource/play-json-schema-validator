@@ -18,7 +18,7 @@ Then add the dependency (**Scala 2.12** only, Scala 2.11 support is discontinued
 
 ```Scala
 libraryDependencies ++= Seq(
-  "com.eclipsesource" %% "play-json-schema-validator" % "0.9.0"
+  "com.eclipsesource" %% "play-json-schema-validator" % "0.9.1"
 )
 ```
  
@@ -26,13 +26,11 @@ For Scala 2.11 use:
   
 ```Scala
 libraryDependencies ++= Seq(
-  "com.eclipsesource" %% "play-json-schema-validator" % "0.8.8"
+  "com.eclipsesource" %% "play-json-schema-validator" % "0.8.9"
 )
 ```
  
 ## Usage
-
-*Note*: For usage instructions prior to 0.8.0, please see the wiki.
 
 Schemas can be parsed by passing the schema string to `Json.fromJson`, for instance like this:
 
@@ -147,7 +145,7 @@ and we validate the value `1.5`, the `toJson` method returns this error:
 } ]
 ```
 
-## Customization of Error reporting
+## Customizable error reporting
 
 The validator allows you to alter error messages via [scala-i18n](https://github.com/osinka/scala-i18n),
  e.g. for localizing errors reports.
