@@ -4,8 +4,8 @@ import sbt._
 
 object Version {
   // TODO: remove milestone versions once stable builds are available
-  final val playJson      = "2.6.0-M5"
-  final val playTest      = "2.6.0-M2"
+  final val playJson      = "2.6.0-RC2"
+  final val playTest      = "2.6.0-RC2"
   final val scalaz        = "7.2.8"
   final val specs2        = "3.8.6"
   final val guava         = "19.0"
