@@ -10,11 +10,14 @@ object Assets {
 
   def routes(clazz: Class[_], prefix: String = ""): PartialFunction[(String, String), Handler] = {
     case (_, path) =>
-
       try {
-        Action(Ok.sendResource(prefix + path.substring(1), clazz.getClassLoader))
+        val resourceName = prefix + path.substring(1)
+        Option(clazz.getClassLoader.getResource(resourceName))
+          .map(_ => Action(Ok.sendResource(resourceName, clazz.getClassLoader)))
+          .getOrElse(Action(BadRequest(s"$resourceName not found.")))
       } catch {
-        case ex: Throwable => Action(BadRequest(ex.getMessage))
+        case ex: Throwable =>
+          Action(BadRequest(ex.getMessage))
       }
   }
 }

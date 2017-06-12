@@ -158,7 +158,7 @@ class SchemaValidatorSpec extends PlaySpecification {
       )
       val result: JsResult[Foo] = SchemaValidator().validate(schema, fooInstance, lr)
       result.asEither must beLeft.like { case error =>
-        (error.toJson(0).get \ "instancePath") must beEqualTo(JsDefined(JsString("/loc")))
+        (error.toJson(0) \ "instancePath") must beEqualTo(JsDefined(JsString("/loc")))
       }
     }
 
@@ -380,7 +380,7 @@ class SchemaValidatorSpec extends PlaySpecification {
         )
       )
     val errors = result.asEither.left.get
-    val error = errors.toJson(0).get
+    val error = errors.toJson(0)
     error \ "errors" \ "/allOf/0" \ 0 \ "origin" must beEqualTo(JsDefined(JsString("#/allOf/0/properties/something")))
     error \ "errors" \ "/allOf/0" \ 0 \ "resolutionScope" must beEqualTo(JsDefined(JsString("common-schema.json")))
     error \ "errors" \ "/allOf/0" \ 0 \ "schemaPath" must beEqualTo(JsDefined(JsString("#/definitions/foo")))
