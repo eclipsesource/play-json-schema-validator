@@ -18,7 +18,7 @@ Then add the dependency (**Scala 2.12** only, Scala 2.11 support is discontinued
 
 ```Scala
 libraryDependencies ++= Seq(
-  "com.eclipsesource" %% "play-json-schema-validator" % "0.9.2"
+  "com.eclipsesource" %% "play-json-schema-validator" % "0.9.3"
 )
 ```
  
