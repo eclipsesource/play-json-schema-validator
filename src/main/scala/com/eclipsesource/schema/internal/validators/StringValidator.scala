@@ -37,13 +37,7 @@ object StringValidator extends SchemaTypeValidator[SchemaString] {
           case Some(pattern) =>
             Try {
               new RegExpFactory().compile(pattern, "")
-            }.fold( _ => failure(
-              Keywords.String.Pattern,
-              Messages("str.invalid.pattern", pattern),
-              context.schemaPath,
-              context.instancePath,
-              json
-            ), regex => {
+            }.map(regex => {
                 val matcher = regex.`match`(string)
                 if (matcher.search(0)) {
                   Success(json)
@@ -56,8 +50,13 @@ object StringValidator extends SchemaTypeValidator[SchemaString] {
                     json
                   )
                 }
-              }
-            )
+            }).getOrElse(failure(
+              Keywords.String.Pattern,
+              Messages("str.invalid.pattern", pattern),
+              context.schemaPath,
+              context.instancePath,
+              json
+            ))
           case None => Success(json)
         }
       }
