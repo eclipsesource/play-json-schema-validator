@@ -3,13 +3,12 @@ import sbt.Keys._
 import sbt._
 
 object Version {
-  // TODO: remove milestone versions once stable builds are available
-  final val playJson      = "2.6.0"
-  final val playTest      = "2.6.0"
-  final val scalaz        = "7.2.8"
-  final val specs2        = "3.8.6"
+  final val playJson      = "2.6.2"
+  final val playTest      = "2.6.1"
+  final val scalaz        = "7.2.14"
+  final val specs2        = "3.9.2"
   final val guava         = "19.0"
-  final val i18n          = "1.0.1"
+  final val i18n          = "1.0.2"
 }
 
 object Library {
@@ -47,8 +46,8 @@ object Build extends Build {
 
   val commonSettings = Seq(
       organization := "com.eclipsesource",
-      scalaVersion := "2.12.1",
-      crossScalaVersions := Seq("2.11.11", "2.12.1"),
+      scalaVersion := "2.12.2",
+      crossScalaVersions := Seq("2.11.11", "2.12.2"),
       licenses := Seq("Apache-2.0" -> url("http://www.apache.org/licenses/LICENSE-2.0")),
       Keys.fork in Test := false,
       Keys.parallelExecution in Test := false
