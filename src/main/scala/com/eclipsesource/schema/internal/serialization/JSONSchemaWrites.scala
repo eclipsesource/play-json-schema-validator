@@ -18,7 +18,13 @@ trait JSONSchemaWrites {
     case o: SchemaObject       => objectWriter.writes(o)
     case n: SchemaNull         => nullWriter.writes(n)
     case n: CompoundSchemaType => compoundWriter.writes(n)
+    case s: SchemaMap          => schemaMapWriter.writes(s)
     case v: SchemaValue        => v.value
+  }
+
+  lazy val schemaMapWriter: Writes[SchemaMap] = OWrites[SchemaMap] { schemaMap =>
+    val props = schemaMap.members.map(attr => attr.name -> Json.toJson(attr.schemaType))
+    Json.obj(schemaMap.name -> JsObject(props))
   }
 
   lazy val compoundWriter: Writes[CompoundSchemaType] = OWrites[CompoundSchemaType] { compound =>

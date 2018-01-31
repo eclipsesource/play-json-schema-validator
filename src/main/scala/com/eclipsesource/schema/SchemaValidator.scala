@@ -79,7 +79,7 @@ case class SchemaValidator(refResolver: SchemaRefResolver = new SchemaRefResolve
   }
 
   private def buildContext(schema: SchemaType, schemaUrl: URL): SchemaResolutionContext = {
-    val id = schema.constraints.any.id.map(Ref)
+    val id = schema.constraints.any.id.map(Ref(_))
     SchemaResolutionContext(refResolver,
       new SchemaResolutionScope(schema, id.orElse(Some(Ref(schemaUrl.toString)))),
       formats = formats
@@ -95,7 +95,7 @@ case class SchemaValidator(refResolver: SchemaRefResolver = new SchemaRefResolve
     */
   def validate(schemaUrl: URL, input: => JsValue): JsResult[JsValue] = {
     val ref = Ref(schemaUrl.toString)
-    refResolver.cache.get(ref) match {
+    refResolver.cache.get(ref.value) match {
       case None =>
         for {
           schema <- JsonSource.schemaFromUrl(schemaUrl)
@@ -169,7 +169,7 @@ case class SchemaValidator(refResolver: SchemaRefResolver = new SchemaRefResolve
     * @return a JsResult holding the valid result
     */
   def validate(schema: SchemaType)(input: => JsValue): JsResult[JsValue] = {
-    val id = schema.constraints.any.id.map(Ref)
+    val id = schema.constraints.any.id.map(Ref(_))
     val context = SchemaResolutionContext(
       refResolver,
       new SchemaResolutionScope(schema, id),

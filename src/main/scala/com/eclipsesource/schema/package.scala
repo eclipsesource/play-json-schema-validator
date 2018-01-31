@@ -37,25 +37,12 @@ package object schema
     def prettyPrint: String = SchemaUtil.prettyPrint(schemaType)
 
     private def resolveRefAndValidate(json: JsValue, schemaObject: SchemaObject, context: SchemaResolutionContext)
-                                     (implicit lang: Lang) = {
-
-      def determineResolutionRoot(ref: Ref, schemaObject: SchemaObject, context: SchemaResolutionContext): SchemaType = {
-        val fromRoot = ref.isAbsolute || ref.isFragment
-        if (fromRoot) context.scope.documentRoot
-        else schemaObject
-      }
-
-      def normalizeRef(ref: Ref, scopeId: Option[Ref], resolutionContext: SchemaResolutionContext): Ref = {
-        Refs.normalize(ref, scopeId, Some(resolutionContext.refResolver.resolverFactory))
-      }
+                                     (implicit lang: Lang): VA[JsValue] = {
 
       val result: Option[VA[JsValue]] = schemaObject.findUnvisitedRef(context).map { ref =>
 
-        val normalizedRef = normalizeRef(ref, schemaObject.constraints.any.id.map(Ref), context)
-        val root = determineResolutionRoot(normalizedRef, schemaObject, context)
-
-        context.refResolver.resolve(root, normalizedRef, context.scope) match {
-          case -\/(JsonValidationError(_, errors@_*)) =>
+        context.refResolver.resolve(schemaObject, ref, context.scope) match {
+          case -\/(JsonValidationError(_, _*)) =>
             Results.failureWithPath(
               Keywords.Ref,
               Messages("err.unresolved.ref", ref.value),
@@ -63,7 +50,7 @@ package object schema
               json)
           case \/-(ResolvedResult(resolved, scope)) =>
             val updatedContext = context.updateScope(_ => scope)
-            resolved.validate(json, updatedContext)
+            resolved.doValidate(json, updatedContext)
         }
       }
 
@@ -76,18 +63,8 @@ package object schema
       )
     }
 
-    def validate(json: JsValue, resolutionContext: SchemaResolutionContext)
-                (implicit lang: Lang): VA[JsValue] = {
-
-      // refine resolution scope
-      val updatedScope: GenResolutionScope[SchemaType] = resolutionContext.refResolver
-        .updateResolutionScope(resolutionContext.scope, schemaType)
-      val context = resolutionContext.updateScope(_ => updatedScope)
-
+    private[schema] def doValidate(json: JsValue, context: SchemaResolutionContext)(implicit lang: Lang) = {
       (json, schemaType) match {
-
-        case (_, schemaObject: SchemaObject) if schemaObject.hasUnvisitedRef(context) =>
-          resolveRefAndValidate(json, schemaObject, context)
 
         case (_: JsObject, schemaObject: SchemaObject) =>
           schemaObject.validateConstraints(json, context)
@@ -128,6 +105,19 @@ package object schema
             Messages("err.expected.type", schemaType, SchemaUtil.typeOfAsString(json)),
             context,
             json)
+      }
+    }
+
+    def validate(json: JsValue, context: SchemaResolutionContext)(implicit lang: Lang): VA[JsValue] = {
+      (json, schemaType) match {
+        case (_, schemaObject: SchemaObject) if schemaObject.hasUnvisitedRef(context) =>
+          resolveRefAndValidate(json, schemaObject, context)
+        case _ =>
+          // refine resolution scope
+          val updatedScope: GenResolutionScope[SchemaType] = context.refResolver
+            .updateResolutionScope(context.scope, schemaType)
+          val updateContext = context.updateScope(_ => updatedScope)
+          doValidate(json, updateContext)
       }
     }
 

@@ -32,7 +32,11 @@ sealed trait SchemaObjectLike extends SchemaType {
 
 final case class CompoundSchemaType(alternatives: Seq[SchemaType]) extends SchemaType {
   override def toString: String = alternatives.map(_.toString).mkString(" ")
-  override def constraints: HasAnyConstraint = NoConstraints()// CompoundConstraints(oneOf.map(s => s.constraints), AnyConstraint())
+  override def constraints: HasAnyConstraint = NoConstraints()
+}
+
+final case class SchemaMap(name: String, members: Seq[SchemaAttribute]) extends SchemaType {
+  override def constraints: HasAnyConstraint = NoConstraints()
 }
 
 final case class SchemaObject(properties: Seq[SchemaAttribute] = Seq.empty,

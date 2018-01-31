@@ -6,6 +6,7 @@ import java.util.regex.Pattern
 
 import com.eclipsesource.schema.SchemaFormat
 import com.google.common.net.InetAddresses
+import io.mola.galimatias.URL
 import jdk.nashorn.internal.runtime.regexp.RegExpFactory
 import play.api.libs.json.{JsNumber, JsString, JsValue}
 
@@ -59,24 +60,9 @@ object DefaultFormats {
   }
 
   object UriFormat extends SchemaFormat {
-
-    // modified version of
-    // http://codereview.stackexchange.com/questions/78768/regex-to-parse-uris-for-their-correctness-according-to-rfc-3986
-
-    private val Scheme = "[A-Za-z][A-Za-z0-9+.-]*:"
-    private val AuthoritativeDeclaration = "/{2}"
-    private val UserInfo = "(?:[\\w.~-]|%[\\w^_]{2})+(?::(?:[\\w.~-]|%[A-Fa-f0-9]{2})+)?@"
-    private val Host = "(?:[\\w^_](?:[A-Za-z0-9-]*[\\w^_])?\\.){1,126}[\\w^_](?:[A-Za-z0-9-]*[\\w^_])?"
-    private val Port = ":\\d+"
-    private val Path = "/(?:[\\w.-~]|%[\\w^_]{2})*"
-    private val Query = "\\?(?:[\\w.~-]+(?:=(?:[\\w+.~-]|%[\\w^_]{2})+)?)(?:[&|;][\\w.~-]+(?:=(?:[A-Za-z0-9-._~+]|%[\\w^_]{2})+)?)*"
-
-    private val UrlRegex = "(?:" + Scheme + AuthoritativeDeclaration + ")?(?:" + UserInfo + ")?" + Host + "(?:" + Port + ")?(?:" + Path + ")*(?:" + Query + ")?"
-    private val CompiledPattern = Pattern.compile(UrlRegex)
-
     override def name: String = "uri"
     override def validate(json: JsValue): Boolean = json match {
-      case JsString(uri) => CompiledPattern.matcher(uri).find()
+      case JsString(uri) => Try { URL.parse(uri) }.isSuccess
       case _ => false
     }
   }

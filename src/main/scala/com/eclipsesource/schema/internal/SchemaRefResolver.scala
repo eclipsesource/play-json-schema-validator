@@ -30,25 +30,28 @@ object SchemaRefResolver {
       }.toRight(JsonValidationError(Messages("err.prop.not.found", propName)))
     }
 
-    override def resolve(schema: SchemaType, fragment: String)
+    override def resolve(schema: SchemaType, fragmentPart: String)
                         (implicit lang: Lang = Lang.Default): Either[JsonValidationError, SchemaType] = {
 
       schema match {
 
-        case obj@SchemaObject(props, _, remainingProps) => fragment match {
+        case SchemaMap(name, members) =>
+            members.find(_.name == fragmentPart).map(_.schemaType).toRight(JsonValidationError(Messages(s"err.$name.not.found")))
+
+        case obj@SchemaObject(props, _, remainingProps) => fragmentPart match {
           case Keywords.Object.Properties => Right(obj)
           case _ =>
-            resolveConstraint(obj, fragment) orElse
-            findSchemaAttribute(props, fragment) orElse
-              findSchemaAttribute(remainingProps, fragment)
+            resolveConstraint(obj, fragmentPart) orElse
+            findSchemaAttribute(props, fragmentPart) orElse
+              findSchemaAttribute(remainingProps, fragmentPart)
         }
 
-        case arr@SchemaArray(items, _, maybeObject) => fragment match {
+        case arr@SchemaArray(items, _, maybeObject) => fragmentPart match {
           case Keywords.Array.Items => Right(items)
           case other =>
             findAttribute(maybeObject, other)
               .map(Right(_))
-              .getOrElse(resolveConstraint(arr, fragment))
+              .getOrElse(resolveConstraint(arr, fragmentPart))
         }
 
         case tuple@SchemaTuple(items, _, _) =>
@@ -60,13 +63,13 @@ object SchemaRefResolver {
             }.toOption.getOrElse(false)
           }
 
-          fragment match {
+          fragmentPart match {
             case Keywords.Array.Items => Right(tuple)
             case idx if isValidIndex(idx) => Right(items(idx.toInt))
-            case _ => resolveConstraint(tuple, fragment)
+            case _ => resolveConstraint(tuple, fragmentPart)
           }
 
-        case SchemaValue(value) => (value, fragment) match {
+        case SchemaValue(value) => (value, fragmentPart) match {
           case (arr: JsArray, index) if Try {
             index.toInt
           }.isSuccess =>
@@ -76,10 +79,10 @@ object SchemaRefResolver {
             } else {
               Left(JsonValidationError(Messages("arr.out.of.bounds", index)))
             }
-          case _ => Left(JsonValidationError(Messages("arr.invalid.index", fragment)))
+          case _ => Left(JsonValidationError(Messages("arr.invalid.index", fragmentPart)))
         }
 
-        case p: PrimitiveSchemaType => resolveConstraint(p, fragment)
+        case p: PrimitiveSchemaType => resolveConstraint(p, fragmentPart)
       }
     }
 
@@ -92,9 +95,7 @@ object SchemaRefResolver {
     }
 
     override def findScopeRefinement(schema: SchemaType): Option[Ref] =
-      schema.constraints.any.id.map(Ref)
-
-    override def anchorsOf(a: SchemaType): Map[Ref, SchemaType] = a.constraints.any.anchors
+      schema.constraints.any.id.map(Ref(_))
   }
 
   case class SchemaResolutionContext(refResolver: SchemaRefResolver,

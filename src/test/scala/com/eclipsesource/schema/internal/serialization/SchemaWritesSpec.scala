@@ -1,15 +1,15 @@
 package com.eclipsesource.schema.internal.serialization
 
 import com.eclipsesource.schema._
-import com.eclipsesource.schema.internal.constraints.Constraints.{Maximum, Minimum, NumberConstraints}
+import com.eclipsesource.schema.internal.constraints.Constraints.{AnyConstraint, Maximum, Minimum, NumberConstraints}
 import org.specs2.mutable.Specification
-import play.api.libs.json.{JsString, Json}
+import play.api.libs.json.{JsNumber, JsString, Json}
 
 class SchemaWritesSpec extends Specification {
 
   "JSON Schema Writes" should {
 
-    "serialize string" in {
+    "write string" in {
       val stringConstraint = """{
         |"maxLength": 2
       }""".stripMargin
@@ -20,8 +20,7 @@ class SchemaWritesSpec extends Specification {
       ))
     }
 
-    "serialize string with explicit type given" in {
-
+    "write string with explicit type given" in {
       val stringConstraint = """{
        |"type": "string",
        |"maxLength": 2
@@ -34,19 +33,19 @@ class SchemaWritesSpec extends Specification {
       ))
     }
 
-    "serialize boolean" in {
+    "write boolean" in {
       Json.toJson(SchemaBoolean()) must beEqualTo(Json.obj(
         "type" -> "boolean"
       ))
     }
 
-    "serialize integer" in {
+    "write integer" in {
       Json.toJson(SchemaInteger()) must beEqualTo(Json.obj(
         "type" -> "integer"
       ))
     }
 
-    "serialize number" in {
+    "write number" in {
       Json.toJson(
         SchemaNumber(
           NumberConstraints(Some(Minimum(2, Some(false))), Some(Maximum(10, Some(false))), Some(2))
@@ -60,19 +59,19 @@ class SchemaWritesSpec extends Specification {
       ))
     }
 
-    "serialize array" in {
+    "write array" in {
       Json.toJson(SchemaArray(SchemaNumber())) must beEqualTo(Json.obj(
         "items" -> Json.obj("type" -> "number")
       ))
     }
 
-    "serialize tuple" in {
+    "write tuple" in {
       Json.toJson(SchemaTuple(Seq(SchemaNumber()))) must beEqualTo(Json.obj(
         "items" -> Json.arr(Json.obj("type" -> "number"))
       ))
     }
 
-    "serialize $ref" in {
+    "write $ref" in {
       Json.toJson(SchemaObject(Seq(SchemaAttribute("$ref", SchemaValue(JsString("#")))))) must beEqualTo(
         Json.obj(
           "$ref" -> "#"
@@ -80,10 +79,30 @@ class SchemaWritesSpec extends Specification {
       )
     }
 
-    "compound type" in {
+    "write compound type" in {
       Json.toJson(CompoundSchemaType(Seq(SchemaNumber(), SchemaBoolean()))) must beEqualTo(Json.obj(
         "type" -> Json.arr("number", "boolean")
       ))
+    }
+
+    "write schema with definitions block" in {
+      Json.toJson(
+        SchemaNumber(
+          NumberConstraints().copy(any = AnyConstraint().copy(definitions = Some(Map(
+            "foo" -> SchemaNumber(NumberConstraints().copy(min = Some(Minimum(BigDecimal(3), Some(false))))
+            ))))
+          )
+        )
+      ) must beEqualTo(
+        Json.obj(
+          "definitions" -> Json.obj(
+            "foo" -> Json.obj(
+              "minimum" -> 3,
+              "exclusiveMinimum" -> false
+            )
+          )
+        )
+      )
     }
   }
 }

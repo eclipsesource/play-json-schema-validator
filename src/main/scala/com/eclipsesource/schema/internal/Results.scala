@@ -49,6 +49,8 @@ object Results {
           Json.obj("resolutionScope" -> id.value)
         ) ++ context.scope.origin.fold(Json.obj())(origin =>
           Json.obj("origin" -> dropSlashIfAny(origin.toString()))
+        ) ++ context.scope.schemaUri.fold(Json.obj())(uri =>
+          Json.obj("schemaURI" -> dropSlashIfAny(uri.toString))
         )
       ))
     ))
