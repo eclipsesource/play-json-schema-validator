@@ -32,35 +32,10 @@ class Issue99Spec extends Specification {
     "validate issue 99-1 test case via URL" in {
       val schemaUrl = getClass.getResource("/issue-99-1.json")
       val validator = SchemaValidator()
-      validator.validate(schemaUrl, Json.obj(
+      val result = validator.validate(schemaUrl, Json.obj(
         "mything" -> "test"
-      )).isSuccess must beTrue
-    }
-
-    "validate issue 99-2 test case via URL" in {
-      val schemaUrl = getClass.getResource("/issue-99-2.json")
-      val validator = SchemaValidator()
-      validator.validate(schemaUrl, Json.obj(
-        "mything" -> "test"
-      )).isSuccess must beTrue
-    }
-
-    "fail issue 99-3 test case via URL" in {
-      val schemaUrl = getClass.getResource("/issue-99-3.json")
-      val validator = SchemaValidator()
-      // can not be resolved
-      validator.validate(schemaUrl, Json.obj(
-        "mything" -> "test"
-      )).isError must beTrue
-    }
-
-    "fail issue 99-4 test case via URL" in {
-      val schemaUrl = getClass.getResource("/issue-99-4.json")
-      val validator = SchemaValidator()
-      // can not be resolved
-      validator.validate(schemaUrl, Json.obj(
-        "mything" -> "test"
-      )).isError must beTrue
+      ))
+      result.isSuccess must beTrue
     }
 
     "not cause stack overflow for issue 99-5 test case via URL" in {

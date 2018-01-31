@@ -56,7 +56,7 @@ trait JsonSpec extends FragmentBuilder {
     results.right.getOrElse(Fragments("Spec init" ! Failure(s"Could not read specs from $url.")))
   }
 
-  def test(specName: String, result: SpecResult) =
+  def test(specName: String, result: SpecResult): Result =
     if (result.valid) Success(result.description)
     else              Failure(s"'${result.description}' of spec '$specName' failed ${result.error}")
 

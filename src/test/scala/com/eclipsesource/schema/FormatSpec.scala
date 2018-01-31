@@ -1,7 +1,5 @@
 package com.eclipsesource.schema
 
-import java.math.BigInteger
-
 import com.eclipsesource.schema.internal.validators.DefaultFormats.DatetimeFormat
 import org.specs2.mutable.Specification
 import com.eclipsesource.schema.test.JsonSpec

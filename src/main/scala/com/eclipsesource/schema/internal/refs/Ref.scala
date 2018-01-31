@@ -8,7 +8,6 @@ object Refs {
   val `#` = Ref("#")
   val `/` = Ref("/")
 
-
   /**
     * Normalizes a given ref, i.e. the result of this method
     * is an always absolute URL wrapped in a ref, even if the given ref
@@ -18,43 +17,36 @@ object Refs {
     * @param currentScope the current resolution scope
     * @return an absolute URL wrapped in a ref
     */
-  private[schema] def normalize(ref: Ref, currentScope: Option[Ref], urlHandlers: Option[UrlStreamResolverFactory] = None): Ref = {
-
-    def isRefWithCustomScheme = ref.scheme.fold(false)(p => urlHandlers.exists(_.hasHandlerFor(p)))
+  private[schema] def mergeRefs(ref: Ref, currentScope: Option[Ref], urlHandlers: Option[UrlStreamResolverFactory] = None): Ref = {
 
     ref match {
 
-      case _ if currentScope.exists(_.isAbsolute) && ref.isAbsolute && !isRefWithCustomScheme =>
-        ref
+      case a@AbsoluteRef(_) =>
+        a
 
-      // ref starts with #, merge with scope id, possibly dropping a #
-      case _ if ref.isFragment =>
-        currentScope.map(_.dropRightHashIfAny.append(ref)).getOrElse(ref)
+      case l@LocalRef(localRef) =>
+        currentScope.map(scope =>
+          if (scope.value.endsWith("#")) Ref(scope.value.init + localRef)
+          else Ref(scope.value.init + localRef)
+        ).getOrElse(l)
 
-      // make sure we have a # at the end, if applicable, that is
-      // the ref has no # and also does not end with a /
-      case _ if ref.isAbsolute && !isRefWithCustomScheme =>
-        ref.withHashAtEnd
+      case r@RelativeRef(relativeRef) =>
 
-      case _ if isRefWithCustomScheme && currentScope.exists(_.isAbsolute) =>
-        val baseUrl = findBaseUrl(currentScope)
-        baseUrl.map(url =>
-          url.append(Refs.`/`).append(ref.withoutScheme.withHashAtEnd)
-        ).getOrElse(ref)
-
-      // append ref to scope id in case the latter ends with a /
-      case _ if currentScope.exists(_.endsWith("/")) =>
-        currentScope.map(_.append(ref)).getOrElse(ref)
-
-      // if all cases failed, try to create a relative reference, e.g.
-      // if given http://x.y.z/schema.json# and some.json#/definitions/prop
-      // we want the result to be http://x.y.z/some.json#/definitions/prop
-      case other =>
-        val baseUrl = findBaseUrl(currentScope)
-        baseUrl.map(url =>
-          if (url.endsWith("/")) url.append(ref.withHashAtEnd)
-          else ref.withHashAtEnd.prepend(url.append(`/`))
-        ).getOrElse(ref)
+        if (relativeRef.startsWith("#")) {
+          // ref is plain name fragment
+          currentScope.map(url =>
+            if (url.value.endsWith("#")) Ref(url.value.init + relativeRef)
+            else Ref(url.value + relativeRef)
+          ).getOrElse(r)
+        } else {
+          findBaseUrl(currentScope).map(
+            baseUrl =>
+              if (currentScope.exists(_.endsWith("#")) && !relativeRef.contains("#"))
+                Ref(baseUrl.value + relativeRef + "#")
+              else
+                Ref(baseUrl.value + relativeRef)
+          ).getOrElse(r)
+        }
     }
   }
 
@@ -69,13 +61,15 @@ object Refs {
     def createUrlFromRef(ref: Ref) = Try { new URL(null, ref.value) }.toOption
 
     def createBaseUrl(url: URL, protocol: String, host: String, port: Int, file: String): Option[URL] = {
+      val f = file.substring(0, file.lastIndexOf("/") + 1)
+
       if (url.getHost.nonEmpty) {
         if (url.getPort != -1) {
-          createUrlFromRef(Ref(s"$protocol://$host:$port"))
+          createUrlFromRef(Ref(s"$protocol://$host:$port$f"))
         } else {
-          createUrlFromRef(Ref(s"$protocol://$host"))
+          createUrlFromRef(Ref(s"$protocol://$host$f"))
         }
-      } else createUrlFromRef(Ref(s"$protocol:${file.substring(0, file.lastIndexOf("/"))}"))
+      } else createUrlFromRef(Ref(s"$protocol:$f"))
     }
 
     val url: Option[URL] = for {
@@ -92,13 +86,12 @@ object Refs {
   }
 }
 
-case class Ref(value: String) {
+trait Ref {
 
+  def value: String
   private final val WithProtocol = "^([^:\\/?]+):.+"
   private final val ProtocolPattern = WithProtocol.r.pattern
 
-  def startsWith(p: Ref) = value.startsWith(p.value)
-  def startsWith(s: String) = value.startsWith(s)
   def endsWith(s: String) = value.endsWith(s)
 
   /**
@@ -107,15 +100,6 @@ case class Ref(value: String) {
     * @return true, if the ref contains a # character
     */
   def hasFragment = value.contains("#")
-
-  def isAnchor = value.startsWith("#") && value.length > 1 && value.charAt(1) != '/'
-
-  /**
-    * Whether the ref is a fragment, i.e. whether it starts with a # character.
-    *
-    * @return
-    */
-  def isFragment = value.startsWith("#")
 
   def isAbsolute = Try { new URI(value) }.map(_.isAbsolute).getOrElse(false)
 
@@ -135,32 +119,27 @@ case class Ref(value: String) {
     matcher.find()
     Try { matcher.group(1).replaceAll("[^A-Za-z]+", "") }.toOption
   }
-
-  def length = value.length
-
-  def drop(n: Int) = Ref(value.drop(n))
-
-  def isRootRelative = withoutScheme.value.startsWith("#/")
-
-  def dropHashAtStart =
-    if (isRootRelative) Ref(value.substring(math.min(2, value.length)))
-    else this
-
-  def dropRightHashIfAny: Ref = {
-    if (value.endsWith("#")) Ref(value.dropRight(1)) else Ref(value)
-  }
-
-  def append(otherPointer: Ref): Ref = Ref(value + otherPointer.value)
-
-  def prepend(otherPointer: Ref): Ref = Ref(otherPointer.value + value)
-
-  def withHashAtEnd: Ref =
-    if (!hasFragment && !endsWith("/")) append(Refs.`#`)
-    else this
-
-  def withoutScheme: Ref = {
-    scheme.fold(this)(s => Ref(value.drop(s.length + 3)))
-  }
-
 }
+
+object Ref {
+
+  private def isAbsolute(value: String) = Try { new URI(value) }
+    .map(_.isAbsolute)
+    .getOrElse(false)
+
+
+  def apply(ref: String): Ref = {
+    if (isAbsolute(ref)) {
+      AbsoluteRef(ref)
+    } else if (ref.startsWith("#/") || ref == "#") {
+      LocalRef(ref)
+    } else {
+      RelativeRef(ref)
+    }
+  }
+}
+
+case class LocalRef(value: String) extends Ref
+case class RelativeRef(value: String) extends Ref
+case class AbsoluteRef(value: String) extends Ref
 

@@ -39,14 +39,6 @@ trait CanHaveRef[A] {
   def findScopeRefinement(a: A): Option[Ref]
 
   /**
-    * Returns any anchors.
-    *
-    * @param a a given document instance
-    * @return a Map mapping any found anchors to the respective sub-documents
-    */
-  def anchorsOf(a: A): Map[Ref, A]
-
-  /**
     * Tries to find a resolvable instance within the given value.
     *
     * @param a the given document value

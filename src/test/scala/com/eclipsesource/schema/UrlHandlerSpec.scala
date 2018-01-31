@@ -28,24 +28,6 @@ class UrlHandlerSpec extends Specification {
         .isSuccess must beTrue
     }
 
-    // relative protocol-ful handler with valid instance
-    "should resolve protocol-ful relative references on the classpath with ClasspathUrlProtocolHandler" in {
-      val validator = SchemaValidator().addRelativeUrlHandler(new ClasspathUrlHandler(), ClasspathUrlHandler.Scheme)
-      val url = getClass.getResource("/schemas/my-schema-with-protocol-ful-relative-path.schema")
-      validator.validate(url, Json.obj("foo" -> Json.obj("bar" -> "Munich")))
-        .isSuccess must beTrue
-    }
-
-    // relative protocol-ful handler with invalid instance
-    "should resolve protocol-ful relative references on the classpath with ClasspathUrlProtocolHandler (invalid instance)" in {
-      val validator = SchemaValidator().addRelativeUrlHandler(new ClasspathUrlHandler(), ClasspathUrlHandler.Scheme)
-      val url = getClass.getResource("/schemas/my-schema-with-protocol-ful-relative-path.schema")
-      val result = validator.validate(url, Json.obj("foo" -> Json.obj("bar" -> 42)))
-      result.asEither must beLeft.like { case error =>
-        error.toJson(0) \ "msgs" == JsDefined(Json.arr(JsString("Wrong type. Expected string, was number.")))
-      }
-    }
-
     // no relative protocol-ful handler registered, should fail
     "should resolve protocol-ful relative references on the classpath with ClasspathUrlProtocolHandler (invalid instance)" in {
       val validator = SchemaValidator()

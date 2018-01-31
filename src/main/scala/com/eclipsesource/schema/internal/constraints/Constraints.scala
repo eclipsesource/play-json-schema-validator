@@ -1,7 +1,9 @@
 package com.eclipsesource.schema.internal.constraints
 
-import com.eclipsesource.schema.internal.refs.Ref
 import play.api.libs.json._
+import scalaz.std.option._
+import scalaz.std.set._
+import scalaz.syntax.semigroup._
 
 object Constraints {
   import com.eclipsesource.schema._
@@ -14,6 +16,7 @@ object Constraints {
   trait Constraint extends Resolvable {
     type A
     def merge(otherConstraints: Constraint): A
+    def subSchemas: Set[SchemaType]
   }
 
   case class NoConstraints(any: AnyConstraint = AnyConstraint(None, None, None, None))
@@ -21,6 +24,7 @@ object Constraints {
     type A = NoConstraints
     override def resolvePath(path: String): Option[SchemaType] = any.resolvePath(path)
     override def merge(otherConstraints: Constraint): NoConstraints = this
+    override def subSchemas: Set[SchemaType] = Set.empty
   }
 
   case class AnyConstraint(schemaTypeAsString: Option[String] = None,
@@ -31,8 +35,7 @@ object Constraints {
                            enum: Option[Seq[JsValue]] = None,
                            not: Option[SchemaType] = None,
                            description: Option[String] = None,
-                           id: Option[String] = None,
-                           anchors: Map[Ref, SchemaType] = Map.empty)
+                           id: Option[String] = None)
     extends Constraint with Resolvable {
 
     type A = AnyConstraint
@@ -45,7 +48,10 @@ object Constraints {
       case Keywords.Any.AnyOf => anyOf.map(types => SchemaTuple(types))
       case Keywords.Any.OneOf => oneOf.map(types => SchemaTuple(types))
       case Keywords.Any.Definitions => definitions.map(entries =>
-        SchemaObject(entries.toSeq.map { case (name, schema) => SchemaAttribute(name, schema) }))
+        SchemaMap(
+          Keywords.Any.Definitions,
+          entries.toSeq.map { case (name, schema) => SchemaAttribute(name, schema) })
+      )
       case Keywords.Any.Enum => enum.map(e => SchemaValue(JsArray(e)))
       case Keywords.Any.Not => not
       case Keywords.Any.Id => id.map(i => SchemaValue(JsString(i)))
@@ -67,6 +73,10 @@ object Constraints {
         )
       case other => this
     }
+
+    override def subSchemas: Set[SchemaType] =
+      (definitions.map(_.values.toSet) |+|  allOf.map(_.toSet) |+| anyOf.map(_.toSet) |+| oneOf.map(_.toSet))
+        .getOrElse(Set.empty[SchemaType])
   }
 
   case class ObjectConstraints(additionalProps: Option[SchemaType] = None,
@@ -85,7 +95,9 @@ object Constraints {
 
     override def resolvePath(path: String): Option[SchemaType] = path match {
       case Keywords.Object.AdditionalProperties => additionalProps
-      case Keywords.Object.Dependencies => dependencies.map(entries => SchemaObject(entries.toSeq.map(e => SchemaAttribute(e._1, e._2))))
+      case Keywords.Object.Dependencies => dependencies.map(entries =>
+        SchemaMap(Keywords.Object.Dependencies, entries.toSeq.map(e => SchemaAttribute(e._1, e._2)))
+      )
       case Keywords.Object.PatternProperties => patternProps.map(patternProps => SchemaObject(patternProps.toSeq.map(e => SchemaAttribute(e._1, e._2))))
       case Keywords.Object.MinProperties => minProperties.map(min => SchemaValue(JsNumber(min)))
       case Keywords.Object.MaxProperties => maxProperties.map(max => SchemaValue(JsNumber(max)))
@@ -106,6 +118,10 @@ object Constraints {
       case withAnyConstraints: HasAnyConstraint => copy(any = any.merge(withAnyConstraints.any))
       case other => this
     }
+
+    override def subSchemas: Set[SchemaType] =
+      (additionalProps.map(Set(_)) |+|  dependencies.map(_.values.toSet) |+| patternProps.map(_.values.toSet))
+        .getOrElse(Set.empty[SchemaType]) ++ any.subSchemas
   }
 
   object ObjectConstraints {
@@ -139,6 +155,9 @@ object Constraints {
       case withAnyConstraints: HasAnyConstraint => copy(any = any.merge(withAnyConstraints.any))
       case other => this
     }
+
+    override def subSchemas: Set[SchemaType] =
+      additionalItems.map(Set(_)).getOrElse(Set.empty) ++ any.subSchemas
   }
 
   case class Minimum(min: BigDecimal, isExclusive: Option[Boolean])
@@ -176,6 +195,8 @@ object Constraints {
       case withAnyConstraint: HasAnyConstraint => copy(any = any.merge(withAnyConstraint.any))
       case other => this
     }
+
+    override def subSchemas: Set[SchemaType] = any.subSchemas
   }
 
   case class StringConstraints(minLength: Option[Int] = None,
@@ -207,5 +228,7 @@ object Constraints {
       case withAnyConstraints: HasAnyConstraint => copy(any = any.merge(withAnyConstraints.any))
       case other => this
     }
+
+    override def subSchemas: Set[SchemaType] = any.subSchemas
   }
 }
