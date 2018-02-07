@@ -2,7 +2,6 @@ package com.eclipsesource.schema.internal
 
 object Keywords {
 
-  val Id = "id"
   val Schema = "$schema"
   val Description = "description"
 
@@ -17,6 +16,7 @@ object Keywords {
     val Dependencies = "dependencies"
     val MinProperties = "minProperties"
     val MaxProperties = "maxProperties"
+    val PropertyNames = "propertyNames"
   }
 
   object Any {
@@ -28,7 +28,9 @@ object Keywords {
     val Description = "description"
     val Enum = "enum"
     val Type = "type"
-    val Id = "id"
+    val If = "if"
+    val Then = "then"
+    val Else = "else"
   }
 
   object Number {
@@ -52,39 +54,7 @@ object Keywords {
     val MaxItems = "maxItems"
     val UniqueItems = "uniqueItems"
     val Items = "items"
+    val Contains = "contains"
   }
 
-  val ofObject = List(
-    Keywords.Id,
-    Keywords.Schema,
-    Keywords.Description,
-
-    Keywords.Default,
-    Keywords.Ref,
-    Keywords.Object.Properties,
-    Keywords.Object.PatternProperties,
-    Keywords.Object.AdditionalProperties,
-    Keywords.Object.Required,
-    Keywords.Object.Dependencies,
-    Keywords.Any.AllOf,
-    Keywords.Any.AnyOf,
-    Keywords.Any.OneOf,
-    Keywords.Any.Type
-  )
-
-  val ofArray = List(
-    Keywords.Id,
-
-    Keywords.Array.AdditionalItems,
-    Keywords.Array.Items,
-    Keywords.Array.MaxItems,
-    Keywords.Array.MinItems,
-    Keywords.Array.UniqueItems,
-    Keywords.Any.AllOf,
-    Keywords.Any.AnyOf,
-    Keywords.Any.OneOf,
-    Keywords.Any.Type
-  )
-
-  val ofTuple = ofArray
 }

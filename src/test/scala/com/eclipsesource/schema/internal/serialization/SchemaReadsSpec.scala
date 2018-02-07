@@ -1,9 +1,11 @@
 package com.eclipsesource.schema.internal.serialization
 
-import com.eclipsesource.schema.JsonSource
+import com.eclipsesource.schema.{JsonSource, Version4}
 import org.specs2.mutable.Specification
 
 class SchemaReadsSpec extends Specification {
+
+  import Version4._
 
   "Reads" should {
 

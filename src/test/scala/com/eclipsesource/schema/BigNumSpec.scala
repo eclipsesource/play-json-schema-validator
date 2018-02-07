@@ -5,6 +5,9 @@ import org.specs2.mutable.Specification
 import play.api.libs.json.JsNumber
 
 class BigNumSpec extends Specification with JsonSpec {
+
+  import Version4._
+  implicit val validator = SchemaValidator(Version4)
   validate("optional/bignum")
 
   "Bignum" should {
@@ -12,7 +15,7 @@ class BigNumSpec extends Specification with JsonSpec {
     "be an integer" in {
       val schema = JsonSource.schemaFromString(""" {"type": "integer"} """).get
       val instance = JsNumber(BigDecimal("12345678910111213141516171819202122232425262728293031"))
-      val result = SchemaValidator().validate(schema)(instance)
+      val result = SchemaValidator(Version4).validate(schema)(instance)
       result.asOpt must beSome.which(_ == JsNumber(BigDecimal("12345678910111213141516171819202122232425262728293031")))
     }
 

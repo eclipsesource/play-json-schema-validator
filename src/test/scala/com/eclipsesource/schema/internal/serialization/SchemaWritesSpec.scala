@@ -7,6 +7,8 @@ import play.api.libs.json.{JsNumber, JsString, Json}
 
 class SchemaWritesSpec extends Specification {
 
+  import Version4._
+
   "JSON Schema Writes" should {
 
     "write string" in {
@@ -72,7 +74,7 @@ class SchemaWritesSpec extends Specification {
     }
 
     "write $ref" in {
-      Json.toJson(SchemaObject(Seq(SchemaAttribute("$ref", SchemaValue(JsString("#")))))) must beEqualTo(
+      Json.toJson(SchemaObject(Seq(SchemaProp("$ref", SchemaValue(JsString("#")))))) must beEqualTo(
         Json.obj(
           "$ref" -> "#"
         )
@@ -86,6 +88,7 @@ class SchemaWritesSpec extends Specification {
     }
 
     "write schema with definitions block" in {
+      implicit val version = Version4
       Json.toJson(
         SchemaNumber(
           NumberConstraints().copy(any = AnyConstraint().copy(definitions = Some(Map(

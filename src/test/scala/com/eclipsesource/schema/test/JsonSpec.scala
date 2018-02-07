@@ -16,18 +16,18 @@ case class SpecResult(description: String, valid: Boolean, error: Option[Seq[(Js
 
 trait JsonSpec extends FragmentBuilder {
 
-  def validator = SchemaValidator()
-
   val spec = new org.specs2.mutable.Specification {}
   import spec._
 
-  def validate(name: String, folder: String = "draft4"): Fragments =
+  def validate(name: String, folder: String = "draft4")(implicit reads: Reads[SchemaType], validator: SchemaValidator): Fragments =
     try addFragments(validateFragments(name, folder))
     catch { case e: Exception =>
-      addFragments(Fragments(br, Fragment(Text(s"Could not create examples for $name"), Execution.executed(Skipped(e.getMessage)))))
+      addFragments(
+        Fragments(br, Fragment(Text(s"Could not create examples for $name"), Execution.executed(Skipped(e.getMessage))))
+      )
     }
 
-  def validateMultiple(names: (String, Seq[String])*): Fragments = {
+  def validateMultiple(names: (String, Seq[String])*)(implicit reads: Reads[SchemaType], validator: SchemaValidator): Fragments = {
     try {
       val frags = names.flatMap { case (folder, tests) =>
         tests.map(test => validateFragments(test, folder))
@@ -38,11 +38,11 @@ trait JsonSpec extends FragmentBuilder {
     }
   }
 
-  def validateFragments(name: String, folder: String): Fragments =
+  def validateFragments(name: String, folder: String)(implicit reads: Reads[SchemaType], validator: SchemaValidator): Fragments =
     s2"""|$name should be ok $p
          |${examplesFromUrl(getClass.getResource(s"/$folder/$name.json"))}""".stripMargin
 
-  def examplesFromUrl(url: URL): Fragments = {
+  def examplesFromUrl(url: URL)(implicit reads: Reads[SchemaType], validator: SchemaValidator): Fragments = {
     val results: Either[String, Fragments] = fromUrl(url).right.map { specs =>
       Fragments.foreach(specs) { case (specName, rs) =>
         val examples = Fragments.foreach(rs) { result =>
@@ -57,10 +57,13 @@ trait JsonSpec extends FragmentBuilder {
   }
 
   def test(specName: String, result: SpecResult): Result =
-    if (result.valid) Success(result.description)
-    else              Failure(s"'${result.description}' of spec '$specName' failed ${result.error}")
+    if (result.valid) {
+      Success(result.description)
+    } else {
+      Failure(s"'${result.description}' of spec '$specName' failed ${result.error}")
+    }
 
-  def fromUrl(url: URL): Either[String, Seq[(String, Seq[SpecResult])]] = {
+  def fromUrl(url: URL)(implicit reads: Reads[SchemaType], validator: SchemaValidator): Either[String, Seq[(String, Seq[SpecResult])]] = {
     JsonSource.fromUrl(url).getOrElse(Failure(s"Could not read JSON from $url.")) match {
       case JsArray(specs) => Right(executeSpecs(specs))
       case json =>
@@ -68,12 +71,12 @@ trait JsonSpec extends FragmentBuilder {
     }
   }
 
-  private def executeSpecs(jsonSpecs: Seq[JsValue]): Seq[(String, Seq[SpecResult])] = {
+  private def executeSpecs(jsonSpecs: Seq[JsValue])(implicit reads: Reads[SchemaType], validator: SchemaValidator): Seq[(String, Seq[SpecResult])] = {
     val specs: Seq[JsonSchemaSpec] = collectSpecs(jsonSpecs)
     specs.map(spec => (spec.description, executeSpec(spec)))
   }
 
-  private def executeSpec(spec: JsonSchemaSpec): Seq[SpecResult] = {
+  private def executeSpec(spec: JsonSchemaSpec)(implicit validator: SchemaValidator): Seq[SpecResult] = {
     val schema = spec.schema
     spec.tests.map(spec => {
       val result = validator.validate(schema)(spec.data)
@@ -84,7 +87,7 @@ trait JsonSpec extends FragmentBuilder {
     })
   }
 
-  private def collectSpecs(specs: Seq[JsValue]): Seq[JsonSchemaSpec] = {
+  private def collectSpecs(specs: Seq[JsValue])(implicit reads: Reads[SchemaType]): Seq[JsonSchemaSpec] = {
     specs.map {
       case obj@JsObject(props) => JsonSchemaSpec(
         (obj \ "description").as[String],

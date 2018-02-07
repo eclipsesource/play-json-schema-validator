@@ -5,10 +5,22 @@ import org.specs2.mutable.Specification
 import play.api.libs.json.{JsObject, JsResult, JsString, Json}
 
 class ReferenceSpec extends Specification with JsonSpec {
-  validate("ref")
+
+  implicit val validator: SchemaValidator = SchemaValidator(Version4)
+  import Version4._
+
+  "validate draft4" in {
+    validate("ref")
+  }
+
+  "validate draft7" in {
+    import Version7._
+    implicit val validator: SchemaValidator = SchemaValidator(Version7)
+    validate("ref", "draft7")
+  }
 
   "root pointer ref - mismatch" in {
-    val validator = SchemaValidator()
+    val validator = SchemaValidator(Version4)
     val recursiveSchema = JsonSource.schemaFromString(
       """{
         |  "properties": {
@@ -27,7 +39,7 @@ class ReferenceSpec extends Specification with JsonSpec {
   }
 
   "root pointer ref - recursive mismatch" in {
-    val validator = SchemaValidator()
+    val validator = SchemaValidator(Version4)
     val recursiveSchema = JsonSource.schemaFromString(
       """{
         |  "properties": {

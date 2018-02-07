@@ -3,7 +3,6 @@ package com.eclipsesource.schema.internal.validators
 import java.util.regex.Pattern
 
 import com.eclipsesource.schema._
-import com.eclipsesource.schema.internal.SchemaRefResolver._
 import com.eclipsesource.schema.internal._
 import com.eclipsesource.schema.internal.validation.VA
 import com.osinka.i18n.{Lang, Messages}
@@ -26,6 +25,7 @@ object ObjectValidator extends SchemaTypeValidator[SchemaObject] {
           _ <- validateAdditionalProps(schema, unmatched.intersect(remaining), json)
           _ <- validateMinProperties(schema, jsObject)
           _ <- validateMaxProperties(schema, jsObject)
+          _ <- validatePropertyNames(schema, jsObject)
         } yield schema
 
         val (_, _, result) = validation.run(context, Success(json))
@@ -33,6 +33,27 @@ object ObjectValidator extends SchemaTypeValidator[SchemaObject] {
       case _ => Success(json)
     }
   }
+
+  private def validatePropertyNames(schemaObject: SchemaObject, jsObject: JsObject)
+                                   (implicit lang: Lang): ValidationStep[Props] =
+    ReaderWriterState { (context, status) =>
+      val result: Seq[(String, VA[JsValue])] = schemaObject.constraints.propertyNames match {
+        case None => jsObject.fields.map(f => f._1 -> Success(f._2))
+        case Some(propertyNamesSchema) =>
+          jsObject.fields.foldLeft(List.empty[(String, VA[JsValue])])((validatedFields, field) =>
+            validatedFields :+ field._1 -> propertyNamesSchema.validate(
+              JsString(field._1),
+              context.updateScope(
+                _.copy(
+                  schemaPath = context.schemaPath \ "propertyNames",
+                  instancePath = context.instancePath \ field._1
+                )
+              )
+            )
+          )
+      }
+      ((), Seq.empty, Results.merge(status, Results.aggregateAsObject(result, context)))
+    }
 
   private def validateProps(schema: SchemaObject, json: => JsObject)
                            (implicit lang: Lang): ValidationStep[Props] =
@@ -203,7 +224,7 @@ object ObjectValidator extends SchemaTypeValidator[SchemaObject] {
             // collecting strings should not be necessary at this point
             val validated = validatePropertyDependency(name, values.collect { case JsString(str) => str }, context)
             Results.merge(currStatus, validated)
-          case (name, dep: SchemaObject) if json.keys.contains(name) =>
+          case (name, dep: SchemaType) if json.keys.contains(name) =>
             val validated = dep.validate(json, context)
             Results.merge(currStatus, validated)
           case _ => currStatus

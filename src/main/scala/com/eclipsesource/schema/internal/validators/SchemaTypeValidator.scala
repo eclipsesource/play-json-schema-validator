@@ -1,6 +1,6 @@
 package com.eclipsesource.schema.internal.validators
 
-import com.eclipsesource.schema.internal.SchemaRefResolver.SchemaResolutionContext
+import com.eclipsesource.schema.SchemaResolutionContext
 import com.eclipsesource.schema.internal.validation.VA
 import com.osinka.i18n.Lang
 import play.api.libs.json.JsValue

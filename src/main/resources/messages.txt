@@ -28,15 +28,19 @@ any.any              = Instance does not match any of the schemas.
 any.one.of.none      = Instance does not match any schema.
 any.one.of.many      = Instance matches more than one schema.
 any.enum             = Instance is invalid enum value.
+any.const            = Instance does not match const value.
 
 comp.no.schema       = No schema applicable.
 
 err.expected.type      = Wrong type. Expected {0}, was {1}.
 err.unresolved.ref     = Could not resolve ref {0}.
 err.prop.not.found     = Could not find property {0}.
-err.unvisited.ref.expected = Expected to find unvisited ref at {0}.
+err.ref.expected       = Expected to find ref at {0}.
 err.res.scope.id.empty = Resolution scope ID must not be empty.
 err.parse.json         = Could not parse JSON.
 err.max.depth          = Maximum recursion depth reached.
 err.dependencies.not.found = Dependency not found.
 err.definitions.not.found = Definition not found.
+err.false.schema       = Boolean false schema encountered.
+err.contains           = Array does not contain valid item.
+err.if.then.else       = Conditional validation failed.

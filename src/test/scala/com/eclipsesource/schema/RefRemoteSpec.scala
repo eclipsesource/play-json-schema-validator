@@ -9,11 +9,13 @@ import play.api.test.WithServer
 
 class RefRemoteSpec extends Specification with JsonSpec {
 
+  val validator = SchemaValidator(Version4)
+
   def createApp: Application = new GuiceApplicationBuilder()
     .routes(Assets.routes(getClass)).build()
 
   "remote ref - remote ref invalid" in new WithServer(createApp, port = 1234) {
-    val validator = SchemaValidator()
+    import Version4._
     val schema = JsonSource.schemaFromString(
       """ { "$ref": "http://localhost:1234/remotes/integer.json" } """.stripMargin
     ).get
@@ -26,6 +28,7 @@ class RefRemoteSpec extends Specification with JsonSpec {
   }
 
   "fragment within remote ref - remote fragment invalid" in new WithServer(createApp, port = 1234)  {
+    import Version4._
     val schema = JsonSource.schemaFromString(
       """{"$ref": "http://localhost:1234/remotes/subSchemas.json#/integer"}"""
     ).get
@@ -38,6 +41,7 @@ class RefRemoteSpec extends Specification with JsonSpec {
   }
 
   "ref within remote ref - ref within ref invalid" in new WithServer(createApp, port = 1234) {
+    import Version4._
     val schema = JsonSource.schemaFromString(
       """{ "$ref": "http://localhost:1234/remotes/subSchemas.json#/refToInteger" }"""
     ).get
@@ -50,6 +54,7 @@ class RefRemoteSpec extends Specification with JsonSpec {
   }
 
   "change resolution scope - change scope ref invalid" in new WithServer(createApp, port = 1234) {
+    import Version4._
     val schema = JsonSource.schemaFromString(
       """{
         |  "id": "http://localhost:1234/",
@@ -69,6 +74,7 @@ class RefRemoteSpec extends Specification with JsonSpec {
   }
 
   "change resolution scope - change scope ref invalid" in new WithServer(createApp, port = 1234) {
+    import Version4._
     val schema = JsonSource.schemaFromString(
       """{
         |  "id": "http://localhost:1234/remotes/",

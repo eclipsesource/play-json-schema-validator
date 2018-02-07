@@ -2,7 +2,6 @@ package com.eclipsesource.schema.internal.validators
 
 import com.eclipsesource.schema._
 import com.eclipsesource.schema.internal.{Keywords, Results, SchemaUtil}
-import com.eclipsesource.schema.internal.SchemaRefResolver._
 import com.eclipsesource.schema.internal.validation.VA
 import com.osinka.i18n.{Lang, Messages}
 import play.api.libs.json.{JsArray, JsBoolean, JsValue}

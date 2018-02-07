@@ -1,10 +1,13 @@
 package com.eclipsesource.schema
 
+import com.eclipsesource.schema.internal.serialization.JSONSchemaReads
 import org.specs2.mutable.Specification
 
 class ExamplesSpec extends Specification {
 
-  val validator = SchemaValidator()
+  import Version4._
+
+  val validator = SchemaValidator(Version4)
   val swaggerSchemaUrl = "/test-schemas/swagger-2.0"
 
   def validateExample(schema: String, url: String) = {

@@ -2,9 +2,8 @@ package com.eclipsesource.schema.internal.validators
 
 import java.text.BreakIterator
 
-import com.eclipsesource.schema.SchemaString
+import com.eclipsesource.schema.{SchemaResolutionContext, SchemaString}
 import com.eclipsesource.schema.internal.Keywords
-import com.eclipsesource.schema.internal.SchemaRefResolver._
 import com.eclipsesource.schema.internal.constraints.Constraints.StringConstraints
 import com.eclipsesource.schema.internal.validation.{Rule, VA}
 import com.osinka.i18n.{Lang, Messages}

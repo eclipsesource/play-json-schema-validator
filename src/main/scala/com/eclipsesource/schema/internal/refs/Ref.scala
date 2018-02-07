@@ -127,7 +127,6 @@ object Ref {
     .map(_.isAbsolute)
     .getOrElse(false)
 
-
   def apply(ref: String): Ref = {
     if (isAbsolute(ref)) {
       AbsoluteRef(ref)

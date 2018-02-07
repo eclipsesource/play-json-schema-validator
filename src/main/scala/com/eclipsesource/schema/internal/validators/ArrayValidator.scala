@@ -1,7 +1,6 @@
 package com.eclipsesource.schema.internal.validators
 
-import com.eclipsesource.schema.SchemaArray
-import com.eclipsesource.schema.internal.SchemaRefResolver._
+import com.eclipsesource.schema.{SchemaArray, SchemaResolutionContext}
 import com.eclipsesource.schema.internal.validation.VA
 import com.eclipsesource.schema.internal.{Keywords, Results, SchemaUtil}
 import com.osinka.i18n.{Lang, Messages}
