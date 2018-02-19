@@ -2,12 +2,14 @@ package com.eclipsesource.schema
 
 import java.net.{URL, URLStreamHandler}
 
-import com.eclipsesource.schema.internal.SchemaRefResolver._
-import com.eclipsesource.schema.internal.refs.Ref
+import com.eclipsesource.schema.internal.refs.{Ref, SchemaRefResolver, SchemaResolutionScope}
 import com.eclipsesource.schema.internal.validators.DefaultFormats
 import com.eclipsesource.schema.urlhandlers.UrlHandler
 import com.osinka.i18n.Lang
 import play.api.libs.json._
+
+import scala.io.Source
+import scalaz.{-\/, \/, \/-}
 
 /**
   * Allows customizations of the validation process.
@@ -17,19 +19,22 @@ trait Customizations {
   def formats: Map[String, SchemaFormat]
 }
 
-trait HasLang {
-  implicit val lang: Lang
+object SchemaValidator {
+  def apply(version: SchemaVersion, formats: Map[String, SchemaFormat] = DefaultFormats.formats)
+           (implicit lang: Lang = Lang.Default): SchemaValidator = {
+    new SchemaValidator(new SchemaRefResolver(version), formats)
+  }
 }
 
 /**
   * The schema validator.
   *
-  * @param refResolver the reference resolver
   */
-case class SchemaValidator(refResolver: SchemaRefResolver = new SchemaRefResolver,
-                           formats: Map[String, SchemaFormat] = DefaultFormats.formats)
-                          (implicit val lang: Lang = Lang.Default)
-  extends Customizations with HasLang {
+class SchemaValidator(val refResolver: SchemaRefResolver,
+                      val formats: Map[String, SchemaFormat])
+                     (implicit val lang: Lang)
+  extends Customizations {
+
 
   /**
     * Add a URLStreamHandler that is capable of handling absolute with a specific scheme.
@@ -37,10 +42,12 @@ case class SchemaValidator(refResolver: SchemaRefResolver = new SchemaRefResolve
     * @param handler the UrlHandler to be added
     * @return a new validator instance
     */
-  def addUrlHandler(handler: URLStreamHandler, scheme: String): SchemaValidator =
-    copy(refResolver =
-      refResolver.copy(resolverFactory =
-        refResolver.resolverFactory.addUrlHandler(scheme, handler)))
+  def addUrlHandler(handler: URLStreamHandler, scheme: String): SchemaValidator = {
+    new SchemaValidator(
+      refResolver.copy(resolverFactory = refResolver.resolverFactory.addUrlHandler(scheme, handler)),
+      formats
+    )
+  }
 
   /**
     * Add a relative URLStreamHandler that is capable of resolving relative references.
@@ -50,10 +57,12 @@ case class SchemaValidator(refResolver: SchemaRefResolver = new SchemaRefResolve
     * @param handler the relative handler to be added
     * @return the validator instance with the handler being added
     */
-  def addRelativeUrlHandler(handler: URLStreamHandler, scheme: String = UrlHandler.ProtocolLessScheme): SchemaValidator =
-    copy(refResolver =
-      refResolver.copy(resolverFactory =
-        refResolver.resolverFactory.addRelativeUrlHandler(scheme, handler)))
+  def addRelativeUrlHandler(handler: URLStreamHandler, scheme: String = UrlHandler.ProtocolLessScheme): SchemaValidator = {
+    new SchemaValidator(
+      refResolver.copy(resolverFactory = refResolver.resolverFactory.addRelativeUrlHandler(scheme, handler)),
+      formats
+    )
+  }
 
 
   /**
@@ -63,7 +72,7 @@ case class SchemaValidator(refResolver: SchemaRefResolver = new SchemaRefResolve
     * @return a new validator instance containing the custom format
     */
   def addFormat(format: SchemaFormat): SchemaValidator =
-    copy(formats = formats + (format.name -> format))
+    new SchemaValidator(refResolver, formats + (format.name -> format))
 
   /**
     * Add a schema.
@@ -72,9 +81,9 @@ case class SchemaValidator(refResolver: SchemaRefResolver = new SchemaRefResolve
     * @param schema the schema
     */
   def addSchema(id: String, schema: SchemaType): SchemaValidator = {
-    copy(refResolver =
-      refResolver.copy(cache =
-        refResolver.cache.add(Ref(id))(schema))
+    new SchemaValidator(
+      refResolver.copy(cache = refResolver.cache.add(Ref(id))(schema)),
+      formats
     )
   }
 
@@ -94,11 +103,17 @@ case class SchemaValidator(refResolver: SchemaRefResolver = new SchemaRefResolve
     * @return a JsResult holding the validation result
     */
   def validate(schemaUrl: URL, input: => JsValue): JsResult[JsValue] = {
+
+    def toJsResult(either: \/[JsonValidationError, SchemaType]): JsResult[SchemaType] = either match {
+      case -\/(errs) => JsError(errs)
+      case \/-(schema) => JsSuccess(schema)
+    }
+
     val ref = Ref(schemaUrl.toString)
     refResolver.cache.get(ref.value) match {
       case None =>
         for {
-          schema <- JsonSource.schemaFromUrl(schemaUrl)
+          schema <- toJsResult(refResolver.readSource(Source.fromURL(schemaUrl)))
           context = buildContext(schema, schemaUrl)
           result <- schema.validate(input, context).toJsResult
         } yield {

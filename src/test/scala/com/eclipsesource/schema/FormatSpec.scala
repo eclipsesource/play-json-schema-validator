@@ -1,11 +1,16 @@
 package com.eclipsesource.schema
 
+import com.eclipsesource.schema.internal.serialization.JSONSchemaReads
 import com.eclipsesource.schema.internal.validators.DefaultFormats.DatetimeFormat
 import org.specs2.mutable.Specification
 import com.eclipsesource.schema.test.JsonSpec
 import play.api.libs.json._
 
 class FormatSpec extends Specification with JsonSpec {
+
+  import Version4._
+
+  implicit val validator = SchemaValidator(Version4)
   validate("optional/format")
 
   "Format" should {
@@ -14,7 +19,7 @@ class FormatSpec extends Specification with JsonSpec {
       val schema = JsonSource.schemaFromString(
         s"""{"format": "unknown"}"""
       ).get
-      val result = SchemaValidator().validate(schema, JsString("some string"))
+      val result = SchemaValidator(Version4).validate(schema, JsString("some string"))
       result.isSuccess must beTrue
     }
 
@@ -26,7 +31,7 @@ class FormatSpec extends Specification with JsonSpec {
           |  "format": "email"
           |}
         """.stripMargin).get
-      val validator = SchemaValidator()
+      val validator = SchemaValidator(Version4)
       validator.validate(schema, JsString("a%d33@example.co.uk")).isSuccess must beTrue
       validator.validate(schema, JsString(".@.....")).isError must beTrue
     }
@@ -39,7 +44,7 @@ class FormatSpec extends Specification with JsonSpec {
           |  "format": "uuid"
           | }
         """.stripMargin).get
-      val validator = SchemaValidator()
+      val validator = SchemaValidator(Version4)
       validator.validate(schema, JsString("6a12a4d5-e9e6-4568-afcc-34c70b24a668")).isSuccess must beTrue
       validator.validate(schema, JsString("foo")).isError must beTrue
     }
@@ -52,7 +57,7 @@ class FormatSpec extends Specification with JsonSpec {
           |  "format": "regex"
           | }
         """.stripMargin).get
-      val validator = SchemaValidator()
+      val validator = SchemaValidator(Version4)
       validator.validate(schema, JsString("'['")).isError must beTrue
     }
 
@@ -71,7 +76,7 @@ class FormatSpec extends Specification with JsonSpec {
           |  "format": "my-format"
           | }
         """.stripMargin).get
-      val validator = SchemaValidator().addFormat(lowerCaseOnlyFormat)
+      val validator = SchemaValidator(Version4).addFormat(lowerCaseOnlyFormat)
       validator.validate(schema, JsString("this is all valid")).isSuccess must beTrue
       validator.validate(schema, JsString("Invalid")).isError must beTrue
     }

@@ -5,9 +5,23 @@ import org.specs2.mutable.Specification
 import play.api.libs.json._
 
 class AllOfSpec extends Specification with JsonSpec {
-  validate("allOf")
+
+  "allOf draft4" in {
+    import Version4._
+    implicit val validator = SchemaValidator(Version4)
+    validate("allOf")
+  }
+
+  "allOf draft7" in {
+    import Version7._
+    implicit val validator = SchemaValidator(Version7)
+    validate("allOf", "draft7")
+  }
+
+  val validator = SchemaValidator(Version4)
 
   object Schemas {
+    import Version4._
     val allOf = JsonSource.schemaFromString(
       """{
         |  "allOf": [

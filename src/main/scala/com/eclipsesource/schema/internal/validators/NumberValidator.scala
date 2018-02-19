@@ -1,8 +1,7 @@
 package com.eclipsesource.schema.internal.validators
 
-import com.eclipsesource.schema.SchemaNumber
+import com.eclipsesource.schema.{SchemaNumber, SchemaResolutionContext}
 import com.eclipsesource.schema.internal.Keywords
-import com.eclipsesource.schema.internal.SchemaRefResolver.SchemaResolutionContext
 import com.eclipsesource.schema.internal.constraints.Constraints.NumberConstraints
 import com.eclipsesource.schema.internal.validation.{Rule, VA}
 import com.osinka.i18n.{Lang, Messages}

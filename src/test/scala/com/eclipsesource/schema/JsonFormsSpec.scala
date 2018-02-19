@@ -1,9 +1,12 @@
 package com.eclipsesource.schema
 
+import com.eclipsesource.schema.internal.serialization.JSONSchemaReads
 import org.specs2.mutable.Specification
 import play.api.libs.json._
 
 class JsonFormsSpec extends Specification {
+
+  import Version4._
 
   val jsonFormSchema = JsonSource.schemaFromString("""{
                                                      |  "definitions": {
@@ -131,7 +134,7 @@ class JsonFormsSpec extends Specification {
                               |}]
                               |}""".stripMargin)
 
-      val result: JsResult[JsValue] = SchemaValidator().validate(jsonFormSchema, json)
+      val result: JsResult[JsValue] = SchemaValidator(Version4).validate(jsonFormSchema, json)
       result.isError must beTrue
       result.asEither must beLeft.like { case error =>
         val JsDefined(subErrors) = error.toJson(0) \ "errors"

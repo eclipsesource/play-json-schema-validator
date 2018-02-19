@@ -11,8 +11,10 @@ import play.api.test.TestServer
 
 class RemoteSpecs extends Specification with JsonSpec with Online with AfterAll {
 
-  override val validator: SchemaValidator = {
-    SchemaValidator().addSchema(
+  import Version4._
+
+  implicit val validator: SchemaValidator = {
+    SchemaValidator(Version4).addSchema(
       "http://localhost:1234/scope_foo.json",
       JsonSource.schemaFromString(
         """{

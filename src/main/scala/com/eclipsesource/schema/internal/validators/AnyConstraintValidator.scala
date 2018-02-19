@@ -1,9 +1,8 @@
 package com.eclipsesource.schema.internal.validators
 
-import com.eclipsesource.schema.{SchemaObject, SchemaType}
-import com.eclipsesource.schema.internal.SchemaRefResolver.SchemaResolutionContext
 import com.eclipsesource.schema.internal._
 import com.eclipsesource.schema.internal.validation.{Rule, VA}
+import com.eclipsesource.schema.{SchemaObject, SchemaResolutionContext, SchemaType}
 import com.osinka.i18n.{Lang, Messages}
 import play.api.libs.json._
 
@@ -19,13 +18,72 @@ object AnyConstraintValidator {
       anyOfRule <- validateAnyOf
       oneOfRule <- validateOneOf
       enumRule  <- validateEnum
+      constRule <- validateConst
       notRule   <- validateNot
-    } yield allOfRule |+| anyOfRule |+| oneOfRule |+| enumRule |+| notRule
-    reader.run((schema, resolutionContext)).repath(_.compose(resolutionContext.instancePath)).validate(json)
+      ifThenElseRule <- validateIfThenElse
+    } yield allOfRule |+| anyOfRule |+| oneOfRule |+| enumRule |+| constRule |+| notRule |+| ifThenElseRule
+    reader
+      .run((schema, resolutionContext))
+      .repath(_.compose(resolutionContext.instancePath))
+      .validate(json)
   }
 
+  def validateIfThenElse(implicit lang: Lang): scalaz.Reader[(SchemaType, SchemaResolutionContext), Rule[JsValue, JsValue]] =
+    scalaz.Reader { case (schema, context) =>
+      Rule.fromMapping { json =>
+        (schema.constraints.any._if, schema.constraints.any._then, schema.constraints.any._else) match {
+          case (Some(ifSchema), Some(thenSchema), Some(elseSchema)) =>
+            val ifSuccess = ifSchema.validate(json, context).isSuccess
+            if (ifSuccess && thenSchema.validate(json, context).isSuccess) {
+              Success(json)
+            } else if (!ifSuccess && elseSchema.validate(json, context).isSuccess) {
+              Success(json)
+            } else {
+              failure(
+                "else",
+                Messages("err.if.then.else", json),
+                context.schemaPath,
+                context.instancePath,
+                json
+              )
+            }
+          case (Some(ifSchema), Some(thenSchema), None) =>
+            val ifSuccess = ifSchema.validate(json, context).isSuccess
+            if (ifSuccess && thenSchema.validate(json, context).isSuccess) {
+              Success(json)
+            } else if (!ifSuccess) {
+              Success(json)
+            } else {
+              failure(
+                "then",
+                Messages("err.if.then.else", json),
+                context.schemaPath,
+                context.instancePath,
+                json
+              )
+            }
+          case (Some(ifSchema), None, Some(elseSchema)) =>
+            if (ifSchema.validate(json, context).isSuccess) {
+              Success(json)
+            } else if (elseSchema.validate(json, context).isSuccess) {
+              Success(json)
+            } else {
+              failure(
+                "else",
+                Messages("err.if.then.else", json),
+                context.schemaPath,
+                context.instancePath,
+                json
+              )
+            }
+          case (Some(_), None, None) => Success(json)
+          case (None, _, _) => Success(json)
+        }
+      }
+    }
+
   def validateNot(implicit lang: Lang): scalaz.Reader[(SchemaType, SchemaResolutionContext), Rule[JsValue, JsValue]] =
-    scalaz.Reader { case (schema ,context) =>
+    scalaz.Reader { case (schema, context) =>
       Rule.fromMapping { json =>
         schema.constraints.any.not.map(schema =>
           if (schema.validate(json, context).isFailure) {
@@ -143,6 +201,26 @@ object AnyConstraintValidator {
         ).getOrElse(Success(json))
       }
     }
+
+  def validateConst(implicit lang: Lang): scalaz.Reader[(SchemaType, SchemaResolutionContext), Rule[JsValue, JsValue]] = {
+    scalaz.Reader { case (schema, context) =>
+      Rule.fromMapping { json =>
+        schema.constraints.any.const match {
+          case Some(constValue) if constValue == json =>
+            Success(json)
+          case None => Success(json)
+          case Some(constValue) => failure(
+            "const",
+            Messages("any.const"),
+            context.schemaPath,
+            context.instancePath,
+            json,
+            Json.obj("const" -> constValue)
+          )
+        }
+      }
+    }
+  }
 
   def validateEnum(implicit lang: Lang): scalaz.Reader[(SchemaType, SchemaResolutionContext), Rule[JsValue, JsValue]] = {
     scalaz.Reader { case (schema, context) =>

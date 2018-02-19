@@ -1,10 +1,9 @@
 package com.eclipsesource.schema.internal.validators
 
-import com.eclipsesource.schema.SchemaInteger
-import com.eclipsesource.schema.internal.SchemaRefResolver.SchemaResolutionContext
-import com.eclipsesource.schema.internal.{Keywords, SchemaUtil}
+import com.eclipsesource.schema.{SchemaInteger, SchemaResolutionContext}
 import com.eclipsesource.schema.internal.constraints.Constraints.NumberConstraints
 import com.eclipsesource.schema.internal.validation.{Rule, VA}
+import com.eclipsesource.schema.internal.{Keywords, SchemaUtil}
 import com.osinka.i18n.{Lang, Messages}
 import play.api.libs.json.{JsNumber, JsValue}
 

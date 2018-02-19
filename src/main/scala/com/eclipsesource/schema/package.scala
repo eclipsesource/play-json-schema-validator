@@ -1,21 +1,26 @@
 package com.eclipsesource
 
 import com.eclipsesource.schema.internal.refs._
-import com.eclipsesource.schema.internal.serialization.{JSONSchemaReads, JSONSchemaWrites}
 import com.eclipsesource.schema.internal.validation.VA
 import com.eclipsesource.schema.internal.validators._
-import com.eclipsesource.schema.internal.{Keywords, Results, SchemaRefResolver, SchemaUtil}
+import com.eclipsesource.schema.internal.{Keywords, Results, SchemaUtil}
 import com.osinka.i18n.{Lang, Messages}
 import play.api.libs.json._
 
 import scalaz.{-\/, Failure, Success, \/-}
 
-package object schema
-  extends SchemaOps
-    with JSONSchemaWrites
-    with JSONSchemaReads {
+package object schema {
 
-  import SchemaRefResolver._
+  case class SchemaResolutionContext(refResolver: SchemaRefResolver,
+                                     scope: SchemaResolutionScope,
+                                     formats: Map[String, SchemaFormat] = DefaultFormats.formats) {
+
+    def schemaPath: JsPath = scope.schemaPath
+    def instancePath: JsPath = scope.instancePath
+    def updateScope(scopeUpdateFn: SchemaResolutionScope => SchemaResolutionScope): SchemaResolutionContext =
+      copy(scope = scopeUpdateFn(scope))
+
+  }
 
   implicit def noValidator[S <: SchemaType] = new SchemaTypeValidator[S] {
     override def validate(schema: S, json: => JsValue, resolutionContext: SchemaResolutionContext)
@@ -39,7 +44,7 @@ package object schema
     private def resolveRefAndValidate(json: JsValue, schemaObject: SchemaObject, context: SchemaResolutionContext)
                                      (implicit lang: Lang): VA[JsValue] = {
 
-      val result: Option[VA[JsValue]] = schemaObject.findUnvisitedRef(context).map { ref =>
+      val result: Option[VA[JsValue]] = schemaObject.findRef(context).map { ref =>
 
         context.refResolver.resolve(schemaObject, ref, context.scope) match {
           case -\/(JsonValidationError(_, _*)) =>
@@ -57,7 +62,7 @@ package object schema
       result.getOrElse(
         Results.failureWithPath(
           Keywords.Ref,
-          Messages("err.unvisited.ref.expected", context.schemaPath),
+          Messages("err.ref.expected", context.schemaPath),
           context,
           json)
       )
@@ -65,6 +70,17 @@ package object schema
 
     private[schema] def doValidate(json: JsValue, context: SchemaResolutionContext)(implicit lang: Lang) = {
       (json, schemaType) match {
+
+        case (_, SchemaValue(JsBoolean(false))) =>
+          Results.failureWithPath(
+            "",
+            Messages("err.false.schema", schemaType, SchemaUtil.typeOfAsString(json)),
+            context,
+            json)
+
+        case (_, SchemaValue(JsBoolean(true))) =>
+          Success(json)
+
 
         case (_: JsObject, schemaObject: SchemaObject) =>
           schemaObject.validateConstraints(json, context)
@@ -110,11 +126,11 @@ package object schema
 
     def validate(json: JsValue, context: SchemaResolutionContext)(implicit lang: Lang): VA[JsValue] = {
       (json, schemaType) match {
-        case (_, schemaObject: SchemaObject) if schemaObject.hasUnvisitedRef(context) =>
+        case (_, schemaObject: SchemaObject) if schemaObject.hasRef(context) =>
           resolveRefAndValidate(json, schemaObject, context)
         case _ =>
           // refine resolution scope
-          val updatedScope: GenResolutionScope[SchemaType] = context.refResolver
+          val updatedScope: SchemaResolutionScope = context.refResolver
             .updateResolutionScope(context.scope, schemaType)
           val updateContext = context.updateScope(_ => updatedScope)
           doValidate(json, updateContext)
@@ -130,14 +146,13 @@ package object schema
   }
 
   private implicit class SchemaObjectExtension(schemaObject: SchemaObject) {
-    def hasUnvisitedRef(resolutionContext: SchemaResolutionContext): Boolean = {
-      resolutionContext.refResolver.refTypeClass.findRef(schemaObject)
-        .map(ref => !resolutionContext.hasBeenVisited(ref))
+    def hasRef(resolutionContext: SchemaResolutionContext): Boolean = {
+      resolutionContext.refResolver.findRef(schemaObject)
         .isDefined
     }
 
-    def findUnvisitedRef(resolutionContext: SchemaResolutionContext): Option[Ref] =
-      resolutionContext.refResolver.refTypeClass.findRef(schemaObject)
+    def findRef(resolutionContext: SchemaResolutionContext): Option[Ref] =
+      resolutionContext.refResolver.findRef(schemaObject)
   }
 
   implicit class VAExtensions[O](va: VA[O]) {

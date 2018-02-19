@@ -3,11 +3,12 @@ package com.eclipsesource.schema.internal.serialization
 import com.eclipsesource.schema._
 import com.eclipsesource.schema.internal.Keywords
 import com.eclipsesource.schema.internal.constraints.Constraints._
+import com.eclipsesource.schema.internal.refs.{Ref, Refs}
 import play.api.libs.functional.syntax._
 import play.api.libs.json.Reads._
 import play.api.libs.json._
 
-trait JSONSchemaReads {
+trait JSONSchemaReads { self: SchemaVersion =>
 
   private def asSchemaType[A <: SchemaType](s: A): SchemaType = s
 
@@ -15,6 +16,8 @@ trait JSONSchemaReads {
     refReader
   }.or {
     typeReader
+  }.or {
+    booleanSchemaReader.map(asSchemaType)
   }.or {
     tupleReader.map(asSchemaType)
   }.or {
@@ -28,24 +31,71 @@ trait JSONSchemaReads {
   }.or {
     compoundReader.map(asSchemaType)
   }.orElse {
-    Reads.apply(_ => JsError("Invalid JSON schema"))
+    Reads.apply(json => JsError(s"Invalid JSON schema. Could not read\n${Json.prettyPrint(json)}\n"))
   }
 
-  val withSchemaValueReader = valueReader or jsValueReader.map(asSchemaType)
+  val withSchemaValueReader: Reads[SchemaType] = valueReader or jsValueReader.map(asSchemaType)
 
-  lazy val numberReader: Reads[SchemaNumber] = {
-    ((__ \ Keywords.Number.Min).readNullable[BigDecimal] and
+  lazy val booleanSchemaReader: Reads[SchemaValue] = self match {
+    case Version4 => Reads(_ => JsError("No boolean schema in draft version 4"))
+    case Version7 => new Reads[SchemaValue] {
+      override def reads(json: JsValue): JsResult[SchemaValue] = json match {
+        case b@JsBoolean(_) => JsSuccess(SchemaValue(b))
+        case _ => JsError("Expected JsBoolean.")
+      }
+    }
+  }
+
+  lazy val numberReader: Reads[SchemaNumber] = self match {
+    case Version4 => numberReader4
+    case Version7 => numberReader7
+  }
+
+  // TODO: code duplication
+  lazy val numberReader4: Reads[SchemaNumber] = {
+    (
+      (__ \ Keywords.Number.Min).readNullable[BigDecimal] and
+        (__ \ Keywords.Number.Max).readNullable[BigDecimal] and
+        (__ \ Keywords.Number.ExclusiveMin).readNullable[Boolean] and
+        (__ \ Keywords.Number.ExclusiveMax).readNullable[Boolean] and
+        (__ \ Keywords.Number.MultipleOf).readNullable[BigDecimal] and
+        (__ \ Keywords.String.Format).readNullable[String] and
+        anyConstraintReader
+      ).tupled.flatMap { read =>
+
+      val (min, max, exclusiveMin, exclusiveMax, multipleOf, format, anyConstraints) = read
+      val minimum = min.map(Minimum(_, Some(exclusiveMin.getOrElse(false))))
+      val maximum = max.map(Maximum(_, Some(exclusiveMax.getOrElse(false))))
+      val typeAsString = anyConstraints.schemaTypeAsString
+
+      if (typeAsString.exists(_ != "number")
+        || (typeAsString.isEmpty
+        && min.isEmpty
+        && max.isEmpty
+        && exclusiveMin.isEmpty
+        && exclusiveMax.isEmpty
+        && multipleOf.isEmpty)) {
+        Reads(_ => JsError("Expected number"))
+      } else {
+        Reads.pure(SchemaNumber(NumberConstraints(minimum, maximum, multipleOf, format, anyConstraints)))
+      }
+    }
+  }
+
+  lazy val numberReader7: Reads[SchemaNumber] = {
+    (
+      (__ \ Keywords.Number.Min).readNullable[BigDecimal] and
       (__ \ Keywords.Number.Max).readNullable[BigDecimal] and
-      (__ \ Keywords.Number.ExclusiveMin).readNullable[Boolean] and
-      (__ \ Keywords.Number.ExclusiveMax).readNullable[Boolean] and
+      (__ \ Keywords.Number.ExclusiveMin).readNullable[BigDecimal] and
+      (__ \ Keywords.Number.ExclusiveMax).readNullable[BigDecimal] and
       (__ \ Keywords.Number.MultipleOf).readNullable[BigDecimal] and
       (__ \ Keywords.String.Format).readNullable[String] and
       anyConstraintReader
       ).tupled.flatMap { read =>
 
       val (min, max, exclusiveMin, exclusiveMax, multipleOf, format, anyConstraints) = read
-      val minimum = min.map(Minimum(_, exclusiveMin))
-      val maximum = max.map(Maximum(_, exclusiveMax))
+      val minimum = min.map(Minimum(_, Some(false))) orElse exclusiveMin.map(Minimum(_, Some(true)))
+      val maximum = max.map(Maximum(_, Some(false))) orElse exclusiveMax.map(Maximum(_, Some(true)))
       val typeAsString = anyConstraints.schemaTypeAsString
 
       if (typeAsString.exists(_ != "number")
@@ -87,7 +137,7 @@ trait JSONSchemaReads {
         && multipleOf.isEmpty)) {
         Reads.apply(_ => JsError("Expected integer."))
       } else {
-        Reads.pure(schema )
+        Reads.pure(schema)
       }
     })
   }
@@ -142,7 +192,7 @@ trait JSONSchemaReads {
     }
   }
 
-  private def createDelegateReader[A <: SchemaType with HasProps[A]](delegateReads: Reads[A], keywords: List[String]): Reads[A] = {
+  private def createDelegateReader[A <: SchemaType with HasProps[A]](delegateReads: Reads[A], keywords: Set[String]): Reads[A] = {
     new Reads[A] {
       override def reads(json: JsValue): JsResult[A] = {
         json match {
@@ -156,18 +206,16 @@ trait JSONSchemaReads {
     }
   }
 
-  lazy val delegatingTupleReader: Reads[SchemaTuple] = createDelegateReader(tupleReader, Keywords.ofTuple)
-  lazy val delegatingArrayReader: Reads[SchemaArray] = createDelegateReader(arrayReader, Keywords.ofArray)
-  lazy val delegatingObjectReader: Reads[SchemaObject] = createDelegateReader(objectReader, Keywords.ofObject)
+  lazy val delegatingTupleReader: Reads[SchemaTuple] = createDelegateReader(tupleReader, keywords.ofTuple)
+  lazy val delegatingArrayReader: Reads[SchemaArray] = createDelegateReader(arrayReader, keywords.ofArray)
+  lazy val delegatingObjectReader: Reads[SchemaObject] = createDelegateReader(objectReader, keywords.ofObject)
 
-  private def addRemainingProps[A <: HasProps[A]](init: A, props: Iterable[(String, JsValue)], keywords: List[String]): A = {
+  private def addRemainingProps[A <: HasProps[A]](init: A, props: Iterable[(String, JsValue)], keywords: Set[String]): A = {
     val remainingProps = props.filterNot { case (propName, _)  => keywords.contains(propName) }
-    val objWithProps = remainingProps.foldLeft(SchemaObject()) { (obj, prop) =>
-      obj ++ valueReader.reads(prop._2).asOpt.fold[SchemaObject](SchemaObject())(value =>
-        SchemaObject(Seq.empty, ObjectConstraints(), Seq(SchemaAttribute(prop._1, value)))
-      )
+    val remaining: Iterable[(String, SchemaType)] = remainingProps.map { case (name, value) =>
+      name -> valueReader.reads(value).asOpt.fold[SchemaType](SchemaValue(value))(x => x)
     }
-    init.withProps(objWithProps)
+    init.withProps(remaining.toSeq)
   }
 
   lazy val arrayReader: Reads[SchemaArray] = {
@@ -176,10 +224,11 @@ trait JSONSchemaReads {
       (__ \ Keywords.Array.MinItems).readNullable[Int] and
       (__ \ Keywords.Array.MaxItems).readNullable[Int] and
       (__ \ Keywords.Array.UniqueItems).readNullable[Boolean] and
+      optional(keywords.contains) and
       anyConstraintReader
       ).tupled.flatMap(
       read => {
-        val (items, additionalItems, minItems, maxItems, uniqueItems, any) = read
+        val (items, additionalItems, minItems, maxItems, uniqueItems, contains, any) = read
 
         if (any.schemaTypeAsString.exists(_ != "array") ||
           (any.schemaTypeAsString.isEmpty
@@ -187,6 +236,7 @@ trait JSONSchemaReads {
             && additionalItems.isEmpty
             && minItems.isEmpty
             && maxItems.isEmpty
+            && contains.isEmpty
             && uniqueItems.isEmpty)) {
           Reads.apply(_ => JsError("Expected array."))
         } else {
@@ -197,6 +247,7 @@ trait JSONSchemaReads {
                 minItems,
                 additionalItems,
                 uniqueItems,
+                contains,
                 any
               )
             )
@@ -210,17 +261,19 @@ trait JSONSchemaReads {
       (__ \ Keywords.Array.AdditionalItems).lazyReadNullable[SchemaType](withSchemaValueReader) and
       (__ \ Keywords.Array.MinItems).readNullable[Int] and
       (__ \ Keywords.Array.MaxItems).readNullable[Int] and
+      keywords.contains.fold[Reads[Option[SchemaType]]](Reads.pure(None))(contains => (__ \ contains).lazyReadNullable(valueReader)) and
       (__ \ Keywords.Array.UniqueItems).readNullable[Boolean] and
       anyConstraintReader
       ).tupled.flatMap { read =>
-      val (items, additionalItems, minItems, maxItems, uniqueItems, anyConstraints) = read
-
+      val (items, additionalItems, minItems, maxItems, uniqueItems, contains, anyConstraints) = read
       if (anyConstraints.schemaTypeAsString.exists(_ != "array") ||
         ((anyConstraints.schemaTypeAsString.isEmpty
           && items.isEmpty
           && additionalItems.isEmpty
           && minItems.isEmpty
-          && maxItems.isEmpty) || items.isEmpty)) {
+          && maxItems.isEmpty
+          && contains.isEmpty
+          && uniqueItems.isEmpty) || items.isEmpty)) {
         Reads.apply(_ => JsError("Expected tuple."))
       } else {
         Reads.pure(
@@ -228,6 +281,7 @@ trait JSONSchemaReads {
             ArrayConstraints(maxItems,
               minItems,
               additionalItems,
+              contains,
               uniqueItems,
               anyConstraints
             )
@@ -260,7 +314,7 @@ trait JSONSchemaReads {
       )(r => {
         Reads.pure(
           SchemaObject(
-            Seq(SchemaAttribute("$ref", SchemaValue(JsString(r)))),
+            Seq(SchemaProp("$ref", SchemaValue(JsString(r)))),
             ObjectConstraints().copy(any = anyConstraints)
           )
         )
@@ -279,20 +333,21 @@ trait JSONSchemaReads {
         (__ \ Keywords.Object.Dependencies).lazyReadNullable[Map[String, SchemaType]](mapReadsInstanceWithJsValueReader) and
         (__ \ Keywords.Object.MinProperties).readNullable[Int] and
         (__ \ Keywords.Object.MaxProperties).readNullable[Int] and
+        optional(keywords.propertyNames) and
         anyConstraintReader
       ).tupled.flatMap { read =>
 
-      val (properties, patternProperties, additionalProperties, required, dependencies, minProperties, maxProperties, anyConstraints) = read
-
-      val props: List[SchemaAttribute] = properties.map(tuples2Attributes).getOrElse(List.empty)
-
-      val subSchemas: Option[Seq[SchemaType]] = (
-        properties.map(_.values.toSeq) ++
-          patternProperties.map(_.values.toSeq) ++
-          additionalProperties.map(Seq(_)) ++
-          dependencies.map(_.values.toSeq) ++
-          anyConstraints.definitions.map(_.values.toSeq)
-        ).reduceOption(_ ++ _)
+      val (
+        properties,
+        patternProperties,
+        additionalProperties,
+        required,
+        dependencies,
+        minProperties,
+        maxProperties,
+        propertyNames,
+        anyConstraints) = read
+      val props: List[SchemaProp] = properties.map(tuples2Attributes).getOrElse(List.empty)
 
       val schema = SchemaObject(
         props,
@@ -303,6 +358,7 @@ trait JSONSchemaReads {
           required,
           minProperties,
           maxProperties,
+          propertyNames,
           anyConstraints
         )
       )
@@ -311,23 +367,40 @@ trait JSONSchemaReads {
     }
   }
 
+  def readJsNull(path: JsPath): Reads[Option[JsValue]] =
+    Reads[Option[JsValue]] { json =>
+      path.applyTillLast(json).fold(identity, _.fold(
+        // const not found
+        _ => JsSuccess(None),
+        js => JsSuccess(Some(js))
+      ))
+    }
+
   lazy val anyConstraintReader: Reads[AnyConstraint] = {
 
-    ((__ \ Keywords.Any.Type).readNullable[String] and
-      (__ \ Keywords.Any.AllOf).lazyReadNullable[Seq[SchemaType]](schemaTypeSeqReader(isObject)) and
-      (__ \ Keywords.Any.AnyOf).lazyReadNullable[Seq[SchemaType]](schemaTypeSeqReader(isObject)) and
-      (__ \ Keywords.Any.OneOf).lazyReadNullable[Seq[SchemaType]](schemaTypeSeqReader(isObject)) and
-      (__ \ Keywords.Any.Definitions).lazyReadNullable(schemaTypeMapReader) and
-      (__ \ Keywords.Any.Enum).readNullable[Seq[JsValue]] and
-      (__ \ Keywords.Any.Not).lazyReadNullable(valueReader) and
-      (__ \ Keywords.Any.Description).readNullable[String] and
-      (__ \ Keywords.Any.Id).readNullable[String]
+    (
+      (__ \ Keywords.Any.Type).readNullable[String] and
+        (__ \ Keywords.Any.AllOf).lazyReadNullable[Seq[SchemaType]](schemaTypeSeqReader()) and
+        (__ \ Keywords.Any.AnyOf).lazyReadNullable[Seq[SchemaType]](schemaTypeSeqReader()) and
+        (__ \ Keywords.Any.OneOf).lazyReadNullable[Seq[SchemaType]](schemaTypeSeqReader()) and
+        (__ \ Keywords.Any.Definitions).lazyReadNullable(schemaTypeMapReader) and
+        (__ \ Keywords.Any.Enum).readNullable[Seq[JsValue]] and
+        readJsNull(__ \ "const") and
+        (__ \ Keywords.Any.Not).lazyReadNullable(valueReader) and
+        (__ \ Keywords.Any.Description).readNullable[String] and
+        (__ \ keywords.id).readNullable[String] and
+        optional(keywords.If) and
+        optional(keywords.Then) and
+        optional(keywords.Else)
       ).tupled.map { read =>
 
-      val (schemaType, allOf, anyOf, oneOf, definitions, enum, not, desc, id) = read
-      AnyConstraint(schemaType, allOf, anyOf, oneOf, definitions, enum, not, desc, id)
+      val (schemaType, allOf, anyOf, oneOf, definitions, enum, const, not, desc, id, _if, _then, _else) = read
+      AnyConstraint(schemaType, allOf, anyOf, oneOf, definitions, enum, const, not, desc, id, _if, _then, _else)
     }
   }
+
+  private def optional(keyword: Option[String]): Reads[Option[SchemaType]] =
+    keyword.fold[Reads[Option[SchemaType]]](Reads.pure(None))(_if => (__ \ _if).lazyReadNullable(valueReader))
 
   private val schemaTypeMapReader: Reads[Map[String, SchemaType]] =
     new Reads[Map[String, SchemaType]] {
@@ -342,7 +415,7 @@ trait JSONSchemaReads {
   /**
     * Read a JsArray of JsObjects as a Seq of SchemaType.
     */
-  private def schemaTypeSeqReader(check: ElementCheck): Reads[Seq[SchemaType]] = {
+  private def schemaTypeSeqReader(check: ElementCheck = (_ => true, None)): Reads[Seq[SchemaType]] = {
     new Reads[Seq[SchemaType]] {
       override def reads(json: JsValue) = json match {
         case JsArray(els) if !els.exists(check._1) =>
@@ -364,10 +437,10 @@ trait JSONSchemaReads {
       case (e1, e2) => JsError.merge(e1, e2)
     }
 
-  def emptyObject: SchemaType = SchemaObject(Seq.empty, ObjectConstraints())
+  private def emptyObject: SchemaType = SchemaObject(Seq.empty, ObjectConstraints())
 
-  private def tuples2Attributes(props: Iterable[(String, SchemaType)]): List[SchemaAttribute] =
-    props.map { case (name, schema) => SchemaAttribute(name, schema) }.toList
+  private def tuples2Attributes(props: Iterable[(String, SchemaType)]): List[SchemaProp] =
+    props.map { case (name, schema) => SchemaProp(name, schema) }.toList
 
   type ElementCheck = ((JsValue) => Boolean, Option[ErrorMessage])
   type ErrorMessage = String

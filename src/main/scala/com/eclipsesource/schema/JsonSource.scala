@@ -39,7 +39,8 @@ object JsonSource {
     * @param json the input string
     * @return the result wrapped in a JsResult
     */
-  def schemaFromString(json: String): JsResult[SchemaType] = Json.fromJson[SchemaType](Json.parse(json))
+  def schemaFromString(json: String)(implicit reads: Reads[SchemaType]): JsResult[SchemaType] =
+    Json.fromJson[SchemaType](Json.parse(json))
 
   /**
     * Tries to read from the given InputStream and convert the result to a JSON schema.
@@ -48,7 +49,7 @@ object JsonSource {
     * @param inputStream the input string
     * @return the read result wrapped in a JsResult
     */
-  def schemaFromStream(inputStream: InputStream): JsResult[SchemaType] =
+  def schemaFromStream(inputStream: InputStream)(implicit reads: Reads[SchemaType]): JsResult[SchemaType] =
     try Json.fromJson[SchemaType](Json.parse(inputStream)) finally inputStream.close()
 
   /**
@@ -57,7 +58,7 @@ object JsonSource {
     * @param url the URL at which a JSON schema is expected
     * @return the result wrapped in a JsResult
     */
-  def schemaFromUrl(url: URL): JsResult[SchemaType] = {
+  def schemaFromUrl(url: URL)(implicit reads: Reads[SchemaType]): JsResult[SchemaType] = {
     for {
       schemaJson <- JsonSource.fromUrl(url) match {
         case Success(json) => JsSuccess(json)

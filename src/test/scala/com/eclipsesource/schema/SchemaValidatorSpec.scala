@@ -13,6 +13,8 @@ class SchemaValidatorSpec extends PlaySpecification {
 
   def createApp: Application = new GuiceApplicationBuilder().routes(Assets.routes(getClass)).build()
 
+  import Version4._
+
   val schema: SchemaType = JsonSource.schemaFromString(
     """{
       |  "type": "object",
@@ -46,7 +48,7 @@ class SchemaValidatorSpec extends PlaySpecification {
     )
   )
 
-  "SchemaValidator" should {
+  "SchemaValidator(Version4)" should {
 
     "validate additionalProperties schema constraint via $ref" in
       new WithServer(app = createApp, port = 1234) {
@@ -60,7 +62,7 @@ class SchemaValidatorSpec extends PlaySpecification {
         val valid = Json.obj("title" -> "This is valid")
         val invalid = Json.obj("title" -> "Too short")
 
-        val validator = SchemaValidator()
+        val validator = SchemaValidator(Version4)
         validator.validate(schema, valid).isSuccess must beTrue
         validator.validate(schema, invalid).isError must beTrue
       }
@@ -71,7 +73,7 @@ class SchemaValidatorSpec extends PlaySpecification {
           |  "type": "array",
           |  "items": { "type": "integer" }
           |}""".stripMargin).get
-      val result = SchemaValidator().validate(schema)(Json.arr(1,2,3))
+      val result = SchemaValidator(Version4).validate(schema)(Json.arr(1,2,3))
       result.asOpt must beSome.which {
         case arr@JsArray(seq) => seq must haveLength(3)
       }
@@ -88,38 +90,38 @@ class SchemaValidatorSpec extends PlaySpecification {
         val valid = JsString("Valid instance")
         val invalid = JsString("Too short")
 
-        val validator = SchemaValidator()
+        val validator = SchemaValidator(Version4)
         validator.validate(schema, valid).isSuccess must beTrue
         validator.validate(schema, invalid).isError must beTrue
       }
 
     "be validated via file based resource URL" in {
-      val result = SchemaValidator().validate(resourceUrl, instance)
+      val result = SchemaValidator(Version4).validate(resourceUrl, instance)
       result.isSuccess must beTrue
     }
 
     "validate via file based URL and Reads" in {
-      val result: JsResult[Talk] = SchemaValidator().validate(resourceUrl, instance, talkReads)
+      val result: JsResult[Talk] = SchemaValidator(Version4).validate(resourceUrl, instance, talkReads)
       result.isSuccess must beTrue
       result.asOpt must beSome.which(talk => talk.location.name must beEqualTo("Munich"))
     }
 
     "validate via file based URL and Writes" in {
       val talk = Talk(Location("Munich"))
-      val result = SchemaValidator().validate(resourceUrl, talk, talkWrites)
+      val result = SchemaValidator(Version4).validate(resourceUrl, talk, talkWrites)
       result.isSuccess must beTrue
     }
 
     "validate via file based URL and Format" in {
       val talk = Talk(Location("Munich"))
-      val result: JsResult[Talk] = SchemaValidator().validate(resourceUrl, talk)
+      val result: JsResult[Talk] = SchemaValidator(Version4).validate(resourceUrl, talk)
       result.isSuccess must beTrue
       result.asOpt must beSome.which(talk => talk.location.name must beEqualTo("Munich"))
     }
 
     "validate with Reads" in
       new WithServer(app = createApp, port = 1234) {
-        val result = SchemaValidator().validate(schema, instance, talkReads)
+        val result = SchemaValidator(Version4).validate(schema, instance, talkReads)
         result.isSuccess must beTrue
         result.asOpt must beSome.which(talk => talk.location.name must beEqualTo("Munich"))
       }
@@ -127,7 +129,7 @@ class SchemaValidatorSpec extends PlaySpecification {
     "validate with Writes" in
       new WithServer(app = createApp, port = 1234) {
         val talk = Talk(Location("Munich"))
-        val result = SchemaValidator().validate(schema, talk, talkWrites)
+        val result = SchemaValidator(Version4).validate(schema, talk, talkWrites)
         result.isSuccess must beTrue
       }
   }
@@ -135,7 +137,7 @@ class SchemaValidatorSpec extends PlaySpecification {
   "Remote ref" should {
     "validate" in new WithServer(app = createApp, port = 1234) {
       val resourceUrl: URL = new URL("http://localhost:1234/talk.json")
-      val result = SchemaValidator().validate(resourceUrl, instance)
+      val result = SchemaValidator(Version4).validate(resourceUrl, instance)
       result.isSuccess must beTrue
     }
   }
@@ -156,7 +158,7 @@ class SchemaValidatorSpec extends PlaySpecification {
         ),
         "title" -> "Some title"
       )
-      val result: JsResult[Foo] = SchemaValidator().validate(schema, fooInstance, lr)
+      val result: JsResult[Foo] = SchemaValidator(Version4).validate(schema, fooInstance, lr)
       result.asEither must beLeft.like { case error =>
         (error.toJson(0) \ "instancePath") must beEqualTo(JsDefined(JsString("/loc")))
       }
@@ -166,7 +168,7 @@ class SchemaValidatorSpec extends PlaySpecification {
     val schema = JsonSource.schemaFromString(
       """{ "$ref": "#/does/not/exist" }""".stripMargin).get
     val instance = JsNumber(42)
-    val result = SchemaValidator().validate(schema, instance)
+    val result = SchemaValidator(Version4).validate(schema, instance)
     result.isError must beTrue
     result.asEither must beLeft.which { _.head._2.head.message must beEqualTo(
       """Could not resolve ref #/does/not/exist."""
@@ -184,7 +186,7 @@ class SchemaValidatorSpec extends PlaySpecification {
         |    }
         | }
         |}""".stripMargin).get
-    val validator = SchemaValidator()
+    val validator = SchemaValidator(Version4)
 
     validator.validate(schema,
       Json.obj(
@@ -223,7 +225,7 @@ class SchemaValidatorSpec extends PlaySpecification {
         |    }
         |  }
         |}""".stripMargin).get
-    val validator = SchemaValidator()
+    val validator = SchemaValidator(Version4)
 
     validator.validate(schema,
       Json.obj(
@@ -289,7 +291,7 @@ class SchemaValidatorSpec extends PlaySpecification {
         |    ]
         |}
       """.stripMargin).get
-    val validator = SchemaValidator()
+    val validator = SchemaValidator(Version4)
 
     // invalid since empty object matches no schema
     validator.validate(schema)(Json.obj()) must beLike {
@@ -308,18 +310,18 @@ class SchemaValidatorSpec extends PlaySpecification {
     validator.validate(schema)(Json.obj("name2" -> "bar")).isSuccess must beTrue
 
     // invalid because not listed in enum
-    SchemaValidator().validate(schema)(Json.obj("name" -> "quux")).isError must beTrue
+    SchemaValidator(Version4).validate(schema)(Json.obj("name" -> "quux")).isError must beTrue
   }
 
   "verify cache hit (issue #98)" in {
     val talk = Talk(Location("Munich"))
-    val validator = SchemaValidator()
+    val validator = SchemaValidator(Version4)
     validator.validate(resourceUrl, talk)
     validator.refResolver.cache.mapping.isEmpty must beFalse
   }
 
   "add dependencies via addSchema and validate (#98)" in {
-    val validator = SchemaValidator()
+    val validator = SchemaValidator(Version4)
     val commonSchema = JsonSource.schemaFromString(
       """|{
          |  "definitions": {
@@ -351,7 +353,7 @@ class SchemaValidatorSpec extends PlaySpecification {
   }
 
   "add dependencies via addSchema and fail (#98)" in {
-    val validator = SchemaValidator()
+    val validator = SchemaValidator(Version4)
     val commonSchema = JsonSource.schemaFromString(
       """|{
          |  "definitions": {

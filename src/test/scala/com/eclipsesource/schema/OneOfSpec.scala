@@ -4,8 +4,20 @@ import com.eclipsesource.schema.test.JsonSpec
 import org.specs2.mutable.Specification
 
 class OneOfSpec extends Specification with JsonSpec {
-  validate("oneOf")
-  validate("oneOf", "ajv_tests")
+
+  import Version4._
+
+  "oneOf draft4" in {
+    implicit val validator: SchemaValidator = SchemaValidator(Version4)
+    validate("oneOf")
+    validate("oneOf", "ajv_tests")
+  }
+
+  "oneOf draft7" in {
+    import Version7._
+    implicit val validator: SchemaValidator = SchemaValidator(Version7)
+    validate("oneOf", "draft7")
+  }
 
   "oneOf must be array of objects (invalid)" in {
     val schema = JsonSource.schemaFromString(

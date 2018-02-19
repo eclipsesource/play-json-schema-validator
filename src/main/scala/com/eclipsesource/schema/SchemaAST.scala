@@ -4,16 +4,12 @@ import com.eclipsesource.schema.internal.constraints.Constraints._
 import play.api.libs.json._
 
 
-trait Resolvable {
-  def resolvePath(path: String): Option[SchemaType]
-}
-
 sealed trait SchemaType {
   def constraints: HasAnyConstraint
 }
 
 sealed trait HasProps[A] {
-  def withProps(schemaObject: SchemaObject): A
+  def withProps(props: Seq[(String, SchemaType)]): A
 }
 
 sealed trait PrimitiveSchemaType extends SchemaType
@@ -27,7 +23,7 @@ sealed trait SchemaArrayLike extends SchemaType {
 }
 
 sealed trait SchemaObjectLike extends SchemaType {
-  def properties: Seq[SchemaAttribute]
+  def properties: Seq[SchemaProp]
 }
 
 final case class CompoundSchemaType(alternatives: Seq[SchemaType]) extends SchemaType {
@@ -35,32 +31,34 @@ final case class CompoundSchemaType(alternatives: Seq[SchemaType]) extends Schem
   override def constraints: HasAnyConstraint = NoConstraints()
 }
 
-final case class SchemaMap(name: String, members: Seq[SchemaAttribute]) extends SchemaType {
+final case class SchemaMap(name: String, members: Seq[SchemaProp]) extends SchemaType {
   override def constraints: HasAnyConstraint = NoConstraints()
 }
 
-final case class SchemaObject(properties: Seq[SchemaAttribute] = Seq.empty,
+final case class SchemaObject(properties: Seq[SchemaProp] = Seq.empty,
                               constraints: ObjectConstraints = ObjectConstraints(),
-                              remainingsProps: Seq[SchemaAttribute] = Seq.empty) extends SchemaObjectLike with HasProps[SchemaObject] {
+                              otherProps: Seq[(String, SchemaType)] = Seq.empty) extends SchemaObjectLike with HasProps[SchemaObject] {
   override def toString: String = "object"
-  override def withProps(schemaObject: SchemaObject): SchemaObject = (this ++ schemaObject).copy(
-    constraints = constraints
-  )
+  override def withProps(otherProps: Seq[(String, SchemaType)]): SchemaObject = copy(otherProps = otherProps)
 }
 
 final case class SchemaTuple(items: Seq[SchemaType],
                              constraints: ArrayConstraints = ArrayConstraints(),
-                             otherProps: Option[SchemaObject] = None) extends SchemaArrayLike with HasProps[SchemaTuple] {
+                             otherProps: Seq[(String, SchemaType)] = Seq.empty) extends SchemaArrayLike with HasProps[SchemaTuple] {
   override def toString: String = "tuple"
-  override def withProps(schemaObject: SchemaObject): SchemaTuple = copy(otherProps = Some(schemaObject))
+  override def withProps(otherProps: Seq[(String, SchemaType)]): SchemaTuple = copy(otherProps = otherProps)
+}
+
+final case class SchemaRef(ref: String) extends SchemaType {
+  override def constraints: HasAnyConstraint = NoConstraints()
 }
 
 final case class SchemaArray(item:  SchemaType,
                              constraints: ArrayConstraints = ArrayConstraints(),
-                             otherProps: Option[SchemaObject] = None) extends SchemaArrayLike with HasProps[SchemaArray] {
+                             otherProps: Seq[(String, SchemaType)] = Seq.empty) extends SchemaArrayLike with HasProps[SchemaArray] {
   override def toString: String = "array"
   def items = Seq(item)
-  override def withProps(schemaObject: SchemaObject): SchemaArray = copy(otherProps = Some(schemaObject))
+  override def withProps(otherProps: Seq[(String, SchemaType)]): SchemaArray = copy(otherProps = otherProps)
 }
 
 final case class SchemaString(constraints: StringConstraints = StringConstraints()) extends PrimitiveSchemaType {
@@ -83,6 +81,6 @@ final case class SchemaNull(constraints: HasAnyConstraint = NoConstraints()) ext
   override def toString: String = "null"
 }
 
-case class SchemaAttribute(name: String, schemaType: SchemaType)
+case class SchemaProp(name: String, schemaType: SchemaType)
 
 

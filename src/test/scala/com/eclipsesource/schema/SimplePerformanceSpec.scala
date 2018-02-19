@@ -1,9 +1,12 @@
 package com.eclipsesource.schema
 
+import com.eclipsesource.schema.internal.serialization.JSONSchemaReads
 import org.specs2.mutable.Specification
 import play.api.libs.json.Json
 
 class SimplePerformanceSpec extends Specification {
+
+  import Version4._
 
   def timed(name: String)(body: => Unit) {
     val start = System.currentTimeMillis()
@@ -11,7 +14,7 @@ class SimplePerformanceSpec extends Specification {
     println(name + ": " + (System.currentTimeMillis() - start) + " ms")
   }
 
-  val validator = SchemaValidator()
+  val validator = SchemaValidator(Version4)
   val schemaUrl = getClass.getResource("/issue-99-1.json")
   val schema = JsonSource.schemaFromUrl(schemaUrl).get
 

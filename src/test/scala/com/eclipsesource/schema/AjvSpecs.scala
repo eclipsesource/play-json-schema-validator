@@ -5,6 +5,8 @@ import play.api.test.PlaySpecification
 
 class AjvSpecs extends PlaySpecification with JsonSpec {
 
+  import Version4._
+  implicit val validator = SchemaValidator(Version4)
   def validateAjv(testName: String) = validate(testName, "ajv_tests")
 
   validateAjv("1_ids_in_refs")
