@@ -43,7 +43,7 @@ trait SchemaKeywords {
     Keywords.Any.Type,
     Keywords.Any.If,
     Keywords.Any.Then,
-    Keywords.Any.Else,
+    Keywords.Any.Else
   )
 
   val defaultArrayKeywords = Set(
