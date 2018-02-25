@@ -1,13 +1,41 @@
 package com.eclipsesource.schema
 
-import com.eclipsesource.schema.internal.validation.VA
+import com.eclipsesource.schema.internal.validation.{VA, Validated}
 import play.api.libs.json._
 
 import scala.language.reflectiveCalls
-import scala.util.{Failure, Success, Try}
+import scalaz.Failure
 import scalaz.{ReaderWriterState, Semigroup}
 
+import scala.util.{Success => ScalaSuccess, Failure => ScalaFailure, Try}
+
 package object internal {
+
+  def failure(keyword: String,
+              msg: String,
+              schemaPath: JsPath,
+              instancePath: JsPath,
+              instance: JsValue,
+              additionalInfo: JsObject = Json.obj()
+             ): Validated[JsonValidationError, JsValue] = {
+
+    def dropSlashIfAny(path: String) = if (path.startsWith("/#")) path.substring(1) else path
+
+    Failure(
+      Seq(
+        JsonValidationError(msg,
+          Json.obj(
+            "keyword" -> keyword,
+            "schemaPath" -> dropSlashIfAny(schemaPath.toString()),
+            "instancePath" -> instancePath.toString(),
+            "value" -> instance,
+            "errors" ->  additionalInfo
+          )
+        )
+      )
+    )
+  }
+
 
   // provide semigroup for unit for use with ReaderWriterState
   implicit def UnitSemigroup: Semigroup[Unit] = new Semigroup[Unit] {
@@ -16,8 +44,8 @@ package object internal {
 
   implicit class TryExtensions[A](t: Try[A]) {
     def toJsonEither: Either[JsonValidationError, A] =  t match {
-      case Success(result) => Right(result)
-      case Failure(throwable) => Left(JsonValidationError(throwable.getMessage))
+      case ScalaSuccess(result) => Right(result)
+      case ScalaFailure(throwable) => Left(JsonValidationError(throwable.getMessage))
     }
   }
 

@@ -1,7 +1,7 @@
 package com.eclipsesource.schema.internal.validators
 
 import com.eclipsesource.schema.SchemaResolutionContext
-import com.eclipsesource.schema.internal.constraints.Constraints.{Maximum, Minimum, NumberConstraints}
+import com.eclipsesource.schema.internal.constraints.Constraints.{Maximum, Minimum}
 import com.eclipsesource.schema.internal.validation.Rule
 import com.eclipsesource.schema.internal.{Keywords, SchemaUtil}
 import com.osinka.i18n.{Lang, Messages}
@@ -9,9 +9,9 @@ import play.api.libs.json.{JsNumber, JsValue}
 
 import scalaz.Success
 
-trait NumberConstraintsValidator {
+object NumberValidators {
 
-  def validateMin(implicit lang: Lang): scalaz.Reader[(NumberConstraints, SchemaResolutionContext), Rule[JsValue, JsValue]] = {
+  def validateMin(minimum: Option[Minimum])(implicit lang: Lang): scalaz.Reader[SchemaResolutionContext, Rule[JsValue, JsValue]] = {
 
     def isValid(n: JsNumber, minConstraint: Minimum) = {
       if (minConstraint.isExclusive.getOrElse(false)) {
@@ -21,9 +21,9 @@ trait NumberConstraintsValidator {
       }
     }
 
-    scalaz.Reader { case (constraint, context) =>
+    scalaz.Reader { context =>
       Rule.fromMapping[JsValue, JsValue] {
-        case number@JsNumber(_) => constraint.min match {
+        case number@JsNumber(_) => minimum match {
           case None => Success(number)
           case Some(min) =>
             if (isValid(number, min)) {
@@ -35,7 +35,7 @@ trait NumberConstraintsValidator {
               } else {
                 Messages("num.min", number, min.min)
               }
-              failure(
+              SchemaUtil.failure(
                 Keywords.Number.Min,
                 msg,
                 context.schemaPath,
@@ -49,7 +49,7 @@ trait NumberConstraintsValidator {
     }
   }
 
-  def validateMax(implicit lang: Lang): scalaz.Reader[(NumberConstraints, SchemaResolutionContext), Rule[JsValue, JsValue]] = {
+  def validateMax(maximum: Option[Maximum])(implicit lang: Lang): scalaz.Reader[SchemaResolutionContext, Rule[JsValue, JsValue]] = {
 
     def isValid(n: JsNumber, maxConstraint: Maximum) = {
       if (maxConstraint.isExclusive.getOrElse(false)) {
@@ -59,9 +59,9 @@ trait NumberConstraintsValidator {
       }
     }
 
-    scalaz.Reader { case (constraint, context) =>
+    scalaz.Reader { context =>
       Rule.fromMapping[JsValue, JsValue] {
-        case number@JsNumber(_) => constraint.max match {
+        case number@JsNumber(_) => maximum match {
           case None => Success(number)
           case Some(max) =>
             if (isValid(number, max)) {
@@ -73,7 +73,7 @@ trait NumberConstraintsValidator {
               } else {
                 Messages("num.max", number, max.max)
               }
-              failure(
+              SchemaUtil.failure(
                 Keywords.Number.Max,
                 msg,
                 context.schemaPath,
@@ -87,15 +87,15 @@ trait NumberConstraintsValidator {
     }
   }
 
-  def validateMultipleOf(implicit lang: Lang): scalaz.Reader[(NumberConstraints, SchemaResolutionContext), Rule[JsValue, JsValue]] =
-    scalaz.Reader { case (constraints, context) =>
+  def validateMultipleOf(multipleOf: Option[BigDecimal])(implicit lang: Lang): scalaz.Reader[SchemaResolutionContext, Rule[JsValue, JsValue]] =
+    scalaz.Reader { context =>
       Rule.fromMapping[JsValue, JsValue] {
-        case number@JsNumber(n) => constraints.multipleOf match {
+        case number@JsNumber(n) => multipleOf match {
           case Some(factor) =>
             if (n.remainder(factor) == BigDecimal(0)) {
               Success(number)
             } else {
-              failure(
+              SchemaUtil.failure(
                 Keywords.Number.MultipleOf,
                 Messages("num.multiple.of", number, factor),
                 context.schemaPath,
@@ -111,7 +111,7 @@ trait NumberConstraintsValidator {
 
   private def expectedNumber(json: JsValue, context: SchemaResolutionContext)
                             (implicit lang: Lang) =
-    failure(
+    SchemaUtil.failure(
       Keywords.Any.Type,
       Messages("err.expected.type", "number", SchemaUtil.typeOfAsString(json)),
       context.schemaPath,
@@ -120,25 +120,25 @@ trait NumberConstraintsValidator {
     )
 
 
-  def validateFormat(implicit lang: Lang): scalaz.Reader[(NumberConstraints, SchemaResolutionContext), Rule[JsValue, JsValue]] =
-    scalaz.Reader { case (constraints, context) =>
+  def validateFormat(f: Option[String])(implicit lang: Lang): scalaz.Reader[SchemaResolutionContext, Rule[JsValue, JsValue]] =
+    scalaz.Reader { context =>
 
       val format = for {
-        formatName <- constraints.format
+        formatName <- f
         f <- context.formats.get(formatName)
       } yield f
 
       Rule.fromMapping {
-        case json@JsNumber(number) if constraints.format.isDefined =>
+        case json@JsNumber(number) if f.isDefined =>
           format match {
             // format found
-            case Some(f) =>
-              if (f.validate(json)) {
+            case Some(schemaFormat) =>
+              if (schemaFormat.validate(json)) {
                 Success(json)
               } else {
-                failure(
+                SchemaUtil.failure(
                   Keywords.String.Format,
-                  Messages("str.format", number, f.name),
+                  Messages("str.format", number, schemaFormat.name),
                   context.schemaPath,
                   context.instancePath,
                   json

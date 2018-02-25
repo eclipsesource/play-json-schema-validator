@@ -41,6 +41,7 @@ err.parse.json         = Could not parse JSON.
 err.max.depth          = Maximum recursion depth reached.
 err.dependencies.not.found = Dependency not found.
 err.definitions.not.found = Definition not found.
+err.patternProperties.not.found = Pattern Properties not found.
 err.false.schema       = Boolean false schema encountered.
 err.contains           = Array does not contain valid item.
 err.if.then.else       = Conditional validation failed.

@@ -2,18 +2,17 @@ package com.eclipsesource.schema.internal.refs
 
 import java.net.{URL, URLDecoder, URLStreamHandler}
 
-import com.eclipsesource.schema.{CompoundSchemaType, SchemaArray, SchemaBoolean, SchemaInteger, SchemaMap, SchemaNumber, SchemaObject, SchemaProp, SchemaString, SchemaTuple, SchemaType, SchemaValue, SchemaVersion}
 import com.eclipsesource.schema.internal._
-import com.eclipsesource.schema.internal.constraints.Constraints.Constraint
-import com.eclipsesource.schema.internal.constraints.IsResolvable
+import com.eclipsesource.schema.internal.constraints.Constraints.{Constraint, HasAnyConstraint}
 import com.eclipsesource.schema.internal.url.UrlStreamResolverFactory
+import com.eclipsesource.schema.{CompoundSchemaType, SchemaArray, SchemaBoolean, SchemaInteger, SchemaMap, SchemaNumber, SchemaObject, SchemaProp, SchemaSeq, SchemaString, SchemaTuple, SchemaType, SchemaValue, SchemaVersion}
 import com.osinka.i18n.{Lang, Messages}
 import play.api.libs.json._
+import scalaz.syntax.either._
+import scalaz.{\/, \/-}
 
 import scala.io.Source
 import scala.util.{Success, Try}
-import scalaz.{\/, \/-}
-import scalaz.syntax.either._
 
 case class ResolvedResult(resolved: SchemaType, scope: SchemaResolutionScope)
 
@@ -30,7 +29,6 @@ case class SchemaRefResolver
 ) {
 
   import version._
-
 
   val MaxDepth: Int = 100
 
@@ -268,14 +266,15 @@ case class SchemaRefResolver
     case _ => None
   }
 
-  def findScopeRefinement(schema: SchemaType): Option[Ref] =
-    schema.constraints.any.id.map(Ref(_))
-
+  def findScopeRefinement(schema: SchemaType): Option[Ref] = schema.constraints match {
+    case c: HasAnyConstraint => c.any.id.map(Ref(_))
+    case _ => None
+  }
 
   private def resolveConstraint[A <: Constraint](constraints: A, constraint: String)
                                                 // TODO: is the version still necessary with a typeclass?
-                                                (implicit lang: Lang, isResolvable: IsResolvable[A]): Either[JsonValidationError, SchemaType] = {
-    isResolvable.resolvePath(constraints, constraint).fold[Either[JsonValidationError, SchemaType]](
+                                                (implicit lang: Lang): Either[JsonValidationError, SchemaType] = {
+    constraints.resolvePath(constraint).fold[Either[JsonValidationError, SchemaType]](
       Left(JsonValidationError(Messages("err.unresolved.ref", constraint)))
     )(schema => Right(schema))
   }
@@ -297,11 +296,22 @@ case class SchemaRefResolver
 
   def resolveSchema[A <: SchemaType](schema: A, fragmentPart: String)
                               (implicit lang: Lang = Lang.Default): Either[JsonValidationError, SchemaType] = {
+    def isValidIndex(size: Int, idx: String) = {
+      Try {
+        val n = idx.toInt
+        n <= size && n >= 0
+      }.toOption.getOrElse(false)
+    }
 
     schema match {
 
       case SchemaMap(name, members) =>
         members.find(_.name == fragmentPart).map(_.schemaType).toRight(JsonValidationError(Messages(s"err.$name.not.found")))
+
+      case SchemaSeq(members) =>
+        fragmentPart match {
+          case idx if isValidIndex(members.size, idx) => Right(members(idx.toInt))
+        }
 
       case obj@SchemaObject(props, _, otherProps) => fragmentPart match {
         case Keywords.Object.Properties => Right(obj)
@@ -320,17 +330,9 @@ case class SchemaRefResolver
       }
 
       case tuple@SchemaTuple(items, _, _) =>
-
-        def isValidIndex(idx: String) = {
-          Try {
-            val n = idx.toInt
-            n <= items.size && n >= 0
-          }.toOption.getOrElse(false)
-        }
-
         fragmentPart match {
           case Keywords.Array.Items => Right(tuple)
-          case idx if isValidIndex(idx) => Right(items(idx.toInt))
+          case idx if isValidIndex(items.size, idx) => Right(items(idx.toInt))
           case _ => resolveConstraint(tuple.constraints, fragmentPart)
         }
 
@@ -357,7 +359,7 @@ case class SchemaRefResolver
 
       case n: SchemaNumber => resolveConstraint(n.constraints, fragmentPart)
       case n: SchemaInteger => resolveConstraint(n.constraints, fragmentPart)
-      case n: SchemaBoolean => resolveConstraint(n.constraints.any, fragmentPart)
+      case n: SchemaBoolean => resolveConstraint(n.constraints, fragmentPart)
       case n: SchemaString => resolveConstraint(n.constraints, fragmentPart)
     }
   }

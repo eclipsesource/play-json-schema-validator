@@ -1,6 +1,6 @@
 package com.eclipsesource.schema
 
-import com.eclipsesource.schema.internal.serialization.JSONSchemaReads
+import com.eclipsesource.schema.internal.draft4.Version4
 import com.eclipsesource.schema.internal.validators.DefaultFormats.DatetimeFormat
 import org.specs2.mutable.Specification
 import com.eclipsesource.schema.test.JsonSpec
@@ -8,9 +8,8 @@ import play.api.libs.json._
 
 class FormatSpec extends Specification with JsonSpec {
 
-  import Version4._
-
   implicit val validator = SchemaValidator(Version4)
+  import Version4._
   validate("optional/format")
 
   "Format" should {

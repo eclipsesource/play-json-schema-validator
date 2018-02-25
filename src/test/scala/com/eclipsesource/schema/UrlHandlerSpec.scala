@@ -2,6 +2,7 @@ package com.eclipsesource.schema
 
 import java.net.{URL, URLConnection, URLStreamHandler}
 
+import com.eclipsesource.schema.internal.draft4.Version4
 import com.eclipsesource.schema.urlhandlers.ClasspathUrlHandler
 import org.specs2.mutable.Specification
 import play.api.libs.json.Json

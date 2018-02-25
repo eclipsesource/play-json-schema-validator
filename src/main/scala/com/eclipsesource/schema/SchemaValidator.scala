@@ -2,6 +2,7 @@ package com.eclipsesource.schema
 
 import java.net.{URL, URLStreamHandler}
 
+import com.eclipsesource.schema.internal.constraints.Constraints.HasAnyConstraint
 import com.eclipsesource.schema.internal.refs.{Ref, SchemaRefResolver, SchemaResolutionScope}
 import com.eclipsesource.schema.internal.validators.DefaultFormats
 import com.eclipsesource.schema.urlhandlers.UrlHandler
@@ -22,7 +23,7 @@ trait Customizations {
 object SchemaValidator {
   def apply(version: SchemaVersion, formats: Map[String, SchemaFormat] = DefaultFormats.formats)
            (implicit lang: Lang = Lang.Default): SchemaValidator = {
-    new SchemaValidator(new SchemaRefResolver(version), formats)
+    new SchemaValidator(SchemaRefResolver(version), formats)
   }
 }
 
@@ -87,12 +88,18 @@ class SchemaValidator(val refResolver: SchemaRefResolver,
     )
   }
 
-  private def buildContext(schema: SchemaType, schemaUrl: URL): SchemaResolutionContext = {
-    val id = schema.constraints.any.id.map(Ref(_))
-    SchemaResolutionContext(refResolver,
-      new SchemaResolutionScope(schema, id.orElse(Some(Ref(schemaUrl.toString)))),
-      formats = formats
-    )
+  private def buildContext(schema: SchemaType, schemaUrl: URL): SchemaResolutionContext = schema.constraints match {
+    case c: HasAnyConstraint =>
+      val id = c.any.id.map(Ref(_))
+      SchemaResolutionContext(refResolver,
+        SchemaResolutionScope(schema, id.orElse(Some(Ref(schemaUrl.toString)))),
+        formats = formats
+      )
+    case _ =>
+      SchemaResolutionContext(refResolver,
+        SchemaResolutionScope(schema, Some(Ref(schemaUrl.toString))),
+        formats = formats
+      )
   }
 
   /**
@@ -184,10 +191,14 @@ class SchemaValidator(val refResolver: SchemaRefResolver,
     * @return a JsResult holding the valid result
     */
   def validate(schema: SchemaType)(input: => JsValue): JsResult[JsValue] = {
-    val id = schema.constraints.any.id.map(Ref(_))
+    val ref: Option[Ref] = schema.constraints match {
+      case c: HasAnyConstraint => c.any.id.map(Ref(_))
+      case _ => None
+    }
+
     val context = SchemaResolutionContext(
       refResolver,
-      new SchemaResolutionScope(schema, id),
+      SchemaResolutionScope(schema, ref),
       formats = formats
     )
 
