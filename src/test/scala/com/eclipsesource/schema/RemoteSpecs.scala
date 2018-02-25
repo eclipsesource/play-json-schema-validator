@@ -1,5 +1,6 @@
 package com.eclipsesource.schema
 
+import com.eclipsesource.schema.internal.draft4.Version4
 import com.eclipsesource.schema.test.{Assets, JsonSpec}
 import org.specs2.mutable.Specification
 import org.specs2.specification.AfterAll

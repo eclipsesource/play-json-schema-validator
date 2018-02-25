@@ -1,6 +1,7 @@
 package com.eclipsesource.schema.internal.refs
 
-import com.eclipsesource.schema.{SchemaArray, SchemaObject, SchemaType}
+import com.eclipsesource.schema.internal.constraints.Constraints.{AnyConstraints, HasAnyConstraint}
+import com.eclipsesource.schema.{SchemaArray, SchemaObject, SchemaTuple, SchemaType}
 import play.api.libs.json.JsPath
 
 case class SchemaResolutionScope(documentRoot: SchemaType,
@@ -25,7 +26,11 @@ case class SchemaResolutionScope(documentRoot: SchemaType,
     */
   private def collectSchemas(schema: SchemaType, resolutionScope: Option[Ref], knownSchemas: Map[Ref, SchemaType]): Map[Ref, SchemaType] = {
 
-    val currentScope = schema.constraints.any.id.map(i => Refs.mergeRefs(Ref(i), resolutionScope))
+    val currentScope = schema.constraints match {
+      case c: HasAnyConstraint => c.any.id.map(i => Refs.mergeRefs(Ref(i), resolutionScope))
+      case a: AnyConstraints => a.id.map(i => Refs.mergeRefs(Ref(i), resolutionScope))
+      case _ => None
+    }
     val updatedMap = currentScope.fold(knownSchemas)(id => knownSchemas + (id -> schema))
     val m = schema match {
       case SchemaObject(props, _, _) => props.foldLeft(updatedMap) {
@@ -34,6 +39,9 @@ case class SchemaResolutionScope(documentRoot: SchemaType,
         }
       }
       case SchemaArray(item, _, _) => collectSchemas(item, currentScope, updatedMap)
+      case SchemaTuple(items, _, _) => items.foldLeft(updatedMap) {
+        (schemas, item) =>  collectSchemas(item, currentScope, schemas)
+      }
       case _ => updatedMap
     }
 

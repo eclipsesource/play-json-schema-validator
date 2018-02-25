@@ -1,13 +1,14 @@
 package com.eclipsesource.schema.internal.serialization
 
 import com.eclipsesource.schema._
-import com.eclipsesource.schema.internal.constraints.Constraints.{AnyConstraint, Maximum, Minimum, NumberConstraints}
+import com.eclipsesource.schema.internal.constraints.Constraints.{Maximum, Minimum}
+import com.eclipsesource.schema.internal.draft4.constraints.{AnyConstraints4, ArrayConstraints4, NumberConstraints4, ObjectConstraints4}
 import org.specs2.mutable.Specification
-import play.api.libs.json.{JsNumber, JsString, Json}
+import play.api.libs.json.{JsString, Json}
 
 class SchemaWritesSpec extends Specification {
 
-  import Version4._
+  import com.eclipsesource.schema.internal.draft4.Version4._
 
   "JSON Schema Writes" should {
 
@@ -36,13 +37,13 @@ class SchemaWritesSpec extends Specification {
     }
 
     "write boolean" in {
-      Json.toJson(SchemaBoolean()) must beEqualTo(Json.obj(
+      Json.toJson(SchemaBoolean(AnyConstraints4())) must beEqualTo(Json.obj(
         "type" -> "boolean"
       ))
     }
 
     "write integer" in {
-      Json.toJson(SchemaInteger()) must beEqualTo(Json.obj(
+      Json.toJson(SchemaInteger(NumberConstraints4())) must beEqualTo(Json.obj(
         "type" -> "integer"
       ))
     }
@@ -50,7 +51,7 @@ class SchemaWritesSpec extends Specification {
     "write number" in {
       Json.toJson(
         SchemaNumber(
-          NumberConstraints(Some(Minimum(2, Some(false))), Some(Maximum(10, Some(false))), Some(2))
+          NumberConstraints4(Some(Minimum(2, Some(false))), Some(Maximum(10, Some(false))), Some(2))
         )
       ) must beEqualTo(Json.obj(
         "minimum" -> 2,
@@ -62,19 +63,24 @@ class SchemaWritesSpec extends Specification {
     }
 
     "write array" in {
-      Json.toJson(SchemaArray(SchemaNumber())) must beEqualTo(Json.obj(
+      Json.toJson(SchemaArray(SchemaNumber(NumberConstraints4()), ArrayConstraints4())) must beEqualTo(Json.obj(
         "items" -> Json.obj("type" -> "number")
       ))
     }
 
     "write tuple" in {
-      Json.toJson(SchemaTuple(Seq(SchemaNumber()))) must beEqualTo(Json.obj(
+      Json.toJson(SchemaTuple(Seq(SchemaNumber(NumberConstraints4())), ArrayConstraints4())) must beEqualTo(Json.obj(
         "items" -> Json.arr(Json.obj("type" -> "number"))
       ))
     }
 
     "write $ref" in {
-      Json.toJson(SchemaObject(Seq(SchemaProp("$ref", SchemaValue(JsString("#")))))) must beEqualTo(
+      Json.toJson(
+        SchemaObject(
+          Seq(SchemaProp("$ref", SchemaValue(JsString("#")))),
+          ObjectConstraints4()
+        )
+      ) must beEqualTo(
         Json.obj(
           "$ref" -> "#"
         )
@@ -82,17 +88,16 @@ class SchemaWritesSpec extends Specification {
     }
 
     "write compound type" in {
-      Json.toJson(CompoundSchemaType(Seq(SchemaNumber(), SchemaBoolean()))) must beEqualTo(Json.obj(
+      Json.toJson(CompoundSchemaType(Seq(SchemaNumber(NumberConstraints4()), SchemaBoolean(AnyConstraints4())))) must beEqualTo(Json.obj(
         "type" -> Json.arr("number", "boolean")
       ))
     }
 
     "write schema with definitions block" in {
-      implicit val version = Version4
       Json.toJson(
         SchemaNumber(
-          NumberConstraints().copy(any = AnyConstraint().copy(definitions = Some(Map(
-            "foo" -> SchemaNumber(NumberConstraints().copy(min = Some(Minimum(BigDecimal(3), Some(false))))
+          NumberConstraints4().copy(any = AnyConstraints4().copy(definitions = Some(Map(
+            "foo" -> SchemaNumber(NumberConstraints4().copy(min = Some(Minimum(BigDecimal(3), Some(false))))
             ))))
           )
         )

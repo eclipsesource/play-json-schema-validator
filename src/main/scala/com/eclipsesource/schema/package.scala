@@ -1,12 +1,12 @@
 package com.eclipsesource
 
+import com.eclipsesource.schema.internal.constraints.Constraints.HasAnyConstraint
 import com.eclipsesource.schema.internal.refs._
 import com.eclipsesource.schema.internal.validation.VA
 import com.eclipsesource.schema.internal.validators._
 import com.eclipsesource.schema.internal.{Keywords, Results, SchemaUtil}
 import com.osinka.i18n.{Lang, Messages}
 import play.api.libs.json._
-
 import scalaz.{-\/, Failure, Success, \/-}
 
 package object schema {
@@ -22,20 +22,20 @@ package object schema {
 
   }
 
-  implicit def noValidator[S <: SchemaType] = new SchemaTypeValidator[S] {
+  implicit def noValidator[S <: SchemaType]: SchemaTypeValidator[S] = new SchemaTypeValidator[S] {
     override def validate(schema: S, json: => JsValue, resolutionContext: SchemaResolutionContext)
                          (implicit lang: Lang): VA[JsValue] = Success(json)
   }
 
   implicit class SchemaTypeExtensionOps[S <: SchemaType](schemaType: S) {
 
-    implicit val compoundValidator = CompoundValidator
-    implicit val objectValidator = ObjectValidator
-    implicit val arrayValidator = ArrayValidator
-    implicit val tupleValidator = TupleValidator
-    implicit val numberValidator = NumberValidator
-    implicit val integerValidator = IntegerValidator
-    implicit val stringValidator = StringValidator
+    implicit val compoundValidator: SchemaTypeValidator[CompoundSchemaType] = CompoundValidator
+    implicit val objectValidator: SchemaTypeValidator[SchemaObject] = ObjectValidator
+    implicit val tupleValidator: SchemaTypeValidator[SchemaTuple] = TupleValidator
+    implicit val numberValidator: SchemaTypeValidator[SchemaNumber] = NumberValidator
+    implicit val integerValidator: SchemaTypeValidator[SchemaInteger] = IntegerValidator
+    implicit val stringValidator: SchemaTypeValidator[SchemaString] = StringValidator
+    implicit val arrayValidator: SchemaTypeValidator[SchemaArray] = ArrayValidator
     implicit val booleanValidator: SchemaTypeValidator[SchemaBoolean] = noValidator[SchemaBoolean]
     implicit val nullValidator: SchemaTypeValidator[SchemaNull] = noValidator[SchemaNull]
 
@@ -81,12 +81,11 @@ package object schema {
         case (_, SchemaValue(JsBoolean(true))) =>
           Success(json)
 
-
         case (_: JsObject, schemaObject: SchemaObject) =>
           schemaObject.validateConstraints(json, context)
 
-        case (_, schemaObject: SchemaObject) if !schemaType.constraints.any.typeGiven =>
-          schemaObject.validateConstraints(json,  context)
+        case (_, schemaObject: SchemaObject) if schemaObject.constraints.any.schemaTypeAsString.isEmpty =>
+          schemaObject.validateConstraints(json, context)
 
         case (_, c: CompoundSchemaType) =>
           c.validateConstraints(json, context)
@@ -112,15 +111,15 @@ package object schema {
         case (JsNull, schemaNull: SchemaNull) =>
           schemaNull.validateConstraints(json, context)
 
-        case (_, _) if schemaType.constraints.any.schemaTypeAsString.isEmpty =>
-          Success(json)
-
-        case _ =>
-          Results.failureWithPath(
-            Keywords.Any.Type,
-            Messages("err.expected.type", schemaType, SchemaUtil.typeOfAsString(json)),
-            context,
-            json)
+        case (_, _) => schemaType.constraints match {
+          case h: HasAnyConstraint if h.any.schemaTypeAsString.isEmpty => Success(json)
+          case _ =>
+            Results.failureWithPath(
+              Keywords.Any.Type,
+              Messages("err.expected.type", schemaType, SchemaUtil.typeOfAsString(json)),
+              context,
+              json)
+        }
       }
     }
 
@@ -138,11 +137,17 @@ package object schema {
     }
 
     private[schema] def validateConstraints(json: => JsValue, resolutionContext: SchemaResolutionContext)
-                                           (implicit validator: SchemaTypeValidator[S], lang: Lang): VA[JsValue] =
-      Results.merge(
-        validator.validate(schemaType, json, resolutionContext),
-        AnyConstraintValidator.validate(json, schemaType, resolutionContext)
-      )
+                                           (implicit validator: SchemaTypeValidator[S], lang: Lang): VA[JsValue] = {
+      schemaType.constraints match {
+        case anyConstraint: HasAnyConstraint =>
+          Results.merge(
+            validator.validate(schemaType, json, resolutionContext),
+            anyConstraint.any.validate(schemaType, json, resolutionContext)
+          )
+        case _ => validator.validate(schemaType, json, resolutionContext)
+      }
+
+    }
   }
 
   private implicit class SchemaObjectExtension(schemaObject: SchemaObject) {

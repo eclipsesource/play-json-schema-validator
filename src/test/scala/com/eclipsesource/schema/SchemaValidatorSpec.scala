@@ -2,6 +2,7 @@ package com.eclipsesource.schema
 
 import java.net.URL
 
+import com.eclipsesource.schema.internal.draft4.Version4
 import com.eclipsesource.schema.test.Assets
 import play.api.Application
 import play.api.inject.guice.GuiceApplicationBuilder

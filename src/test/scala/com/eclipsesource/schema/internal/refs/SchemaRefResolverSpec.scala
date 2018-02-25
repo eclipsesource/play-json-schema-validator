@@ -1,6 +1,8 @@
 package com.eclipsesource.schema.internal.refs
 
 import com.eclipsesource.schema._
+import com.eclipsesource.schema.internal.draft4.Version4
+import com.eclipsesource.schema.internal.draft4.constraints.{ArrayConstraints4, ObjectConstraints4}
 import com.eclipsesource.schema.test.Assets
 import com.osinka.i18n.Lang
 import org.specs2.mutable.Specification
@@ -8,8 +10,7 @@ import play.api.Application
 import play.api.inject.guice.GuiceApplicationBuilder
 import play.api.libs.json._
 import play.api.test.WithServer
-
-import scalaz.{\/, \/-}
+import scalaz.\/-
 import scalaz.syntax.either._
 
 class SchemaRefResolverSpec extends Specification {
@@ -19,7 +20,7 @@ class SchemaRefResolverSpec extends Specification {
   def createApp: Application = new GuiceApplicationBuilder()
     .routes(Assets.routes(getClass)).build()
 
-  val resolver = new SchemaRefResolver(Version4)
+  val resolver = SchemaRefResolver(Version4)
 
   def resolveSchema(ref: String, scope: SchemaResolutionScope)
                    (implicit lang: Lang = Lang.Default): Either[JsonValidationError, ResolvedResult] = {
@@ -50,12 +51,11 @@ class SchemaRefResolverSpec extends Specification {
           |  "$ref": "http://json-schema.org/draft-04/schema#"
           |}""".stripMargin).get
 
-      val context = new SchemaResolutionScope(schema)
-      val resolver = new SchemaRefResolver(Version4)
+      val context = SchemaResolutionScope(schema)
       val arrayDef = resolveSchema("#/definitions/schemaArray", context)
       val anyOf = resolveSchema("#/properties/anyOf", context)
-      anyOf.map(_.resolved) must beRight.which(_.isInstanceOf[SchemaArray])
-      arrayDef.map(_.resolved) must beRight.which(_.isInstanceOf[SchemaArray])
+      anyOf.map(_.resolved) must beRight[SchemaType].which(_.isInstanceOf[SchemaArray])
+      arrayDef.map(_.resolved) must beRight[SchemaType].which(_.isInstanceOf[SchemaArray])
     }
 
     "be able to resolve JSON Pointer examples" in {
@@ -65,8 +65,10 @@ class SchemaRefResolverSpec extends Specification {
           SchemaProp("foo",
             SchemaTuple(
               Seq(
-                SchemaValue(JsString("bar")), SchemaValue(JsString("baz"))
-              )
+                SchemaValue(JsString("bar")),
+                SchemaValue(JsString("baz"))
+              ),
+              ArrayConstraints4()
             )
           ),
           SchemaProp("", SchemaValue(JsNumber(0))),
@@ -78,18 +80,19 @@ class SchemaRefResolverSpec extends Specification {
           SchemaProp("k\'l", SchemaValue(JsNumber(6))),
           SchemaProp(" ", SchemaValue(JsNumber(7))),
           SchemaProp("m~n", SchemaValue(JsNumber(8)))
-        )
+        ),
+        ObjectConstraints4()
       )
 
-      val scope = new SchemaResolutionScope(schema)
-      resolveSchema("#/foo/0", scope).map(_.resolved) must beRight(SchemaValue(JsString("bar")))
-      resolveSchema("#/", scope).map(_.resolved) must beRight(SchemaValue(JsNumber(0)))
-      resolveSchema("#/a~1b", scope).map(_.resolved) must beRight(SchemaValue(JsNumber(1)))
+      val scope = SchemaResolutionScope(schema)
+      resolveSchema("#/foo/0", scope).map(_.resolved) must beRight[SchemaType](SchemaValue(JsString("bar")))
+      resolveSchema("#/", scope).map(_.resolved) must beRight[SchemaType](SchemaValue(JsNumber(0)))
+      resolveSchema("#/a~1b", scope).map(_.resolved) must beRight[SchemaType](SchemaValue(JsNumber(1)))
       // TODO: fails
-      // resolver.resolveValue("#/c%d", scope)   must beRight(SchemaValue(JsNumber(2)))
-      resolveSchema("#/e^f", scope).map(_.resolved) must beRight(SchemaValue(JsNumber(3)))
-      resolveSchema("#/g|h", scope).map(_.resolved) must beRight(SchemaValue(JsNumber(4)))
-      resolveSchema("#/i\\j", scope).map(_.resolved) must beRight(SchemaValue(JsNumber(5)))
+      // resolver.resolveValue("#/c%d", scope)   must beRight[SchemaType](SchemaValue(JsNumber(2)))
+      resolveSchema("#/e^f", scope).map(_.resolved) must beRight[SchemaType](SchemaValue(JsNumber(3)))
+      resolveSchema("#/g|h", scope).map(_.resolved) must beRight[SchemaType](SchemaValue(JsNumber(4)))
+      resolveSchema("#/i\\j", scope).map(_.resolved) must beRight[SchemaType](SchemaValue(JsNumber(5)))
     }
 
     "resolve array constraints" in {
@@ -104,11 +107,11 @@ class SchemaRefResolverSpec extends Specification {
           |  "uniqueItems": false
           |}""".stripMargin).get
 
-      val scope = new SchemaResolutionScope(schema)
-      resolveSchema("#/minItems", scope).map(_.resolved) must beRight(SchemaValue(JsNumber(42)))
-      resolveSchema("#/maxItems", scope).map(_.resolved) must beRight(SchemaValue(JsNumber(99)))
-      resolveSchema("#/additionalItems", scope).map(_.resolved) must beRight(SchemaValue(JsBoolean(false)))
-      resolveSchema("#/uniqueItems", scope).map(_.resolved) must beRight(SchemaValue(JsBoolean(false)))
+      val scope = SchemaResolutionScope(schema)
+      resolveSchema("#/minItems", scope).map(_.resolved) must beRight[SchemaType](SchemaValue(JsNumber(42)))
+      resolveSchema("#/maxItems", scope).map(_.resolved) must beRight[SchemaType](SchemaValue(JsNumber(99)))
+      resolveSchema("#/additionalItems", scope).map(_.resolved) must beRight[SchemaType](SchemaValue(JsBoolean(false)))
+      resolveSchema("#/uniqueItems", scope).map(_.resolved) must beRight[SchemaType](SchemaValue(JsBoolean(false)))
     }
 
     "resolve number constraints" in {
@@ -120,10 +123,10 @@ class SchemaRefResolverSpec extends Specification {
           |  "multipleOf": 2
           |}""".stripMargin).get
 
-      val scope = new SchemaResolutionScope(schema)
-      resolveSchema("#/minimum", scope).map(_.resolved) must beRight(SchemaValue(JsNumber(0)))
-      resolveSchema("#/maximum", scope).map(_.resolved) must beRight(SchemaValue(JsNumber(10)))
-      resolveSchema("#/multipleOf", scope).map(_.resolved) must beRight(SchemaValue(JsNumber(2)))
+      val scope = SchemaResolutionScope(schema)
+      resolveSchema("#/minimum", scope).map(_.resolved) must beRight[SchemaType](SchemaValue(JsNumber(0)))
+      resolveSchema("#/maximum", scope).map(_.resolved) must beRight[SchemaType](SchemaValue(JsNumber(10)))
+      resolveSchema("#/multipleOf", scope).map(_.resolved) must beRight[SchemaType](SchemaValue(JsNumber(2)))
     }
 
     "resolve string constraints" in {
@@ -136,150 +139,135 @@ class SchemaRefResolverSpec extends Specification {
             |  "pattern": "^(\\([0-9]{3}\\))?[0-9]{3}-[0-9]{4}$"
             |}""".stripMargin).get
 
-      val scope = new SchemaResolutionScope(schema)
-      resolveSchema("#/minLength", scope).map(_.resolved) must beRight(SchemaValue(JsNumber(1)))
-      resolveSchema("#/maxLength", scope).map(_.resolved) must beRight(SchemaValue(JsNumber(10)))
-      resolveSchema("#/pattern", scope).map(_.resolved) must beRight(SchemaValue(JsString("^(\\([0-9]{3}\\))?[0-9]{3}-[0-9]{4}$")))
+      val scope = SchemaResolutionScope(schema)
+      resolveSchema("#/minLength", scope).map(_.resolved) must beRight[SchemaType](SchemaValue(JsNumber(1)))
+      resolveSchema("#/maxLength", scope).map(_.resolved) must beRight[SchemaType](SchemaValue(JsNumber(10)))
+      resolveSchema("#/pattern", scope).map(_.resolved) must beRight[SchemaType](SchemaValue(JsString("^(\\([0-9]{3}\\))?[0-9]{3}-[0-9]{4}$")))
     }
 
-    "resolve anyOf constraint" in
-      new WithServer(app = createApp, port = 1234) {
+    "resolve anyOf constraint" in new WithServer(app = createApp, port = 1234) {
+      private val schema = JsonSource.schemaFromString(
+        """{
+          |"anyOf": [{ "$ref": "http://localhost:1234/talk.json#/properties/title" }]
+          |}""".stripMargin).get
 
-        val schema = JsonSource.schemaFromString(
-          """{
-            |"anyOf": [{ "$ref": "http://localhost:1234/talk.json#/properties/title" }]
-            |}""".stripMargin).get
-
-        val resolved = resolveSchema("#/anyOf/0", new SchemaResolutionScope(schema))
-        resolved.right.map(resolvedToJson) must beRight(
-          Json.obj(
-            "type" -> "string",
-            "minLength" -> 10,
-            "maxLength" -> 20
-          )
+      private val resolved = resolveSchema("#/anyOf/0", SchemaResolutionScope(schema))
+      resolved.right.map(resolvedToJson) must beRight[JsValue](
+        Json.obj(
+          "type" -> "string",
+          "minLength" -> 10,
+          "maxLength" -> 20
         )
-      }
+      )
+    }
 
-    "resolve oneOf constraint" in
-      new WithServer(app = createApp, port = 1234) {
-        val schema = JsonSource.schemaFromString(
-          """{
-            |  "oneOf": [{ "$ref": "http://localhost:1234/talk.json#/properties/title" }]
-            |}""".stripMargin).get
+    "resolve oneOf constraint" in new WithServer(app = createApp, port = 1234) {
+      private val schema = JsonSource.schemaFromString(
+        """{
+          |  "oneOf": [{ "$ref": "http://localhost:1234/talk.json#/properties/title" }]
+          |}""".stripMargin).get
 
-        val resolved = resolveSchema("#/oneOf/0", new SchemaResolutionScope(schema))
-        resolved.right.map(resolvedToJson) must beRight(
-          Json.obj(
-            "type" -> "string",
-            "minLength" -> 10,
-            "maxLength" -> 20
-          )
+      private val resolved = resolveSchema("#/oneOf/0", SchemaResolutionScope(schema))
+      resolved.right.map(resolvedToJson) must beRight[JsValue](
+        Json.obj(
+          "type" -> "string",
+          "minLength" -> 10,
+          "maxLength" -> 20
         )
-      }
+      )
+    }
 
-    "resolve allOf constraint" in
-      new WithServer(app = createApp, port = 1234) {
-        val schema = JsonSource.schemaFromString(
-          """{
-            |"allOf": [{ "$ref": "http://localhost:1234/talk.json#/properties/title" }]
-            |}""".
-            stripMargin).get
+    "resolve allOf constraint" in new WithServer(app = createApp, port = 1234) {
+      private val schema = JsonSource.schemaFromString(
+        """{
+          |"allOf": [{ "$ref": "http://localhost:1234/talk.json#/properties/title" }]
+          |}""".
+          stripMargin).get
 
-        val resolved = resolveSchema("#/allOf/0", new SchemaResolutionScope(schema))
-        resolved.right.map(resolvedToJson) must beRight(
-          Json.obj(
-            "type" ->
-              "string",
-            "minLength" -> 10,
-            "maxLength" -> 20
-          )
+      private val resolved = resolveSchema("#/allOf/0", SchemaResolutionScope(schema))
+      resolved.right.map(resolvedToJson) must beRight[JsValue](
+        Json.obj(
+          "type" ->
+            "string",
+          "minLength" -> 10,
+          "maxLength" -> 20
         )
-      }
+      )
+    }
 
-    "resolve definitions constraint" in
-      new WithServer(app = createApp, port = 1234) {
-        val schema = JsonSource.schemaFromString(
+    "resolve definitions constraint" in new WithServer(app = createApp, port = 1234) {
+      private val schema = JsonSource.schemaFromString(
+        """{
+          |  "definitions": {
+          |    "foo": { "type": "string" }
+          |  }
+          |}""".
+          stripMargin).get
+      private val resolved = resolveSchema("#/definitions/foo", SchemaResolutionScope(schema))
+      resolved.right.map(resolvedToJson) must beRight[JsValue](
+        Json.obj("type" -> "string")
+      )
+    }
+
+    "should resolve definitions constraint" in new WithServer(app = createApp, port = 1234) {
+      private val schema = JsonSource.schemaFromString(
+        """{
+          |  "minLength": 10,
+          |  "oneOf": [{
+          |    "foo": { "type": "string" }
+          |  }]
+          |}""".stripMargin).get
+      private val resolved = resolveSchema("#/oneOf/0/foo", SchemaResolutionScope(schema))
+      resolved.right.map(resolvedToJson) must beRight[JsValue](
+        Json.obj("type" -> "string")
+      )
+    }
+
+    "resolve dependencies constraint" in new WithServer(app = createApp, port = 1234) {
+      private val schema = JsonSource.schemaFromString(
+        """{
+          |"dependencies": {
+          |    "a": "b",
+          |    "c": ["d", "e"]
+          |  }
+          |}""".stripMargin).get
+
+      private val resolved = resolveSchema("#/dependencies/c/1", SchemaResolutionScope(schema))
+      resolved.right.map(resolvedToJson) must beRight[JsValue](JsString("e"))
+    }
+
+    "resolve patternProperties constraint" in new WithServer(app = createApp, port = 1234) {
+      private val schema = JsonSource.schemaFromString(
+        """{
+          |"patternProperties": {
+          |        "^(/[^/]+)+$": {}
+          |}
+          |}""".stripMargin).get
+      private val result = resolveSchema("#/patternProperties", SchemaResolutionScope(schema))
+      result.map(resolvedToJson).right.get must beAnInstanceOf[JsObject]
+    }
+
+    "should resolve additionalProperties constraint" in new WithServer(app = createApp, port = 1234) {
+      private val schema = JsonSource.schemaFromString(
+        """{
+          |"additionalProperties": false
+          |}""".stripMargin).get
+
+      private val result = resolveSchema("#/additionalProperties", SchemaResolutionScope(schema))
+      result.map(resolvedToJson) must beRight[JsValue](JsBoolean(false))
+    }
+
+    "should resolve definitions constraint" in new WithServer(app = createApp, port = 1234) {
+        private val schema = JsonSource.schemaFromString(
           """{
+            |  "type": "boolean",
             |  "definitions": {
-            |    "foo": { "type": "string" }
-            |  }
-            |}""".
-            stripMargin).get
-        val resolved = resolveSchema("#/definitions/foo", new SchemaResolutionScope(schema))
-        resolved.right.map(resolvedToJson) must beRight(
-          Json.obj("type" -> "string")
-        )
-      }
-
-    "should resolve definitions constraint" in
-      new WithServer(app = createApp, port = 1234) {
-        val schema = JsonSource.schemaFromString(
-          """{
-            |  "minLength": 10,
-            |  "oneOf": [{
-            |    "foo": { "type": "string" }
-            |  }]
-            |}""".stripMargin).get
-        val resolved = resolveSchema("#/oneOf/0/foo", new SchemaResolutionScope(schema))
-        resolved.right.map(resolvedToJson) must beRight(
-          Json.obj("type" -> "string")
-        )
-      }
-
-    "resolve dependencies constraint" in
-      new WithServer(app = createApp, port = 1234) {
-
-        val schema = JsonSource.schemaFromString(
-          """{
-            |"dependencies": {
-            |    "a": "b",
-            |    "c": ["d", "e"]
+            |    "foo": { "$ref": "http://localhost:1234/talk.json#/properties/title" }
             |  }
             |}""".stripMargin).get
 
-        val resolved = resolveSchema("#/dependencies/c/1", new SchemaResolutionScope(schema))
-        resolved.right.map(resolvedToJson) must beRight(JsString("e"))
-      }
-
-    "resolve patternProperties constraint" in
-      new WithServer(app = createApp, port = 1234) {
-
-        val schema = JsonSource.schemaFromString(
-          """{
-            |"patternProperties": {
-            |        "^(/[^/]+)+$": {}
-            |}
-            |}""".stripMargin).get
-
-        val result = resolveSchema("#/patternProperties", new SchemaResolutionScope(schema))
-        result.map(resolvedToJson).right.get must beAnInstanceOf[JsObject]
-      }
-
-    "should resolve additionalProperties constraint" in
-      new WithServer(app = createApp, port = 1234) {
-
-        val schema = JsonSource.schemaFromString(
-          """{
-            |"additionalProperties": false
-            |}""".stripMargin).get
-
-        val result = resolveSchema("#/additionalProperties", new SchemaResolutionScope(schema))
-        result.map(resolvedToJson) must beRight(JsBoolean(false))
-      }
-
-    "should resolve definitions constraint" in
-      new WithServer(app = createApp, port = 1234) {
-
-        val schema = JsonSource.schemaFromString(
-          """{
-            |"type": "boolean",
-            |"definitions": {
-            |  "foo": { "$ref": "http://localhost:1234/talk.json#/properties/title" }
-            |}
-            |}""".stripMargin).get
-
-        val resolved = resolveSchema("#/definitions/foo", SchemaResolutionScope(schema))
-        resolved.right.map(resolvedToJson) must beRight(
+        private val resolved = resolveSchema("#/definitions/foo", SchemaResolutionScope(schema))
+        resolved.right.map(resolvedToJson) must beRight[JsValue](
           Json.obj(
             "type" -> "string",
             "minLength" -> 10,
@@ -288,12 +276,9 @@ class SchemaRefResolverSpec extends Specification {
         )
       }
 
-    "resolve additionalProperties constraint" in
-      new WithServer(app = createApp, port = 1234) {
-
+    "resolve additionalProperties constraint" in new WithServer(app = createApp, port = 1234) {
         val validator = SchemaValidator(Version4)
-
-        val schema = JsonSource.schemaFromString(
+        private val schema = JsonSource.schemaFromString(
           """{
             |"id": "http://localhost:1234/talk.json#",
             |"definitions": {
@@ -336,7 +321,7 @@ class SchemaRefResolverSpec extends Specification {
           |}""".
           stripMargin).get
 
-      val context = new SchemaResolutionScope(schema)
+      val context = SchemaResolutionScope(schema)
       val failedResult = resolveSchema("#/properties/schema1/notthere", context)
       failedResult must beLeft.which(err => err.message === "Could not resolve ref #/properties/schema1/notthere.")
       val result = resolveSchema("#/properties/schema1/type", context)
@@ -344,7 +329,6 @@ class SchemaRefResolverSpec extends Specification {
     }
 
     "resolve ref via fragment" in {
-
       val schema = JsonSource.schemaFromString(
         """{
           |  "type": "object",
@@ -364,9 +348,9 @@ class SchemaRefResolverSpec extends Specification {
           |}""".
           stripMargin).get
 
-      val context = new SchemaResolutionScope(schema)
+      val context = SchemaResolutionScope(schema)
       val result = resolveSchema("#/properties/n", context)
-      result must beRight.which(r => r.resolved.isInstanceOf[SchemaNumber])
+      result must beRight.which(_.resolved.isInstanceOf[SchemaNumber])
     }
 
     "find resolution scope of schema1" in {
@@ -385,17 +369,17 @@ class SchemaRefResolverSpec extends Specification {
           |     }
           |}""".stripMargin).get
 
-      val scope = new SchemaResolutionScope(schema)
+      val scope = SchemaResolutionScope(schema)
       val result = resolveSchema("http://my.site/schema1#", scope)
-      result must beRight.which(r => r.resolved.isInstanceOf[SchemaInteger])
+      result must beRight.which(_.resolved.isInstanceOf[SchemaInteger])
     }
 
     "resolve nil fragments" in {
       val schema = JsonSource.schemaFromString("{}").get
       // scope and schema do not matter in this test
-      implicit val lang = Lang.Default
-      val result = resolver.resolveLocal(Nil, new SchemaResolutionScope(schema), schema)
-      result.toEither must beRight.which(r => r.resolved == schema )
+      implicit val lang: Lang = Lang.Default
+      val result = resolver.resolveLocal(Nil, SchemaResolutionScope(schema), schema)
+      result.toEither must beRight.which(_.resolved == schema )
     }
 
     "resolve refs within mySiteSchema" in {
@@ -420,7 +404,7 @@ class SchemaRefResolverSpec extends Specification {
           |}""".
           stripMargin
       ).get
-      val scope = new SchemaResolutionScope(mySiteSchema)
+      val scope = SchemaResolutionScope(mySiteSchema)
 
       "resolve schema1 via anchor" in {
         resolveSchema("http://my.site/schema1#", scope) must beRight.which(r =>
@@ -430,7 +414,7 @@ class SchemaRefResolverSpec extends Specification {
 
       "resolve schema1 via full path" in {
         val result = resolveSchema("http://my.site/myschema#/definitions/schema1", scope)
-        result.right.map(resolvedToJson) must beRight(
+        result.right.map(resolvedToJson) must beRight[JsValue](
           Json.obj(
             "properties" -> Json.obj(
               "foo" -> Json.obj(
@@ -444,7 +428,7 @@ class SchemaRefResolverSpec extends Specification {
 
       "resolve type of schema2 via full path" in {
         val result = resolveSchema("http://my.site/myschema#/definitions/schema2/type", scope)
-        result.right.map(resolvedToJson) must beRight(JsString("array"))
+        result.right.map(resolvedToJson) must beRight[JsValue](JsString("array"))
       }
     }
 
@@ -470,7 +454,7 @@ class SchemaRefResolverSpec extends Specification {
           |}
         """.stripMargin).get
       // resolution scope checks --
-      val scope = new SchemaResolutionScope(schema, id = Some(Ref("http://x.y.z/rootschema.json#")))
+      val scope = SchemaResolutionScope(schema, id = Some(Ref("http://x.y.z/rootschema.json#")))
 
       "infer correct resolution scope for #" in {
         resolveSchema("#", scope) must beRight.which(
@@ -510,38 +494,38 @@ class SchemaRefResolverSpec extends Specification {
 
         "resolve #/schema1" in {
           val result = resolveSchema("#/schema1", scope)
-          result.right.map(resolvedToJson) must beRight(Json.obj("id" -> "#foo"))
+          result.right.map(resolvedToJson) must beRight[JsValue](Json.obj("id" -> "#foo"))
         }
 
         "resolve #/schema2" in {
           val result = resolveSchema("#/schema2", scope)
-          result.right.map(resolvedToJson) must beRight(
+          result.right.map(resolvedToJson) must beRight[JsValue](
             Json.obj(
               "nested" -> Json.obj("id" -> "#bar"),
               "alsonested" -> Json.obj("id" -> "t/inner.json#a"),
-              keywords.id -> "otherschema.json"
+              "id" -> "otherschema.json"
             )
           )
         }
 
         "resolve #/schema2/nested" in {
           val result = resolveSchema("#/schema2/nested", scope)
-          result.right.map(resolvedToJson) must beRight(
-            Json.obj(keywords.id -> "#bar")
+          result.right.map(resolvedToJson) must beRight[JsValue](
+            Json.obj("id" -> "#bar")
           )
         }
 
         "resolve #/schema2/alsonested" in {
           val result = resolveSchema("#/schema2/alsonested", scope)
-          result.right.map(resolvedToJson) must beRight(
-            Json.obj(keywords.id -> "t/inner.json#a")
+          result.right.map(resolvedToJson) must beRight[JsValue](
+            Json.obj("id" -> "t/inner.json#a")
           )
         }
 
         "resolve #/schema3" in {
           val result = resolveSchema("#/schema3", scope)
-          result.right.map(resolvedToJson) must beRight(
-            Json.obj(keywords.id -> "some://where.else/completely#")
+          result.right.map(resolvedToJson) must beRight[JsValue](
+            Json.obj("id" -> "some://where.else/completely#")
           )
         }
       }

@@ -1,9 +1,37 @@
 package com.eclipsesource.schema.internal
 
+import com.eclipsesource.schema.internal.validation.Validated
 import com.eclipsesource.schema.{SchemaArray, SchemaObject, SchemaType}
 import play.api.libs.json._
 
+import scalaz.Failure
+
 object SchemaUtil {
+
+  def failure(keyword: String,
+              msg: String,
+              schemaPath: JsPath,
+              instancePath: JsPath,
+              instance: JsValue,
+              additionalInfo: JsObject = Json.obj()
+             ): Validated[JsonValidationError, JsValue] = {
+
+    def dropSlashIfAny(path: String) = if (path.startsWith("/#")) path.substring(1) else path
+
+    Failure(
+      Seq(
+        JsonValidationError(msg,
+          Json.obj(
+            "keyword" -> keyword,
+            "schemaPath" -> dropSlashIfAny(schemaPath.toString()),
+            "instancePath" -> instancePath.toString(),
+            "value" -> instance,
+            "errors" ->  additionalInfo
+          )
+        )
+      )
+    )
+  }
 
   def prettyPrint(schemaType: SchemaType, indent: Int = 0): String = schemaType match {
     case obj: SchemaObject => "{\n" +
