@@ -76,10 +76,7 @@ class SchemaWritesSpec extends Specification {
 
     "write $ref" in {
       Json.toJson(
-        SchemaObject(
-          Seq(SchemaProp("$ref", SchemaValue(JsString("#")))),
-          ObjectConstraints4()
-        )
+        SchemaRef("#", AnyConstraints4())
       ) must beEqualTo(
         Json.obj(
           "$ref" -> "#"

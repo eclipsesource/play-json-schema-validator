@@ -24,9 +24,9 @@ trait SchemaReads4 extends SchemaReads { self: SchemaVersion =>
     "id"
   )
 
-  override lazy val objectKeywords = Set(
+  override lazy val objectKeywords: Set[String] = Set(
     Keywords.Schema,
-    Keywords.Ref,
+    "ref",
     Keywords.Object.Properties,
     Keywords.Object.PatternProperties,
     Keywords.Object.AdditionalProperties,
@@ -34,7 +34,7 @@ trait SchemaReads4 extends SchemaReads { self: SchemaVersion =>
     Keywords.Object.Dependencies
   ) ++ anyKeywords
 
-  override lazy val arrayKeywords = Set(
+  override lazy val arrayKeywords: Set[String] = Set(
     Keywords.Array.AdditionalItems,
     Keywords.Array.Items,
     Keywords.Array.MaxItems,
@@ -44,7 +44,7 @@ trait SchemaReads4 extends SchemaReads { self: SchemaVersion =>
 
 
   override lazy val schemaReadsSeq: Seq[Reads[SchemaType]] = Seq(
-    refReader,
+    refReads.map(asSchemaType),
     typeReader,
     tupleReads.map(asSchemaType),
     arrayReads.map(asSchemaType),

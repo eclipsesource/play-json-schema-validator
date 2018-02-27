@@ -3,9 +3,9 @@ package com.eclipsesource.schema.internal.refs
 import java.net.{URL, URLDecoder, URLStreamHandler}
 
 import com.eclipsesource.schema.internal._
-import com.eclipsesource.schema.internal.constraints.Constraints.{Constraint, HasAnyConstraint}
+import com.eclipsesource.schema.internal.constraints.Constraints.Constraint
 import com.eclipsesource.schema.internal.url.UrlStreamResolverFactory
-import com.eclipsesource.schema.{CompoundSchemaType, SchemaArray, SchemaBoolean, SchemaInteger, SchemaMap, SchemaNumber, SchemaObject, SchemaProp, SchemaSeq, SchemaString, SchemaTuple, SchemaType, SchemaValue, SchemaVersion}
+import com.eclipsesource.schema.{CompoundSchemaType, SchemaArray, SchemaBoolean, SchemaInteger, SchemaMap, SchemaNumber, SchemaObject, SchemaProp, SchemaRef, SchemaSeq, SchemaString, SchemaTuple, SchemaType, SchemaValue, SchemaVersion}
 import com.osinka.i18n.{Lang, Messages}
 import play.api.libs.json._
 import scalaz.syntax.either._
@@ -257,12 +257,8 @@ case class SchemaRefResolver
 
   def refinesScope(a: SchemaType): Boolean = findScopeRefinement(a).isDefined
 
-
   def findRef(schema: SchemaType): Option[Ref] = schema match {
-    case SchemaObject(props, _, _) =>
-      props.collectFirst {
-        case SchemaProp("$ref", SchemaValue(JsString(ref))) => Ref(ref)
-      }
+    case SchemaRef(ref, _) => Some(Ref(ref))
     case _ => None
   }
 
@@ -358,6 +354,7 @@ case class SchemaRefResolver
       case n: SchemaInteger => resolveConstraint(n.constraints, fragmentPart)
       case n: SchemaBoolean => resolveConstraint(n.constraints, fragmentPart)
       case n: SchemaString => resolveConstraint(n.constraints, fragmentPart)
+      case r: SchemaRef => resolveConstraint(r.constraints, fragmentPart)
     }
   }
 
