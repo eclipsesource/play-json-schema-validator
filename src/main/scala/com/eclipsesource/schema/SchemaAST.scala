@@ -53,8 +53,7 @@ final case class SchemaTuple(items: Seq[SchemaType],
   override def withProps(otherProps: Seq[(String, SchemaType)]): SchemaTuple = copy(otherProps = otherProps)
 }
 
-// TODO: currently not in use
-final case class SchemaRef(ref: String, constraints: HasAnyConstraint) extends SchemaType
+final case class SchemaRef(ref: String, constraints: AnyConstraints) extends SchemaType
 
 final case class SchemaArray(item:  SchemaType,
                              constraints: ArrayConstraints,

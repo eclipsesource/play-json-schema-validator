@@ -8,6 +8,7 @@ import play.api.libs.json._
 trait SchemaWrites { self: SchemaVersion =>
 
   implicit def schemaTypeWriter: Writes[SchemaType] = Writes[SchemaType] {
+    case r: SchemaRef          => refWrites.writes(r)
     case s: SchemaString       => stringWrites.writes(s)
     case i: SchemaInteger      => integerWrites.writes(i)
     case n: SchemaNumber       => numberWrites.writes(n)
@@ -32,6 +33,11 @@ trait SchemaWrites { self: SchemaVersion =>
   def tupleWrites: OWrites[SchemaTuple]
   def arrayWrites: OWrites[SchemaArray]
   def objectWrites: OWrites[SchemaObject]
+
+  lazy val refWrites: Writes[SchemaRef] = OWrites[SchemaRef] { ref =>
+    Json.obj("$ref" -> ref.ref)
+      .deepMerge(anyConstraintWrites.writes(ref.constraints))
+  }
 
   lazy val schemaMapWriter: Writes[SchemaMap] = OWrites[SchemaMap] { schemaMap =>
     val props = schemaMap.members.map(attr => attr.name -> Json.toJson(attr.schemaType))

@@ -5,7 +5,7 @@ import com.eclipsesource.schema.internal.Keywords
 import com.eclipsesource.schema.internal.constraints.Constraints._
 import com.eclipsesource.schema.internal.draft4.constraints._
 import com.eclipsesource.schema.internal.serialization.SchemaWrites
-import play.api.libs.json.{JsObject, Json, OWrites, Writes}
+import play.api.libs.json.{JsObject, Json, OWrites}
 
 trait SchemaWrites4 extends SchemaWrites { self: SchemaVersion =>
 
@@ -31,15 +31,7 @@ trait SchemaWrites4 extends SchemaWrites { self: SchemaVersion =>
 
     // TODO: only write none empty seq of properties
     val o = (if (props.nonEmpty) Json.obj("properties" -> JsObject(props)) else Json.obj()).deepMerge(JsObject(remainingProps))
-
-    // check if $ref exists
-    val maybeRef = obj.properties.find(_.name == Keywords.Ref)
-    val jsonObj = maybeRef
-      .map(ref =>
-        Json.obj(Keywords.Ref -> Json.toJson(ref.schemaType))
-      ).getOrElse(o)
-
-    jsonObj.deepMerge(objectConstraintWriter.writes(obj.constraints))
+    o.deepMerge(objectConstraintWriter.writes(obj.constraints))
   }
 
   override lazy val stringWrites: OWrites[SchemaString] = OWrites[SchemaString] { s =>

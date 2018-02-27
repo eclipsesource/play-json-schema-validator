@@ -4,8 +4,6 @@ import com.eclipsesource.schema._
 import com.eclipsesource.schema.internal.Keywords
 import com.eclipsesource.schema.internal.constraints.Constraints._
 import com.eclipsesource.schema.internal.draft4.constraints.ObjectConstraints4
-import com.eclipsesource.schema.internal.validation.VA
-import com.osinka.i18n.Lang
 import play.api.libs.functional.syntax._
 import play.api.libs.json.Reads._
 import play.api.libs.json._
@@ -91,30 +89,15 @@ trait SchemaReads {
   lazy val delegatingArrayReader: Reads[SchemaArray] = createDelegateReader(arrayReads, arrayKeywords)
   lazy val delegatingObjectReader: Reads[SchemaObject] = createDelegateReader(objectReads, objectKeywords)
 
-  lazy val refReader: Reads[SchemaType] = {
+  lazy val refReads: Reads[SchemaType] = {
     (
       (__ \ Keywords.Ref).readNullable[String] and
         anyConstraintReads
       ).tupled.flatMap { case (ref, anyConstraints) =>
+
       ref.fold[Reads[SchemaType]](
         Reads.apply(_ => JsError("No ref found"))
-      )(r => {
-        // TODO: should be Reads.pure(SchemaRef(r, anyConstraints)        )
-        // TODO constraints make no sense for refs
-        Reads.pure(
-          SchemaObject(
-            Seq(SchemaProp("$ref", SchemaValue(JsString(r)))),
-            new ObjectConstraints {
-              override def any: AnyConstraints = anyConstraints
-              override def subSchemas: Set[SchemaType] = anyConstraints.subSchemas
-              override def resolvePath(path: String): Option[SchemaType] = any.resolvePath(path)
-              override def validate(schemaType: SchemaType, json: JsValue, context: SchemaResolutionContext)(implicit lang: Lang): VA[JsValue] =
-                any.validate(schemaType, json, context)
-            }
-          )
-        )
-      }
-      )
+      )(r => Reads.pure(SchemaRef(r, anyConstraints)))
     }
   }
 
