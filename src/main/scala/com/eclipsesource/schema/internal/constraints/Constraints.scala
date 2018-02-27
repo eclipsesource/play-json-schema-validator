@@ -9,15 +9,17 @@ object Constraints {
 
   import com.eclipsesource.schema._
 
-  trait HasAnyConstraint {
+  trait HasAnyConstraint extends Constraint {
     def any: AnyConstraints
+    def id: Option[String] = any.id
+    def schemaType: Option[String] = any.schemaType
   }
 
   trait Constraint {
+    def id: Option[String]
+    def schemaType: Option[String]
     def subSchemas: Set[SchemaType]
-
     def resolvePath(path: String): Option[SchemaType]
-
     def validate(schemaType: SchemaType, json: JsValue, context: SchemaResolutionContext)
                 (implicit lang: Lang): VA[JsValue]
   }
@@ -27,14 +29,11 @@ object Constraints {
     override def resolvePath(path: String): Option[SchemaType] = None
     override def validate(schema: SchemaType, json: JsValue, context: SchemaResolutionContext)
                          (implicit lang: Lang): VA[JsValue] = Success(json)
+    override def id: Option[String] = None
+    override def schemaType: Option[String] = None
   }
 
-
-
-  trait AnyConstraints extends Constraint {
-    def id: Option[String]
-    def schemaTypeAsString: Option[String]
-  }
+  trait AnyConstraints extends Constraint
 
   trait ArrayConstraints extends Constraint with HasAnyConstraint
 

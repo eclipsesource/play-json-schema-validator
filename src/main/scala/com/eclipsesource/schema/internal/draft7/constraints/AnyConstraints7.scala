@@ -10,19 +10,19 @@ import scalaz.std.option._
 import scalaz.std.set._
 import scalaz.syntax.semigroup._
 
-case class AnyConstraints7(schemaTypeAsString: Option[String] = None,
-                          allOf: Option[Seq[SchemaType]] = None,
-                          anyOf: Option[Seq[SchemaType]] = None,
-                          oneOf: Option[Seq[SchemaType]] = None,
-                          definitions: Option[Map[String, SchemaType]] = None,
-                          enum: Option[Seq[JsValue]] = None,
-                          const: Option[JsValue] = None,
-                          not: Option[SchemaType] = None,
-                          description: Option[String] = None,
-                          id: Option[String] = None,
-                          _if: Option[SchemaType] = None,
-                          _then: Option[SchemaType] = None,
-                          _else: Option[SchemaType] = None
+case class AnyConstraints7(schemaType: Option[String] = None,
+                           allOf: Option[Seq[SchemaType]] = None,
+                           anyOf: Option[Seq[SchemaType]] = None,
+                           oneOf: Option[Seq[SchemaType]] = None,
+                           definitions: Option[Map[String, SchemaType]] = None,
+                           enum: Option[Seq[JsValue]] = None,
+                           const: Option[JsValue] = None,
+                           not: Option[SchemaType] = None,
+                           description: Option[String] = None,
+                           id: Option[String] = None,
+                           _if: Option[SchemaType] = None,
+                           _then: Option[SchemaType] = None,
+                           _else: Option[SchemaType] = None
                          )
   extends AnyConstraints {
 
@@ -33,7 +33,7 @@ case class AnyConstraints7(schemaTypeAsString: Option[String] = None,
   }
 
   override def resolvePath(path: String): Option[SchemaType] = path match {
-    case Keywords.Any.Type => schemaTypeAsString.map(t => SchemaValue(JsString(t)))
+    case Keywords.Any.Type => schemaType.map(t => SchemaValue(JsString(t)))
     case Keywords.Any.AllOf => allOf.map(types => SchemaSeq(types))
     case Keywords.Any.AnyOf => anyOf.map(types => SchemaSeq(types))
     case Keywords.Any.OneOf => oneOf.map(types => SchemaSeq(types))

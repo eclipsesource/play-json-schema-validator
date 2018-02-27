@@ -26,11 +26,7 @@ case class SchemaResolutionScope(documentRoot: SchemaType,
     */
   private def collectSchemas(schema: SchemaType, resolutionScope: Option[Ref], knownSchemas: Map[Ref, SchemaType]): Map[Ref, SchemaType] = {
 
-    val currentScope = schema.constraints match {
-      case c: HasAnyConstraint => c.any.id.map(i => Refs.mergeRefs(Ref(i), resolutionScope))
-      case a: AnyConstraints => a.id.map(i => Refs.mergeRefs(Ref(i), resolutionScope))
-      case _ => None
-    }
+    val currentScope = schema.constraints.id.map(i => Refs.mergeRefs(Ref(i), resolutionScope))
     val updatedMap = currentScope.fold(knownSchemas)(id => knownSchemas + (id -> schema))
     val m = schema match {
       case SchemaObject(props, _, _) => props.foldLeft(updatedMap) {

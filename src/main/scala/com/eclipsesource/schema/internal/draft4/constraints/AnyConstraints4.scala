@@ -10,7 +10,7 @@ import scalaz.std.option._
 import scalaz.std.set._
 import scalaz.syntax.semigroup._
 
-case class AnyConstraints4(schemaTypeAsString: Option[String] = None,
+case class AnyConstraints4(schemaType: Option[String] = None,
                            allOf: Option[Seq[SchemaType]] = None,
                            anyOf: Option[Seq[SchemaType]] = None,
                            oneOf: Option[Seq[SchemaType]] = None,
@@ -29,7 +29,7 @@ case class AnyConstraints4(schemaTypeAsString: Option[String] = None,
       .getOrElse(Set.empty[SchemaType])
 
   override def resolvePath(path: String): Option[SchemaType] = path match {
-    case Keywords.Any.Type => schemaTypeAsString.map(t => SchemaValue(JsString(t)))
+    case Keywords.Any.Type => schemaType.map(t => SchemaValue(JsString(t)))
     case Keywords.Any.AllOf => allOf.map(types => SchemaSeq(types))
     case Keywords.Any.AnyOf => anyOf.map(types => SchemaSeq(types))
     case Keywords.Any.OneOf => oneOf.map(types => SchemaSeq(types))
