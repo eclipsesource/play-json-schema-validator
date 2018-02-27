@@ -54,9 +54,7 @@ final case class SchemaTuple(items: Seq[SchemaType],
 }
 
 // TODO: currently not in use
-final case class SchemaRef(ref: String, any: AnyConstraints) extends SchemaType with HasAnyConstraint {
-  def constraints: AnyConstraints = any
-}
+final case class SchemaRef(ref: String, constraints: HasAnyConstraint) extends SchemaType
 
 final case class SchemaArray(item:  SchemaType,
                              constraints: ArrayConstraints,

@@ -99,8 +99,8 @@ trait SchemaReads7 extends SchemaReads { self: SchemaVersion =>
           any
         )
 
-        if (any.schemaTypeAsString.exists(_ != "array") ||
-          (any.schemaTypeAsString.isEmpty
+        if (any.schemaType.exists(_ != "array") ||
+          (any.schemaType.isEmpty
             && items.isEmpty
             && additionalItems.isEmpty
             && minItems.isEmpty
@@ -135,8 +135,8 @@ trait SchemaReads7 extends SchemaReads { self: SchemaVersion =>
           any
         )
 
-        if (any.schemaTypeAsString.exists(_ != "array") ||
-          (any.schemaTypeAsString.isEmpty
+        if (any.schemaType.exists(_ != "array") ||
+          (any.schemaType.isEmpty
             && items.isEmpty
             && additionalItems.isEmpty
             && minItems.isEmpty
@@ -234,8 +234,8 @@ trait SchemaReads7 extends SchemaReads { self: SchemaVersion =>
 
       val (minLength, maxLength, pattern, format, anyConstraints) = read
 
-      if (anyConstraints.schemaTypeAsString.exists(_ != "string") ||
-        (anyConstraints.schemaTypeAsString.isEmpty && List(minLength, maxLength, format, pattern).forall(_.isEmpty))) {
+      if (anyConstraints.schemaType.exists(_ != "string") ||
+        (anyConstraints.schemaType.isEmpty && List(minLength, maxLength, format, pattern).forall(_.isEmpty))) {
         Reads.apply(_ => JsError("Expected string."))
       } else {
         Reads.pure(StringConstraints7(minLength, maxLength, pattern, format, anyConstraints))
@@ -257,7 +257,7 @@ trait SchemaReads7 extends SchemaReads { self: SchemaVersion =>
       val (min, max, exclusiveMin, exclusiveMax, multipleOf, format, anyConstraints) = read
       val minimum = min.map(Minimum(_, Some(false))) orElse exclusiveMin.map(Minimum(_, Some(true)))
       val maximum = max.map(Maximum(_, Some(false))) orElse exclusiveMax.map(Maximum(_, Some(true)))
-      val typeAsString = anyConstraints.schemaTypeAsString
+      val typeAsString = anyConstraints.schemaType
 
       if (typeAsString.exists(t => t != "number" && t != "integer")
         || (typeAsString.isEmpty

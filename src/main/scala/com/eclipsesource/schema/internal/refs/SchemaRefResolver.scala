@@ -266,10 +266,7 @@ case class SchemaRefResolver
     case _ => None
   }
 
-  def findScopeRefinement(schema: SchemaType): Option[Ref] = schema.constraints match {
-    case c: HasAnyConstraint => c.any.id.map(Ref(_))
-    case _ => None
-  }
+  def findScopeRefinement(schema: SchemaType): Option[Ref] = schema.constraints.id.map(Ref(_))
 
   private def resolveConstraint[A <: Constraint](constraints: A, constraint: String)
                                                 // TODO: is the version still necessary with a typeclass?

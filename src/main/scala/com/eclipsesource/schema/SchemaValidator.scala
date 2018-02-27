@@ -88,19 +88,12 @@ class SchemaValidator(val refResolver: SchemaRefResolver,
     )
   }
 
-  private def buildContext(schema: SchemaType, schemaUrl: URL): SchemaResolutionContext = schema.constraints match {
-    case c: HasAnyConstraint =>
-      val id = c.any.id.map(Ref(_))
-      SchemaResolutionContext(refResolver,
-        SchemaResolutionScope(schema, id.orElse(Some(Ref(schemaUrl.toString)))),
-        formats = formats
-      )
-    case _ =>
-      SchemaResolutionContext(refResolver,
-        SchemaResolutionScope(schema, Some(Ref(schemaUrl.toString))),
-        formats = formats
-      )
-  }
+  private def buildContext(schema: SchemaType, schemaUrl: URL): SchemaResolutionContext =
+    SchemaResolutionContext(
+      refResolver,
+      SchemaResolutionScope(schema, schema.constraints.id.map(Ref(_)) orElse Some(Ref(schemaUrl.toString))),
+      formats = formats
+    )
 
   /**
     * Validate the given JsValue against the schema located at the given URL.
@@ -191,11 +184,7 @@ class SchemaValidator(val refResolver: SchemaRefResolver,
     * @return a JsResult holding the valid result
     */
   def validate(schema: SchemaType)(input: => JsValue): JsResult[JsValue] = {
-    val ref: Option[Ref] = schema.constraints match {
-      case c: HasAnyConstraint => c.any.id.map(Ref(_))
-      case _ => None
-    }
-
+    val ref: Option[Ref] = schema.constraints.id.map(Ref(_))
     val context = SchemaResolutionContext(
       refResolver,
       SchemaResolutionScope(schema, ref),

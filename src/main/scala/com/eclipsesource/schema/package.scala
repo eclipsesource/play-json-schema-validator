@@ -84,7 +84,7 @@ package object schema {
         case (_: JsObject, schemaObject: SchemaObject) =>
           schemaObject.validateConstraints(json, context)
 
-        case (_, schemaObject: SchemaObject) if schemaObject.constraints.any.schemaTypeAsString.isEmpty =>
+        case (_, schemaObject: SchemaObject) if schemaObject.constraints.any.schemaType.isEmpty =>
           schemaObject.validateConstraints(json, context)
 
         case (_, c: CompoundSchemaType) =>
@@ -111,15 +111,14 @@ package object schema {
         case (JsNull, schemaNull: SchemaNull) =>
           schemaNull.validateConstraints(json, context)
 
-        case (_, _) => schemaType.constraints match {
-          case h: HasAnyConstraint if h.any.schemaTypeAsString.isEmpty => Success(json)
-          case _ =>
+        case (_, s) if s.constraints.schemaType.isEmpty => Success(json)
+
+        case (_, _) =>
             Results.failureWithPath(
               Keywords.Any.Type,
               Messages("err.expected.type", schemaType, SchemaUtil.typeOfAsString(json)),
               context,
               json)
-        }
       }
     }
 
