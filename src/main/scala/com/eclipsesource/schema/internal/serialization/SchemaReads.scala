@@ -4,6 +4,7 @@ import com.eclipsesource.schema._
 import com.eclipsesource.schema.internal.Keywords
 import com.eclipsesource.schema.internal.constraints.Constraints._
 import com.eclipsesource.schema.internal.draft4.constraints.ObjectConstraints4
+import com.eclipsesource.schema.internal.refs.Ref
 import play.api.libs.functional.syntax._
 import play.api.libs.json.Reads._
 import play.api.libs.json._
@@ -24,6 +25,7 @@ trait SchemaReads {
   def arrayReads: Reads[SchemaArray]
   def objectReads: Reads[SchemaObject]
 
+  def anyKeywords: Set[String]
   def arrayKeywords: Set[String]
   def objectKeywords: Set[String]
 
@@ -88,16 +90,17 @@ trait SchemaReads {
   lazy val delegatingTupleReader: Reads[SchemaTuple] = createDelegateReader(tupleReads, arrayKeywords)
   lazy val delegatingArrayReader: Reads[SchemaArray] = createDelegateReader(arrayReads, arrayKeywords)
   lazy val delegatingObjectReader: Reads[SchemaObject] = createDelegateReader(objectReads, objectKeywords)
+  lazy val delegatingRefReads: Reads[SchemaRef] = createDelegateReader(refReads, anyKeywords ++ Set("$ref"))
 
-  lazy val refReads: Reads[SchemaType] = {
+  lazy val refReads: Reads[SchemaRef] = {
     (
       (__ \ Keywords.Ref).readNullable[String] and
         anyConstraintReads
       ).tupled.flatMap { case (ref, anyConstraints) =>
 
-      ref.fold[Reads[SchemaType]](
+      ref.fold[Reads[SchemaRef]](
         Reads.apply(_ => JsError("No ref found"))
-      )(r => Reads.pure(SchemaRef(r, anyConstraints)))
+      )(r => Reads.pure(SchemaRef(Ref(r), anyConstraints)))
     }
   }
 

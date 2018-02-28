@@ -35,7 +35,7 @@ trait SchemaWrites { self: SchemaVersion =>
   def objectWrites: OWrites[SchemaObject]
 
   lazy val refWrites: Writes[SchemaRef] = OWrites[SchemaRef] { ref =>
-    Json.obj("$ref" -> ref.ref)
+    Json.obj("$ref" -> ref.ref.value)
       .deepMerge(anyConstraintWrites.writes(ref.constraints))
   }
 

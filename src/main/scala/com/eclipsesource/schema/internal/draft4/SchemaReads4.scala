@@ -44,7 +44,7 @@ trait SchemaReads4 extends SchemaReads { self: SchemaVersion =>
 
 
   override lazy val schemaReadsSeq: Seq[Reads[SchemaType]] = Seq(
-    refReads.map(asSchemaType),
+    delegatingRefReads.map(asSchemaType),
     typeReader,
     tupleReads.map(asSchemaType),
     arrayReads.map(asSchemaType),

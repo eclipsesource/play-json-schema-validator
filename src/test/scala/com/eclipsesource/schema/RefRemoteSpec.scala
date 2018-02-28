@@ -8,20 +8,25 @@ import play.api.inject.guice.GuiceApplicationBuilder
 import play.api.libs.json._
 import play.api.test.WithServer
 
-class RefRemoteSpec extends Specification with JsonSpec {
+class RefRemoteSpec extends Specification with JsonSpec { self =>
 
   val validator = SchemaValidator(Version4)
 
   def createApp: Application = new GuiceApplicationBuilder()
     .routes(Assets.routes(getClass)).build()
 
-  "remote ref - remote ref invalid" in new WithServer(createApp, port = 1234) {
+  "remote ref - remote ref invalid" in {
     import Version4._
+    val integerJsonSchema = JsonSource.schemaFromStream(
+      self.getClass.getResourceAsStream("/remotes/integer.json")
+    ).get
     val schema = JsonSource.schemaFromString(
       """ { "$ref": "http://localhost:1234/remotes/integer.json" } """.stripMargin
     ).get
     val instance   = JsString("a")
-    val result     = validator.validate(schema, instance)
+    val result     = validator
+      .addSchema("http://localhost:1234/remotes/integer.json", integerJsonSchema)
+      .validate(schema, instance)
     val errors     = result.asEither.left.get
     val firstError = errors.toJson(0)
     (firstError \ "keyword").get.as[String] must beEqualTo("type")
