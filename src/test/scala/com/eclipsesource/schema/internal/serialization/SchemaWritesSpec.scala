@@ -3,6 +3,7 @@ package com.eclipsesource.schema.internal.serialization
 import com.eclipsesource.schema._
 import com.eclipsesource.schema.internal.constraints.Constraints.{Maximum, Minimum}
 import com.eclipsesource.schema.internal.draft4.constraints.{AnyConstraints4, ArrayConstraints4, NumberConstraints4, ObjectConstraints4}
+import com.eclipsesource.schema.internal.refs.Ref
 import org.specs2.mutable.Specification
 import play.api.libs.json.{JsString, Json}
 
@@ -76,7 +77,7 @@ class SchemaWritesSpec extends Specification {
 
     "write $ref" in {
       Json.toJson(
-        SchemaRef("#", AnyConstraints4())
+        SchemaRef(Ref("#"), AnyConstraints4())
       ) must beEqualTo(
         Json.obj(
           "$ref" -> "#"

@@ -1,6 +1,7 @@
 package com.eclipsesource.schema
 
 import com.eclipsesource.schema.internal.constraints.Constraints._
+import com.eclipsesource.schema.internal.refs.Ref
 import play.api.libs.json._
 
 sealed trait SchemaType {
@@ -53,7 +54,9 @@ final case class SchemaTuple(items: Seq[SchemaType],
   override def withProps(otherProps: Seq[(String, SchemaType)]): SchemaTuple = copy(otherProps = otherProps)
 }
 
-final case class SchemaRef(ref: String, constraints: AnyConstraints) extends SchemaType
+final case class SchemaRef(ref: Ref, constraints: AnyConstraints, otherProps: Seq[(String, SchemaType)] = Seq.empty) extends SchemaType with HasProps[SchemaRef] {
+  override def withProps(otherProps: Seq[(String, SchemaType)]): SchemaRef = copy(otherProps = otherProps)
+}
 
 final case class SchemaArray(item:  SchemaType,
                              constraints: ArrayConstraints,

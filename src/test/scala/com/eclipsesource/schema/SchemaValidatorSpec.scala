@@ -390,4 +390,35 @@ class SchemaValidatorSpec extends PlaySpecification {
 
     result.isSuccess must beFalse
   }
+
+  "resolve additionalProperties constraint" in new WithServer(app = createApp, port = 1234) {
+    val validator = SchemaValidator(Version4)
+    private val schema = JsonSource.schemaFromString(
+      """{
+        |"id": "http://localhost:1234/talk.json#",
+        |"definitions": {
+        |  "foo": {
+        |    "id": "schema1",
+        |    "type": "integer"
+        |  }
+        |},
+        |"properties": {
+        |  "foo": {
+        |    "$ref": "date.json#/properties/year"
+        |  }
+        |}
+        |}""".
+        stripMargin).get
+
+    validator.validate(schema,
+      Json.obj(
+        "foo" -> JsNumber(2015)
+      )
+    ).isSuccess must beTrue
+
+    validator.validate(schema,
+      Json.obj("foo"
+        -> JsString("foo"))
+    ).isError must beTrue
+  }
 }

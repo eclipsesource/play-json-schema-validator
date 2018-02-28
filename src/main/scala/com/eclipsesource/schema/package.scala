@@ -44,25 +44,17 @@ package object schema {
     private def resolveRefAndValidate(json: JsValue, schemaRef: SchemaRef, context: SchemaResolutionContext)
                                      (implicit lang: Lang): VA[JsValue] = {
 
-      context.refResolver.resolve(schemaRef, Ref(schemaRef.ref), context.scope) match {
+      context.refResolver.resolve(schemaRef, schemaRef.ref, context.scope) match {
           case -\/(JsonValidationError(_, _*)) =>
             Results.failureWithPath(
               Keywords.Ref,
-              Messages("err.unresolved.ref", schemaRef.ref),
+              Messages("err.unresolved.ref", schemaRef.ref.value),
               context,
               json)
           case \/-(ResolvedResult(resolved, scope)) =>
             val updatedContext = context.updateScope(_ => scope)
             resolved.doValidate(json, updatedContext)
         }
-
-//      result.getOrElse(
-//        Results.failureWithPath(
-//          Keywords.Ref,
-//          Messages("err.ref.expected", context.schemaPath),
-//          context,
-//          json)
-//      )
     }
 
     private[schema] def doValidate(json: JsValue, context: SchemaResolutionContext)(implicit lang: Lang) = {
@@ -121,8 +113,7 @@ package object schema {
 
     def validate(json: JsValue, context: SchemaResolutionContext)(implicit lang: Lang): VA[JsValue] = {
       (json, schemaType) match {
-        case (_, s@SchemaRef(ref, _)) =>
-          resolveRefAndValidate(json, s, context)
+        case (_, s@SchemaRef(_, _, _)) => resolveRefAndValidate(json, s, context)
         case _ =>
           // refine resolution scope
           val updatedScope: SchemaResolutionScope = context.refResolver

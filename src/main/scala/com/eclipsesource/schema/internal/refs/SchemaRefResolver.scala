@@ -142,6 +142,10 @@ case class SchemaRefResolver
           resolveSchema(instance, "")
             .map(resolved => ResolvedResult(resolved, scope))
         ) orElse ResolvedResult(instance, scope).right
+      case (_, SchemaRef(ref, _, _)) if !ref.isInstanceOf[LocalRef] =>
+        resolve(scope.documentRoot, ref, scope).flatMap(resolvedResult =>
+          resolveLocal(schemaPath, resolvedResult.scope, resolvedResult.resolved)
+        )
       case (schemaProp :: rest, resolvable) =>
         schemaProp match {
           case "#" => resolveLocal(rest, scope.copy(schemaPath = JsPath \ "#"), scope.documentRoot)
@@ -219,7 +223,6 @@ case class SchemaRefResolver
     */
   private def resolveAbsolute(ref: AbsoluteRef, scope: SchemaResolutionScope)
                              (implicit lang: Lang): \/[JsonValidationError, ResolvedResult] = {
-
     for {
       url <- createUrl(ref.documentName)
       fetchedSchema <- fetch(url, scope)
@@ -258,7 +261,7 @@ case class SchemaRefResolver
   def refinesScope(a: SchemaType): Boolean = findScopeRefinement(a).isDefined
 
   def findRef(schema: SchemaType): Option[Ref] = schema match {
-    case SchemaRef(ref, _) => Some(Ref(ref))
+    case SchemaRef(ref, _, _) => Some(ref)
     case _ => None
   }
 
@@ -353,8 +356,11 @@ case class SchemaRefResolver
       case n: SchemaNumber => resolveConstraint(n.constraints, fragmentPart)
       case n: SchemaInteger => resolveConstraint(n.constraints, fragmentPart)
       case n: SchemaBoolean => resolveConstraint(n.constraints, fragmentPart)
-      case n: SchemaString => resolveConstraint(n.constraints, fragmentPart)
-      case r: SchemaRef => resolveConstraint(r.constraints, fragmentPart)
+      case n: SchemaString =>
+        resolveConstraint(n.constraints, fragmentPart)
+      case r: SchemaRef =>
+        findOtherProp(r.otherProps, fragmentPart) orElse resolveConstraint(r.constraints, fragmentPart)
+
     }
   }
 
