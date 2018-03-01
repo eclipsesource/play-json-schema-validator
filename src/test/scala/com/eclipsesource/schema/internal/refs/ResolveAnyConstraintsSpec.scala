@@ -20,7 +20,6 @@ class ResolveAnyConstraintsSpec extends Specification { self =>
         .add(Ref("http://localhost:1234/talk.json"))(talkSchema)
       )
 
-
     "resolve oneOf constraint" in {
       val schema = JsonSource.schemaFromString(
         """{
