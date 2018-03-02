@@ -4,6 +4,7 @@ import com.eclipsesource.schema.internal.Keywords
 import com.eclipsesource.schema.internal.constraints.Constraints.AnyConstraints
 import com.eclipsesource.schema.internal.validation.{Rule, VA}
 import com.eclipsesource.schema.{SchemaMap, SchemaProp, SchemaResolutionContext, SchemaSeq, SchemaType, SchemaValue}
+import com.eclipsesource.schema.internal.validators.AnyConstraintValidators._
 import com.osinka.i18n.Lang
 import play.api.libs.json._
 import scalaz.std.option._
@@ -27,9 +28,15 @@ case class AnyConstraints7(schemaType: Option[String] = None,
   extends AnyConstraints {
 
   override def subSchemas: Set[SchemaType] = {
-    // TODO: if then else are missing
-    (definitions.map(_.values.toSet) |+| allOf.map(_.toSet) |+| anyOf.map(_.toSet) |+| oneOf.map(_.toSet))
-      .getOrElse(Set.empty[SchemaType])
+    val schemas =
+      definitions.map(_.values.toSet) |+|
+        allOf.map(_.toSet) |+|
+        anyOf.map(_.toSet) |+|
+        oneOf.map(_.toSet) |+|
+        _if.map(Set(_))    |+|
+        _then.map(Set(_))  |+|
+        _else.map(Set(_))
+    schemas.getOrElse(Set.empty[SchemaType])
   }
 
   override def resolvePath(path: String): Option[SchemaType] = path match {
@@ -50,8 +57,6 @@ case class AnyConstraints7(schemaType: Option[String] = None,
     case "$id" => id.map(id => SchemaValue(JsString(id)))
     case _ => None
   }
-
-  import com.eclipsesource.schema.internal.validators.AnyConstraintValidators._
 
   override def validate(schema: SchemaType, json: JsValue, context: SchemaResolutionContext)(implicit lang: Lang): VA[JsValue] = {
     val reader: scalaz.Reader[SchemaResolutionContext, Rule[JsValue, JsValue]] = for {
