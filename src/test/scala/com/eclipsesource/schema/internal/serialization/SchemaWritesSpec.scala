@@ -5,13 +5,13 @@ import com.eclipsesource.schema.internal.constraints.Constraints.{Maximum, Minim
 import com.eclipsesource.schema.internal.draft4.constraints.{AnyConstraints4, ArrayConstraints4, NumberConstraints4, ObjectConstraints4}
 import com.eclipsesource.schema.internal.refs.Ref
 import org.specs2.mutable.Specification
-import play.api.libs.json.{JsString, Json}
+import play.api.libs.json.{JsBoolean, JsString, Json}
 
 class SchemaWritesSpec extends Specification {
 
-  import com.eclipsesource.schema.internal.draft4.Version4._
+  "Schema Writes for draft 4" should {
 
-  "JSON Schema Writes" should {
+    import com.eclipsesource.schema.internal.draft4.Version4._
 
     "write string" in {
       val stringConstraint = """{
@@ -109,6 +109,16 @@ class SchemaWritesSpec extends Specification {
           )
         )
       )
+    }
+  }
+
+  "Schema Writes for draft 7" should {
+
+    import com.eclipsesource.schema.internal.draft7.Version7._
+
+    "write boolean schema" in {
+      val schema: SchemaType = SchemaValue(JsBoolean(true))
+      Json.toJson(schema) must beEqualTo(JsBoolean(true))
     }
   }
 }
