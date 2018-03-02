@@ -15,15 +15,15 @@ import scalaz.{-\/, \/, \/-}
 /**
   * Allows customizations of the validation process.
   */
-trait Customizations {
-  def refResolver: SchemaRefResolver
+trait SchemaConfigOptions {
+  def supportsCanonicalReferencing: Boolean
   def formats: Map[String, SchemaFormat]
 }
 
 object SchemaValidator {
   def apply(version: SchemaVersion, formats: Map[String, SchemaFormat] = DefaultFormats.formats)
            (implicit lang: Lang = Lang.Default): SchemaValidator = {
-    new SchemaValidator(SchemaRefResolver(version), formats)
+    new SchemaValidator(SchemaRefResolver(version), version.options.formats)
   }
 }
 
@@ -33,8 +33,7 @@ object SchemaValidator {
   */
 class SchemaValidator(val refResolver: SchemaRefResolver,
                       val formats: Map[String, SchemaFormat])
-                     (implicit val lang: Lang)
-  extends Customizations {
+                     (implicit val lang: Lang) {
 
 
   /**

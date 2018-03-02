@@ -5,12 +5,12 @@ import java.net.{URL, URLDecoder, URLStreamHandler}
 import com.eclipsesource.schema.internal._
 import com.eclipsesource.schema.internal.constraints.Constraints.Constraint
 import com.eclipsesource.schema.internal.url.UrlStreamResolverFactory
-import com.eclipsesource.schema.{CompoundSchemaType, SchemaArray, SchemaBoolean, SchemaInteger, SchemaMap, SchemaNumber, SchemaObject, SchemaProp, SchemaRef, SchemaSeq, SchemaString, SchemaTuple, SchemaType, SchemaValue, SchemaVersion}
+import com.eclipsesource.schema.{CompoundSchemaType, SchemaArray, SchemaBoolean, SchemaFormat, SchemaInteger, SchemaMap, SchemaNumber, SchemaObject, SchemaProp, SchemaRef, SchemaSeq, SchemaString, SchemaTuple, SchemaType, SchemaValue, SchemaVersion}
 import com.osinka.i18n.{Lang, Messages}
 import play.api.libs.json._
+
 import scalaz.syntax.either._
 import scalaz.{\/, \/-}
-
 import scala.io.Source
 import scala.util.{Success, Try}
 
@@ -25,7 +25,7 @@ case class SchemaRefResolver
   version: SchemaVersion,
   // TODO: try to avoid vars here
   resolverFactory: UrlStreamResolverFactory = UrlStreamResolverFactory(),
-  private[schema] var cache: DocumentCache = DocumentCache()
+  private[schema] var cache: DocumentCache = DocumentCache(),
 ) {
 
   import version._
@@ -183,13 +183,14 @@ case class SchemaRefResolver
     val ref = Ref(url.toString)
     cache.get(ref.value) match {
       case Some(a) => a.right
-      case _ => for {
+      case _ if version.options.supportsCanonicalReferencing => for {
         source <- \/.fromEither(Try { Source.fromURL(url) }.toJsonEither)
         read <- readSource(source)
       } yield {
         cache = cache.add(Refs.mergeRefs(ref, scope.id, Some(resolverFactory)))(read)
         read
       }
+      case _ => JsonValidationError("TODO: Resolution failed").left
     }
   }
 
