@@ -6,7 +6,7 @@ import com.eclipsesource.schema.test.JsonSpec
 import org.specs2.mutable.Specification
 import play.api.libs.json.{JsObject, JsResult, JsString, Json}
 
-class ReferenceSpec extends Specification with JsonSpec {
+class ReferenceSpec extends Specification with JsonSpec { self =>
 
   implicit val validator: SchemaValidator = SchemaValidator(Version4)
   import Version4._
@@ -17,7 +17,9 @@ class ReferenceSpec extends Specification with JsonSpec {
 
   "validate draft7" in {
     import Version7._
+    val jsonSchema = JsonSource.schemaFromStream(self.getClass.getResourceAsStream("/refs/json-schema-draft-07.json")).get
     implicit val validator: SchemaValidator = SchemaValidator(Version7)
+      .addSchema("http://json-schema.org/draft-07/schema", jsonSchema)
     validate("ref", "draft7")
   }
 
