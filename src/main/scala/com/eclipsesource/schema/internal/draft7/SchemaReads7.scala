@@ -3,8 +3,7 @@ package com.eclipsesource.schema.internal.draft7
 import com.eclipsesource.schema.{SchemaVersion, _}
 import com.eclipsesource.schema.internal.Keywords
 import com.eclipsesource.schema.internal.constraints.Constraints._
-import com.eclipsesource.schema.internal.draft4.constraints.NumberConstraints4
-import com.eclipsesource.schema.internal.draft7.constraints.{AnyConstraints7, ArrayConstraints7, ObjectConstraints7, StringConstraints7}
+import com.eclipsesource.schema.internal.draft7.constraints._
 import com.eclipsesource.schema.internal.serialization.SchemaReads
 import play.api.libs.functional.syntax._
 import play.api.libs.json.Reads._
@@ -268,7 +267,7 @@ trait SchemaReads7 extends SchemaReads { self: SchemaVersion =>
         && multipleOf.isEmpty)) {
         Reads.apply(_ => JsError("Expected number"))
       } else {
-        Reads.pure(NumberConstraints4(minimum, maximum, multipleOf, format, anyConstraints))
+        Reads.pure(NumberConstraints7(minimum, maximum, multipleOf, format, anyConstraints))
       }
     }
   }
