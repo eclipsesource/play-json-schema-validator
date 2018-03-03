@@ -34,7 +34,6 @@ object Results {
                       instance: JsValue,
                       additionalInfo: JsObject = Json.obj()): VA[JsValue] = {
 
-    // TODO: generalize
     def dropSlashIfAny(path: String) = if (path.startsWith("/#")) path.substring(1) else path
 
     Failure(Seq(context.instancePath ->

@@ -205,11 +205,10 @@ case class SchemaRefResolver
 
   private[schema] def readSource(source: Source)(implicit lang: Lang): \/[JsonValidationError, SchemaType] = {
     using(source) { src =>
-      val resolved = for {
+      for {
         json <- parseJson(src)
         resolvedSchema <- readJson(json)
       } yield resolvedSchema
-      resolved
     }
   }
 

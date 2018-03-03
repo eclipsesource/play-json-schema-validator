@@ -131,7 +131,6 @@ class RefRemoteSpec extends Specification with JsonSpec { self =>
     val validator = SchemaValidator(Version7)
     val instance   = JsNumber(1)
     private val result     = validator.validate(schema, instance)
-    println(result)
     private val errors     = result.asEither.left.get
     private val firstError = errors.toJson(0)
     (firstError \ "msgs").get.as[JsArray].value.head.as[String] must beEqualTo(

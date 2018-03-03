@@ -393,7 +393,6 @@ class ErrorReportingSpec extends Specification {
       (firstError \ "msgs").get.as[JsArray].head.as[String] must beEqualTo("Found 0 properties, but a minimum of 2 is required.")
     }
 
-    // TODO: test with fge
     "reporting errors with correct resolution scope " in {
       val schema = JsonSource.schemaFromString(
         """{
@@ -404,10 +403,10 @@ class ErrorReportingSpec extends Specification {
       val result = validator.validate(schema, invalidData)
       result.isError must beTrue
       result.asEither must beLeft.like { case error =>
+        (error.toJson(0) \ "schemaPath") == JsDefined(JsString("#"))
         (error.toJson(0) \ "resolutionScope") == JsDefined(JsString("foo"))
       }
     }
-
 
     "report errors for items" in {
       val schema = JsonSource.schemaFromString(
@@ -421,13 +420,12 @@ class ErrorReportingSpec extends Specification {
           |  }
           |}
         """.stripMargin).get
-      val data = Json.arr(10, 11, 12)
-      val invalidData = Json.arr(1, 10)
-      // TODO: report index
-      // val invalidData2 = Json.arr(10, 9, 11, 8 ,12)
+      val invalidData = Json.arr(10, 2, 3)
       val result = validator.validate(schema)(invalidData)
-      result.asEither must beLeft.like { case error =>
-        (error.toJson(0) \ "instancePath").get == JsString("/0")
+      result.asEither must beLeft.like { case errors =>
+        errors.size must beEqualTo(2)
+        (errors.toJson(0) \ "instancePath").get == JsString("/1")
+        (errors.toJson(1) \ "instancePath").get == JsString("/2")
       }
     }
 
