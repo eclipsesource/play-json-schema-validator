@@ -12,7 +12,10 @@ import play.api.libs.json._
 trait SchemaReads {
   self: SchemaVersion =>
 
-  implicit val schemaReads: Reads[SchemaType] =
+  // entry point
+  implicit val schemaTypeReads: Reads[SchemaType] = rootReads.map(asSchemaType)
+
+  lazy val schemaReads: Reads[SchemaType] =
     schemaReadsSeq.reduceLeft(_ or _) orElse
       Reads.apply(json => JsError(s"Invalid JSON schema. Could not read\n${Json.prettyPrint(json)}\n"))
 
@@ -29,13 +32,27 @@ trait SchemaReads {
   def arrayKeywords: Set[String]
   def objectKeywords: Set[String]
 
-  val withSchemaValueReader: Reads[SchemaType] = schemaReads or jsValueReader.map(asSchemaType)
+  def schemaLocation: String
 
-  lazy val jsValueReader: Reads[SchemaValue] = {
+  val withSchemaValueReader: Reads[SchemaType] = schemaReads or jsValueReads.map(asSchemaType)
+
+  lazy val jsValueReads: Reads[SchemaValue] = {
     case bool@JsBoolean(_) => JsSuccess(SchemaValue(bool))
     case s@JsString(_) => JsSuccess(SchemaValue(s))
     case a@JsArray(_) => JsSuccess(SchemaValue(a))
     case other => JsError(s"Expected either Json boolean, string or array, got $other.")
+  }
+
+  def rootReads: Reads[SchemaType] = (json: JsValue) => {
+    val maybeSchema = (json \ "$schema").validateOpt[String]
+    for {
+      $schema <- maybeSchema
+      schema <- schemaReads.reads(json)
+    } yield $schema match {
+      case Some(v) if v == schemaLocation =>
+        SchemaRoot(Some(self), schema)
+      case _ => schema
+    }
   }
 
   lazy val nullReader: Reads[SchemaNull] =

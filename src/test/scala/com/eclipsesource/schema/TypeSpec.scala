@@ -9,12 +9,12 @@ class TypeSpec extends Specification with JsonSpec {
 
   "type draft4" in {
     import Version4._
-    implicit val validator: SchemaValidator = SchemaValidator(Version4)
-    validate("type")
+    implicit val validator: SchemaValidator = SchemaValidator(Some(Version4))
+    validate("type", "draft4")
   }
   "type draft7" in {
     import Version7._
-    implicit val validator: SchemaValidator = SchemaValidator(Version7)
+    implicit val validator: SchemaValidator = SchemaValidator(Some(Version7))
     validate("type", "draft7")
   }
 }

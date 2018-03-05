@@ -12,7 +12,7 @@ class ErrorReportingSpec extends Specification {
 
   case class Post(id: Long, title: String, body: String)
 
-  val validator = SchemaValidator(Version4)
+  val validator = SchemaValidator(Some(Version4))
 
   "Validator" should {
 

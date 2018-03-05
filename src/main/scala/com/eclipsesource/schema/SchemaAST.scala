@@ -26,6 +26,10 @@ sealed trait SchemaObjectLike extends SchemaType {
   def properties: Seq[SchemaProp]
 }
 
+case class SchemaRoot($schema: Option[SchemaVersion], schema: SchemaType) extends SchemaType {
+  override def constraints: Constraint = schema.constraints
+}
+
 final case class CompoundSchemaType(alternatives: Seq[SchemaType]) extends SchemaType {
   override def toString: String = alternatives.map(_.toString).mkString(" ")
   override def constraints: Constraint = NoConstraints()

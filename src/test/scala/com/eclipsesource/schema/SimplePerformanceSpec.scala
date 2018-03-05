@@ -15,7 +15,7 @@ class SimplePerformanceSpec extends Specification {
     println(name + ": " + (System.currentTimeMillis() - start) + " ms")
   }
 
-  val validator = SchemaValidator(Version4)
+  val validator = SchemaValidator(Some(Version4))
   val schemaUrl = getClass.getResource("/issue-99-1.json")
   val schema = JsonSource.schemaFromUrl(schemaUrl).get
 

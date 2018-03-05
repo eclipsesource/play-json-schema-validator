@@ -9,13 +9,13 @@ class DependenciesSpec extends Specification with JsonSpec {
 
   "dependencies draft 4" in {
     import Version4._
-    implicit val validator = SchemaValidator(Version4)
-    validate("dependencies")
+    implicit val validator: SchemaValidator = SchemaValidator(Some(Version4))
+    validate("dependencies", "draft4")
   }
 
   "dependencies draft 7" in {
     import Version7._
-    implicit val validator = SchemaValidator(Version7)
+    implicit val validator: SchemaValidator = SchemaValidator(Some(Version7))
     validate("dependencies", "draft7")
   }
 }

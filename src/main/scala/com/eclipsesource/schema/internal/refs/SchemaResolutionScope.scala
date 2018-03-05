@@ -1,8 +1,10 @@
 package com.eclipsesource.schema.internal.refs
 
 import com.eclipsesource.schema.internal.constraints.Constraints.{AnyConstraints, HasAnyConstraint}
-import com.eclipsesource.schema.{SchemaArray, SchemaObject, SchemaTuple, SchemaType}
+import com.eclipsesource.schema.{SchemaArray, SchemaObject, SchemaRoot, SchemaTuple, SchemaType}
 import play.api.libs.json.JsPath
+
+import scala.collection.mutable
 
 case class SchemaResolutionScope(documentRoot: SchemaType,
                                  id: Option[Ref] = None, // current resolution scope
@@ -38,6 +40,7 @@ case class SchemaResolutionScope(documentRoot: SchemaType,
       case SchemaTuple(items, _, _) => items.foldLeft(updatedMap) {
         (schemas, item) =>  collectSchemas(item, currentScope, schemas)
       }
+      case SchemaRoot(_ ,s) => collectSchemas(s, resolutionScope, updatedMap)
       case _ => updatedMap
     }
 
@@ -47,9 +50,12 @@ case class SchemaResolutionScope(documentRoot: SchemaType,
   }
 }
 
-case class DocumentCache(private[schema] val mapping: Map[String, SchemaType] = Map.empty[String, SchemaType]) {
+case class DocumentCache(private[schema] val mapping: collection.concurrent.Map[String, SchemaType] = collection.concurrent.TrieMap.empty[String, SchemaType]) {
 
-  def add(id: Ref)(schemaType: SchemaType): DocumentCache = copy(mapping = mapping + (id.value -> schemaType))
+  def add(id: Ref)(schemaType: SchemaType) = {
+    mapping += (id.value -> schemaType)
+    this
+  }
 
   def get(value: String): Option[SchemaType] = mapping.get(value)
 

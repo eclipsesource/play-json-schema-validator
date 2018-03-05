@@ -5,12 +5,12 @@ import java.net.{URL, URLDecoder, URLStreamHandler}
 import com.eclipsesource.schema.internal._
 import com.eclipsesource.schema.internal.constraints.Constraints.Constraint
 import com.eclipsesource.schema.internal.url.UrlStreamResolverFactory
-import com.eclipsesource.schema.{CompoundSchemaType, SchemaArray, SchemaBoolean, SchemaFormat, SchemaInteger, SchemaMap, SchemaNumber, SchemaObject, SchemaProp, SchemaRef, SchemaSeq, SchemaString, SchemaTuple, SchemaType, SchemaValue, SchemaVersion}
+import com.eclipsesource.schema._
 import com.osinka.i18n.{Lang, Messages}
 import play.api.libs.json._
-
 import scalaz.syntax.either._
 import scalaz.{\/, \/-}
+
 import scala.io.Source
 import scala.util.{Success, Try}
 
@@ -25,7 +25,7 @@ case class SchemaRefResolver
   version: SchemaVersion,
   // TODO: try to avoid vars here
   resolverFactory: UrlStreamResolverFactory = UrlStreamResolverFactory(),
-  private[schema] var cache: DocumentCache = DocumentCache(),
+  private[schema] val cache: DocumentCache = DocumentCache(),
 ) {
 
   import version._
@@ -45,8 +45,6 @@ case class SchemaRefResolver
       val updatedId = findScopeRefinement(a).map(
         id => Refs.mergeRefs(id, scope.id, Some(resolverFactory))
       )
-      // cache schema for later retrieval
-      updatedId.foreach(id => cache = cache.add(id)(a))
       scope.copy(id = updatedId)
     case _ => scope
   }
@@ -183,14 +181,14 @@ case class SchemaRefResolver
     val ref = Ref(url.toString)
     cache.get(ref.value) match {
       case Some(a) => a.right
-      case _ if version.options.supportsCanonicalReferencing => for {
+      case _ if url.getProtocol == null || version.options.supportsCanonicalReferencing => for {
         source <- \/.fromEither(Try { Source.fromURL(url) }.toJsonEither)
         read <- readSource(source)
       } yield {
-        cache = cache.add(Refs.mergeRefs(ref, scope.id, Some(resolverFactory)))(read)
+        cache.add(Refs.mergeRefs(ref, scope.id, Some(resolverFactory)))(read)
         read
       }
-      case _ => JsonValidationError("TODO: Resolution failed").left
+      case _ => JsonValidationError(Messages("err.unresolved.ref")).left
     }
   }
 
@@ -198,7 +196,7 @@ case class SchemaRefResolver
     Json.parse(source.getLines().mkString)
   }.toJsonEither)
 
-  private def readJson(json: JsValue)(implicit lang: Lang): \/[JsonValidationError, SchemaType] = \/.fromEither(Json.fromJson[SchemaType](json).asEither)
+  private[schema] def readJson(json: JsValue)(implicit lang: Lang): \/[JsonValidationError, SchemaType] = \/.fromEither(Json.fromJson[SchemaType](json).asEither)
     .leftMap(errors =>
       JsonValidationError(Messages("err.parse.json"), JsError.toJson(errors))
     )
@@ -360,6 +358,7 @@ case class SchemaRefResolver
         resolveConstraint(n.constraints, fragmentPart)
       case r: SchemaRef =>
         findOtherProp(r.otherProps, fragmentPart) orElse resolveConstraint(r.constraints, fragmentPart)
+      case SchemaRoot(_, s) => resolveSchema(s, fragmentPart)
 
     }
   }

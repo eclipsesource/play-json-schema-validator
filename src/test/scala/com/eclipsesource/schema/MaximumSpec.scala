@@ -9,12 +9,12 @@ class MaximumSpec extends Specification  with JsonSpec {
 
   "maximum draft4" in {
     import Version4._
-    implicit val validator: SchemaValidator = SchemaValidator(Version4)
-    validate("maximum")
+    implicit val validator: SchemaValidator = SchemaValidator(Some(Version4))
+    validate("maximum", "draft4")
   }
 
   "maximum draft7" in {
-    implicit val validator: SchemaValidator = SchemaValidator(Version7)
+    implicit val validator: SchemaValidator = SchemaValidator(Some(Version7))
     import Version7._
     validate("maximum", "draft7")
   }

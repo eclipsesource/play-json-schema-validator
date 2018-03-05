@@ -26,7 +26,7 @@ class Issue99Spec extends Specification {
           |  }
           |}
         """.stripMargin).get
-      val validator = SchemaValidator(Version4)
+      val validator = SchemaValidator(Some(Version4))
       validator.validate(schema, Json.obj(
         "mything" -> "test"
       )).isSuccess must beTrue
@@ -34,7 +34,7 @@ class Issue99Spec extends Specification {
 
     "validate issue 99-1 test case via URL" in {
       val schemaUrl = getClass.getResource("/issue-99-1.json")
-      val validator = SchemaValidator(Version4)
+      val validator = SchemaValidator(Some(Version4))
       val result = validator.validate(schemaUrl, Json.obj(
         "mything" -> "test"
       ))
@@ -43,7 +43,7 @@ class Issue99Spec extends Specification {
 
     "not cause stack overflow for issue 99-5 test case via URL" in {
       val schemaUrl = getClass.getResource("/issue-99-5.json")
-      val validator = SchemaValidator(Version4)
+      val validator = SchemaValidator(Some(Version4))
       // must terminate
       validator.validate(schemaUrl, Json.obj(
         "mything" -> "test"

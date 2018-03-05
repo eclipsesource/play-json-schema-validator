@@ -7,16 +7,15 @@ import org.specs2.mutable.Specification
 
 class MultipleOfSpec extends Specification with JsonSpec {
 
-  implicit val validator: SchemaValidator = SchemaValidator(Version4)
-
   "multipleOf draft4" in {
     import Version4._
-    validate("multipleOf")
+    implicit val validator: SchemaValidator = SchemaValidator(Some(Version4))
+    validate("multipleOf", "draft4")
   }
 
   "multipleOf draft7" in {
     import Version7._
-    implicit val validator: SchemaValidator = SchemaValidator(Version7)
+    implicit val validator: SchemaValidator = SchemaValidator(Some(Version7))
     validate("multipleOf", "draft7")
   }
 }

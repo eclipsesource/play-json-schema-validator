@@ -9,14 +9,14 @@ class AnyOfSpec extends Specification with JsonSpec {
 
   "anyOf draft4" in {
     import com.eclipsesource.schema.internal.draft4.Version4._
-    implicit val validator = SchemaValidator(Version4)
-    validate("anyOf")
+    implicit val validator: SchemaValidator = SchemaValidator(Some(Version4))
+    validate("anyOf", "draft4")
     validate("anyOf", "ajv_tests")
   }
 
   "anyOf draft7" in {
     import Version7._
-    implicit val validator = SchemaValidator(Version7)
+    implicit val validator: SchemaValidator = SchemaValidator(Some(Version7))
     validate("anyOf", "draft7")
   }
 }

@@ -14,7 +14,7 @@ import play.api.test.WithServer
 
 class RefRemoteSpec extends Specification with JsonSpec { self =>
 
-  val validator = SchemaValidator(Version4)
+  val validator = SchemaValidator(Some(Version4))
 
   def createApp: Application = new GuiceApplicationBuilder()
     .routes(Assets.routes(getClass)).build()
@@ -128,7 +128,7 @@ class RefRemoteSpec extends Specification with JsonSpec { self =>
     private val schema = JsonSource.schemaFromString(
       """{"$ref": "http://localhost:1234/remotes/subSchemas.json#/integer"}"""
     ).get
-    val validator = SchemaValidator(Version7)
+    val validator = SchemaValidator(Some(Version7))
     val instance   = JsNumber(1)
     private val result     = validator.validate(schema, instance)
     private val errors     = result.asEither.left.get
@@ -148,7 +148,7 @@ class RefRemoteSpec extends Specification with JsonSpec { self =>
       override def supportsCanonicalReferencing: Boolean = true
       override def formats: Map[String, SchemaFormat] = DefaultFormats.formats
     }
-    val validator = SchemaValidator(Version7(options))
+    val validator = SchemaValidator(Some(Version7(options)))
     val instance   = JsNumber(1)
     private val result     = validator.validate(schema, instance)
     result.isSuccess must beTrue

@@ -9,13 +9,13 @@ class MaxItemsSpec extends Specification with JsonSpec {
 
   "maxItems draft4" in {
     import Version4._
-    implicit val validator = SchemaValidator(Version4)
-    validate("maxItems")
+    implicit val validator: SchemaValidator = SchemaValidator(Some(Version4))
+    validate("maxItems", "draft4")
   }
 
   "maxItems draft7" in {
     import Version7._
-    implicit val validator = SchemaValidator(Version7)
+    implicit val validator: SchemaValidator = SchemaValidator(Some(Version7))
     validate("maxItems", "draft7")
   }
 }

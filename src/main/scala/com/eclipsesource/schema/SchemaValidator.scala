@@ -2,15 +2,19 @@ package com.eclipsesource.schema
 
 import java.net.{URL, URLStreamHandler}
 
-import com.eclipsesource.schema.internal.constraints.Constraints.HasAnyConstraint
-import com.eclipsesource.schema.internal.refs.{Ref, SchemaRefResolver, SchemaResolutionScope}
+import com.eclipsesource.schema.internal._
+import com.eclipsesource.schema.internal.draft4.Version4
+import com.eclipsesource.schema.internal.draft7.Version7
+import com.eclipsesource.schema.internal.refs.{DocumentCache, Ref, SchemaRefResolver, SchemaResolutionScope}
+import com.eclipsesource.schema.internal.url.UrlStreamResolverFactory
 import com.eclipsesource.schema.internal.validators.DefaultFormats
 import com.eclipsesource.schema.urlhandlers.UrlHandler
-import com.osinka.i18n.Lang
+import com.osinka.i18n.{Lang, Messages}
 import play.api.libs.json._
+import scalaz.\/
 
 import scala.io.Source
-import scalaz.{-\/, \/, \/-}
+import scala.util.Try
 
 /**
   * Allows customizations of the validation process.
@@ -21,9 +25,9 @@ trait SchemaConfigOptions {
 }
 
 object SchemaValidator {
-  def apply(version: SchemaVersion, formats: Map[String, SchemaFormat] = DefaultFormats.formats)
+  def apply(version: Option[SchemaVersion] = None)
            (implicit lang: Lang = Lang.Default): SchemaValidator = {
-    new SchemaValidator(SchemaRefResolver(version), version.options.formats)
+    new SchemaValidator(version, version.map(_.options.formats).getOrElse(DefaultFormats.formats))
   }
 }
 
@@ -31,10 +35,14 @@ object SchemaValidator {
   * The schema validator.
   *
   */
-class SchemaValidator(val refResolver: SchemaRefResolver,
-                      val formats: Map[String, SchemaFormat])
-                     (implicit val lang: Lang) {
+class SchemaValidator(
+                       val schemaVersion: Option[SchemaVersion] = None,
+                       val formats: Map[String, SchemaFormat] = DefaultFormats.formats,
+                       val resolverFactory: UrlStreamResolverFactory = UrlStreamResolverFactory(),
+                       val cache: DocumentCache = DocumentCache()
+                     )(implicit val lang: Lang) {
 
+  val DefaultVersion: SchemaVersion = Version7
 
   /**
     * Add a URLStreamHandler that is capable of handling absolute with a specific scheme.
@@ -44,8 +52,10 @@ class SchemaValidator(val refResolver: SchemaRefResolver,
     */
   def addUrlHandler(handler: URLStreamHandler, scheme: String): SchemaValidator = {
     new SchemaValidator(
-      refResolver.copy(resolverFactory = refResolver.resolverFactory.addUrlHandler(scheme, handler)),
-      formats
+      schemaVersion,
+      formats,
+      resolverFactory.addUrlHandler(scheme, handler),
+      cache
     )
   }
 
@@ -59,8 +69,10 @@ class SchemaValidator(val refResolver: SchemaRefResolver,
     */
   def addRelativeUrlHandler(handler: URLStreamHandler, scheme: String = UrlHandler.ProtocolLessScheme): SchemaValidator = {
     new SchemaValidator(
-      refResolver.copy(resolverFactory = refResolver.resolverFactory.addRelativeUrlHandler(scheme, handler)),
-      formats
+      schemaVersion,
+      formats,
+      resolverFactory.addRelativeUrlHandler(scheme, handler),
+      cache
     )
   }
 
@@ -72,7 +84,7 @@ class SchemaValidator(val refResolver: SchemaRefResolver,
     * @return a new validator instance containing the custom format
     */
   def addFormat(format: SchemaFormat): SchemaValidator =
-    new SchemaValidator(refResolver, formats + (format.name -> format))
+    new SchemaValidator(schemaVersion, formats + (format.name -> format), resolverFactory, cache)
 
   /**
     * Add a schema.
@@ -82,12 +94,14 @@ class SchemaValidator(val refResolver: SchemaRefResolver,
     */
   def addSchema(id: String, schema: SchemaType): SchemaValidator = {
     new SchemaValidator(
-      refResolver.copy(cache = refResolver.cache.add(Ref(id))(schema)),
-      formats
+      schemaVersion,
+      formats,
+      resolverFactory,
+      cache.add(Ref(id))(schema)
     )
   }
 
-  private def buildContext(schema: SchemaType, schemaUrl: URL): SchemaResolutionContext =
+  private def buildContext(refResolver: SchemaRefResolver, schema: SchemaType, schemaUrl: URL): SchemaResolutionContext =
     SchemaResolutionContext(
       refResolver,
       SchemaResolutionScope(schema, schema.constraints.id.map(Ref(_)) orElse Some(Ref(schemaUrl.toString))),
@@ -102,27 +116,48 @@ class SchemaValidator(val refResolver: SchemaRefResolver,
     * @return a JsResult holding the validation result
     */
   def validate(schemaUrl: URL, input: => JsValue): JsResult[JsValue] = {
-
-    def toJsResult(either: \/[JsonValidationError, SchemaType]): JsResult[SchemaType] = either match {
-      case -\/(errs) => JsError(errs)
-      case \/-(schema) => JsSuccess(schema)
-    }
-
     val ref = Ref(schemaUrl.toString)
-    refResolver.cache.get(ref.value) match {
-      case None =>
+    parseJson(Source.fromURL(schemaUrl)).toJsResult.flatMap {
+      json =>
+        val version = obtainVersion(json)
+        import version._
+        val refResolver = SchemaRefResolver(version, resolverFactory, cache)
+        val schema = cache.get(ref.value).fold(readJson(json).toJsResult)(JsSuccess(_))
         for {
-          schema <- toJsResult(refResolver.readSource(Source.fromURL(schemaUrl)))
-          context = buildContext(schema, schemaUrl)
-          result <- schema.validate(input, context).toJsResult
-        } yield {
-          refResolver.cache = refResolver.cache.add(ref)(schema)
-          result
-        }
-      case Some(schema) =>
-        val context = buildContext(schema, schemaUrl)
-        schema.validate(input, context).toJsResult
+          s <- schema
+          context = buildContext(refResolver, s, schemaUrl)
+          result <- s.validate(input, context).toJsResult
+        } yield result
     }
+  }
+
+  private[schema] def readJson(json: JsValue)(implicit reads: Reads[SchemaType], lang: Lang): \/[JsonValidationError, SchemaType] = {
+    \/.fromEither(Json.fromJson[SchemaType](json).asEither)
+      .leftMap(errors =>
+        JsonValidationError(Messages("err.parse.json"), JsError.toJson(errors))
+      )
+  }
+
+  private def parseJson(source: Source): \/[JsonValidationError, JsValue] = \/.fromEither(Try {
+    Json.parse(source.getLines().mkString)
+  }.toJsonEither)
+
+
+  private def obtainVersion(json: JsValue): SchemaVersion = {
+    val version = schemaVersion orElse (json \ "$schema").toOption.map {
+      case JsString(Version4.SchemaUrl) => Version4
+      case _ => DefaultVersion
+    }
+    version.getOrElse(DefaultVersion)
+  }
+
+  private def obtainVersion(schema: SchemaType): SchemaVersion = {
+    val $schema = schema match {
+      case SchemaRoot(v, _) => v
+      case _ => None
+    }
+    val version = schemaVersion orElse $schema
+    version.getOrElse(DefaultVersion)
   }
 
   /**
@@ -184,6 +219,8 @@ class SchemaValidator(val refResolver: SchemaRefResolver,
     */
   def validate(schema: SchemaType)(input: => JsValue): JsResult[JsValue] = {
     val ref: Option[Ref] = schema.constraints.id.map(Ref(_))
+    val version: SchemaVersion = obtainVersion(schema)
+    val refResolver = SchemaRefResolver(version, resolverFactory, cache)
     val context = SchemaResolutionContext(
       refResolver,
       SchemaResolutionScope(schema, ref),
