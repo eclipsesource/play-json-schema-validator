@@ -19,7 +19,7 @@ trait JsonSpec extends FragmentBuilder {
   val spec = new org.specs2.mutable.Specification {}
   import spec._
 
-  def validate(name: String, folder: String = "draft4")(implicit reads: Reads[SchemaType], validator: SchemaValidator): Fragments =
+  def validate(name: String, folder: String)(implicit reads: Reads[SchemaType], validator: SchemaValidator): Fragments =
     try addFragments(validateFragments(name, folder))
     catch { case e: Exception =>
       addFragments(

@@ -4,27 +4,27 @@ import com.eclipsesource.schema.internal.draft4.Version4
 import com.eclipsesource.schema.internal.draft7.Version7
 import com.eclipsesource.schema.test.JsonSpec
 import org.specs2.mutable.Specification
-import play.api.libs.json.{JsObject, JsResult, JsString, Json}
+import play.api.libs.json.{JsString, Json}
 
 class ReferenceSpec extends Specification with JsonSpec { self =>
 
-  implicit val validator: SchemaValidator = SchemaValidator(Version4)
+  implicit val validator: SchemaValidator = SchemaValidator(Some(Version4))
   import Version4._
 
   "validate draft4" in {
-    validate("ref")
+    validate("ref", "draft4")
   }
 
   "validate draft7" in {
     import Version7._
     val jsonSchema = JsonSource.schemaFromStream(self.getClass.getResourceAsStream("/refs/json-schema-draft-07.json")).get
-    implicit val validator: SchemaValidator = SchemaValidator(Version7)
+    implicit val validator: SchemaValidator = SchemaValidator(Some(Version7))
       .addSchema("http://json-schema.org/draft-07/schema", jsonSchema)
     validate("ref", "draft7")
   }
 
   "root pointer ref - mismatch" in {
-    val validator = SchemaValidator(Version4)
+    val validator = SchemaValidator(Some(Version4))
     val recursiveSchema = JsonSource.schemaFromString(
       """{
         |  "properties": {
@@ -43,7 +43,7 @@ class ReferenceSpec extends Specification with JsonSpec { self =>
   }
 
   "root pointer ref - recursive mismatch" in {
-    val validator = SchemaValidator(Version4)
+    val validator = SchemaValidator(Some(Version4))
     val recursiveSchema = JsonSource.schemaFromString(
       """{
         |  "properties": {

@@ -9,13 +9,13 @@ class UniqueItemsSpec extends Specification with JsonSpec {
 
   "uniqueItems draft4" in {
     import Version4._
-    implicit val validator: SchemaValidator = SchemaValidator(Version4)
-    validate("uniqueItems")
+    implicit val validator: SchemaValidator = SchemaValidator(Some(Version4))
+    validate("uniqueItems", "draft4")
   }
 
   "uniqueItems draft7" in {
     import Version7._
-    implicit val validator: SchemaValidator = SchemaValidator(Version7)
+    implicit val validator: SchemaValidator = SchemaValidator(Some(Version7))
     validate("uniqueItems", "draft7")
   }
 }

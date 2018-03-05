@@ -6,12 +6,15 @@ import com.eclipsesource.schema.{SchemaConfigOptions, SchemaFormat, SchemaVersio
 trait Version4 extends SchemaVersion with SchemaReads4 with SchemaWrites4
 
 object Version4 extends SchemaVersion with SchemaReads4 with SchemaWrites4 {
-  val options = new SchemaConfigOptions {
+  private[schema] val SchemaUrl = "http://json-schema.org/draft-04/schema#"
+  val schemaLocation: String = SchemaUrl
+  val options: SchemaConfigOptions = new SchemaConfigOptions {
     override def supportsCanonicalReferencing: Boolean = true
     override def formats: Map[String, SchemaFormat] = DefaultFormats.formats
   }
   def apply(schemaOptions: SchemaConfigOptions): Version4 = {
     new Version4 {
+      val schemaLocation: String = SchemaUrl
       override def options: SchemaConfigOptions = schemaOptions
     }
   }

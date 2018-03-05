@@ -9,13 +9,13 @@ class MinItemsSpec extends Specification with JsonSpec {
 
   "minItems draft4" in {
     import Version4._
-    implicit val validator = SchemaValidator(Version4)
-    validate("minItems")
+    implicit val validator: SchemaValidator = SchemaValidator(Some(Version4))
+    validate("minItems", "draft4")
   }
 
   "minItems draft7" in {
-    import com.eclipsesource.schema.internal.draft7.Version7._
-    implicit val validator = SchemaValidator(Version7)
+    import Version7._
+    implicit val validator: SchemaValidator = SchemaValidator(Some(Version7))
     validate("minItems", "draft7")
   }
 }

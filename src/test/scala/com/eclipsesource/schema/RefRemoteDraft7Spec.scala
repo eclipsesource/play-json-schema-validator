@@ -8,7 +8,7 @@ class RefRemoteDraft7Spec extends Specification with JsonSpec {
 
   import Version7._
 
-  implicit val validator = SchemaValidator(Version7)
+  implicit val validator = SchemaValidator(Some(Version7))
     .addSchema(
       "http://localhost:1234/integer.json",
       JsonSource.schemaFromStream(

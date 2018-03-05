@@ -8,7 +8,7 @@ class ConstSpec extends Specification with JsonSpec {
 
   "const draft7" in {
     import Version7._
-    implicit val validator = SchemaValidator(Version7)
+    implicit val validator = SchemaValidator(Some(Version7))
     validate("const", "draft7")
   }
 

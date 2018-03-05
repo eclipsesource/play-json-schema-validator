@@ -10,14 +10,14 @@ class OneOfSpec extends Specification with JsonSpec {
   import Version4._
 
   "oneOf draft4" in {
-    implicit val validator: SchemaValidator = SchemaValidator(Version4)
-    validate("oneOf")
+    implicit val validator: SchemaValidator = SchemaValidator(Some(Version4))
+    validate("oneOf", "draft4")
     validate("oneOf", "ajv_tests")
   }
 
   "oneOf draft7" in {
     import Version7._
-    implicit val validator: SchemaValidator = SchemaValidator(Version7)
+    implicit val validator: SchemaValidator = SchemaValidator(Some(Version7))
     validate("oneOf", "draft7")
   }
 

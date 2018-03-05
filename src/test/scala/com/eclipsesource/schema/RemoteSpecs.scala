@@ -15,7 +15,7 @@ class RemoteSpecs extends Specification with JsonSpec with Online with AfterAll 
   import Version4._
 
   implicit val validator: SchemaValidator = {
-    SchemaValidator(Version4).addSchema(
+    SchemaValidator(Some(Version4)).addSchema(
       "http://localhost:1234/scope_foo.json",
       JsonSource.schemaFromString(
         """{

@@ -9,13 +9,13 @@ class AdditionalPropertiesSpec extends Specification with JsonSpec {
 
   "additionalProperties draft4" in {
     import Version4._
-    implicit val validator = SchemaValidator(Version4)
-    validate("additionalProperties")
+    implicit val validator: SchemaValidator = SchemaValidator(Some(Version4))
+    validate("additionalProperties", "draft4")
   }
 
   "additionalProperties draft7" in {
     import Version7._
-    implicit val validator = SchemaValidator(Version7)
+    implicit val validator: SchemaValidator = SchemaValidator(Some(Version7))
     validate("additionalProperties", "draft7")
   }
 }

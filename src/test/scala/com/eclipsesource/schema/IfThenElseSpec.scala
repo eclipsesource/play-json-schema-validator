@@ -6,6 +6,6 @@ import org.specs2.mutable.Specification
 
 class IfThenElseSpec extends Specification with JsonSpec {
   import Version7._
-  implicit val validator = SchemaValidator(Version7)
+  implicit val validator = SchemaValidator(Some(Version7))
   validate("if-then-else", "draft7")
 }

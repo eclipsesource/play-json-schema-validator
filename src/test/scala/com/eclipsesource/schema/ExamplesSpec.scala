@@ -6,7 +6,7 @@ import org.specs2.mutable.Specification
 class ExamplesSpec extends Specification {
 
   import Version4._
-  val validator = SchemaValidator(Version4)
+  val validator = SchemaValidator(Some(Version4))
   val swaggerSchemaUrl = "/test-schemas/swagger-2.0"
 
   private def validateExample(schema: String, url: String) = {

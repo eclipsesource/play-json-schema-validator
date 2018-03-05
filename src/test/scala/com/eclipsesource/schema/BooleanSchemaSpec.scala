@@ -8,7 +8,7 @@ class BooleanSchemaSpec extends Specification with JsonSpec {
 
   "boolean scheam draft7" in {
     import Version7._
-    implicit val validator: SchemaValidator = SchemaValidator(Version7)
+    implicit val validator: SchemaValidator = SchemaValidator(Some(Version7))
     validate("boolean_schema", "draft7")
   }
 

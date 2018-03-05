@@ -18,10 +18,10 @@ object Constraints {
   trait Constraint {
     def id: Option[String]
     def schemaType: Option[String]
-    def subSchemas: Set[SchemaType]
-    def resolvePath(path: String): Option[SchemaType]
     def validate(schemaType: SchemaType, json: JsValue, context: SchemaResolutionContext)
                 (implicit lang: Lang): VA[JsValue]
+    private[schema] def subSchemas: Set[SchemaType]
+    private[schema] def resolvePath(path: String): Option[SchemaType]
   }
 
   case class NoConstraints() extends Constraint {

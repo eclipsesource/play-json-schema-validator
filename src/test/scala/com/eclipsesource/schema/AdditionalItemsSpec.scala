@@ -11,13 +11,13 @@ class AdditionalItemsSpec extends Specification with JsonSpec {
 
   "validate draft4" in {
     import Version4._
-    implicit val validator: SchemaValidator = SchemaValidator(Version4)
+    implicit val validator: SchemaValidator = SchemaValidator(Some(Version4))
     validate("additionalItems", "draft4")
   }
 
   "validate draft7" in {
     import Version7._
-    implicit val validator: SchemaValidator = SchemaValidator(Version7)
+    implicit val validator: SchemaValidator = SchemaValidator(Some(Version7))
     validate("additionalItems", "draft7")
   }
 
@@ -31,7 +31,7 @@ class AdditionalItemsSpec extends Specification with JsonSpec {
 
     "no additional items present" in {
       val data = JsArray(Seq(JsNumber(1), JsNumber(2), JsNumber(3)))
-      SchemaValidator(Version4).validate(schema, data).isSuccess must beTrue
+      SchemaValidator(Some(Version4)).validate(schema, data).isSuccess must beTrue
     }
   }
 }

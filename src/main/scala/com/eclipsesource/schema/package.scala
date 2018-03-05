@@ -7,7 +7,7 @@ import com.eclipsesource.schema.internal.validators._
 import com.eclipsesource.schema.internal.{Keywords, Results, SchemaUtil}
 import com.osinka.i18n.{Lang, Messages}
 import play.api.libs.json._
-import scalaz.{-\/, Failure, Success, \/-}
+import scalaz.{-\/, Failure, Success, \/, \/-}
 
 package object schema {
 
@@ -45,16 +45,16 @@ package object schema {
                                      (implicit lang: Lang): VA[JsValue] = {
 
       context.refResolver.resolve(schemaRef, schemaRef.ref, context.scope) match {
-          case -\/(JsonValidationError(_, _*)) =>
-            Results.failureWithPath(
-              Keywords.Ref,
-              Messages("err.unresolved.ref", schemaRef.ref.value),
-              context,
-              json)
-          case \/-(ResolvedResult(resolved, scope)) =>
-            val updatedContext = context.updateScope(_ => scope)
-            resolved.doValidate(json, updatedContext)
-        }
+        case -\/(JsonValidationError(_, _*)) =>
+          Results.failureWithPath(
+            Keywords.Ref,
+            Messages("err.unresolved.ref", schemaRef.ref.value),
+            context,
+            json)
+        case \/-(ResolvedResult(resolved, scope)) =>
+          val updatedContext = context.updateScope(_ => scope)
+          resolved.doValidate(json, updatedContext)
+      }
     }
 
     private[schema] def doValidate(json: JsValue, context: SchemaResolutionContext)(implicit lang: Lang) = {
@@ -100,14 +100,16 @@ package object schema {
         case (JsNull, schemaNull: SchemaNull) =>
           schemaNull.validateConstraints(json, context)
 
+        case (_, SchemaRoot(_, s)) => s.validate(json, context)
+
         case (_, s) if s.constraints.schemaType.isEmpty => Success(json)
 
         case (_, _) =>
-            Results.failureWithPath(
-              Keywords.Any.Type,
-              Messages("err.expected.type", schemaType, SchemaUtil.typeOfAsString(json)),
-              context,
-              json)
+          Results.failureWithPath(
+            Keywords.Any.Type,
+            Messages("err.expected.type", schemaType, SchemaUtil.typeOfAsString(json)),
+            context,
+            json)
       }
     }
 
@@ -151,6 +153,13 @@ package object schema {
     def toJsResult: JsResult[O] = va match {
       case Success(s) => JsSuccess(s)
       case Failure(errors) => JsError(errors)
+    }
+  }
+
+  implicit class ScalazEitherExtensionOps[A](either: \/[JsonValidationError, A]) {
+    def toJsResult: JsResult[A] = either match {
+      case -\/(errs) => JsError(errs)
+      case \/-(schema) => JsSuccess(schema)
     }
   }
 

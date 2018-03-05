@@ -10,17 +10,17 @@ class AllOfSpec extends Specification with JsonSpec {
 
   "allOf draft4" in {
     import Version4._
-    implicit val validator = SchemaValidator(Version4)
-    validate("allOf")
+    implicit val validator = SchemaValidator(Some(Version4))
+    validate("allOf", "draft4")
   }
 
   "allOf draft7" in {
     import Version7._
-    implicit val validator = SchemaValidator(Version7)
+    implicit val validator = SchemaValidator(Some(Version7))
     validate("allOf", "draft7")
   }
 
-  val validator = SchemaValidator(Version4)
+  val validator = SchemaValidator(Some(Version4))
 
   object Schemas {
     import Version4._
