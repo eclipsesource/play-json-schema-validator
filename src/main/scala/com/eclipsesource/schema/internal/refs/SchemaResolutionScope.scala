@@ -46,7 +46,7 @@ case class SchemaResolutionScope(documentRoot: SchemaType,
   }
 }
 
-case class DocumentCache(private[schema] val mapping: collection.concurrent.Map[String, SchemaType] = collection.concurrent.TrieMap.empty[String, SchemaType]) {
+case class DocumentCache(mapping: collection.concurrent.Map[String, SchemaType] = collection.concurrent.TrieMap.empty[String, SchemaType]) {
 
   def add(id: Ref)(schemaType: SchemaType): DocumentCache = {
     mapping += (id.value -> schemaType)
