@@ -1,10 +1,7 @@
 package com.eclipsesource.schema.internal.refs
 
-import com.eclipsesource.schema.internal.constraints.Constraints.{AnyConstraints, HasAnyConstraint}
 import com.eclipsesource.schema.{SchemaArray, SchemaObject, SchemaRoot, SchemaTuple, SchemaType}
 import play.api.libs.json.JsPath
-
-import scala.collection.mutable
 
 case class SchemaResolutionScope(documentRoot: SchemaType,
                                  id: Option[Ref] = None, // current resolution scope
@@ -15,7 +12,7 @@ case class SchemaResolutionScope(documentRoot: SchemaType,
                                  schemaUri: Option[String] = None
                              ) {
 
-  val knownSchemas: Map[Ref, SchemaType] =
+  lazy val subSchemas: Map[String, SchemaType] =
     collectSchemas(documentRoot.asInstanceOf[SchemaType], id, Map())
 
   /**
@@ -26,10 +23,10 @@ case class SchemaResolutionScope(documentRoot: SchemaType,
     * @param knownSchemas Map containing all found scopes so far
     * @return Map containing all found scopes
     */
-  private def collectSchemas(schema: SchemaType, resolutionScope: Option[Ref], knownSchemas: Map[Ref, SchemaType]): Map[Ref, SchemaType] = {
+  private def collectSchemas(schema: SchemaType, resolutionScope: Option[Ref], knownSchemas: Map[String, SchemaType]): Map[String, SchemaType] = {
 
     val currentScope = schema.constraints.id.map(i => Refs.mergeRefs(Ref(i), resolutionScope))
-    val updatedMap = currentScope.fold(knownSchemas)(id => knownSchemas + (id -> schema))
+    val updatedMap = currentScope.fold(knownSchemas)(id => knownSchemas + (id.value -> schema))
     val m = schema match {
       case SchemaObject(props, _, _) => props.foldLeft(updatedMap) {
         (schemas, prop) => {
@@ -52,12 +49,16 @@ case class SchemaResolutionScope(documentRoot: SchemaType,
 
 case class DocumentCache(private[schema] val mapping: collection.concurrent.Map[String, SchemaType] = collection.concurrent.TrieMap.empty[String, SchemaType]) {
 
-  def add(id: Ref)(schemaType: SchemaType) = {
+  def add(id: Ref)(schemaType: SchemaType): DocumentCache = {
     mapping += (id.value -> schemaType)
     this
   }
 
-  def get(value: String): Option[SchemaType] = mapping.get(value)
+  def get(ref: Ref): Option[SchemaType] = mapping.get(ref.value)
 
-  def exists(pred: String => Boolean): Boolean = mapping.keys.exists(pred)
+  def get(s: String): Option[SchemaType] = mapping.get(s)
+
+  def apply(ref: Ref): SchemaType = mapping(ref.value)
+
+  def contains(ref: Ref): Boolean = mapping.keySet.contains(ref.value)
 }
