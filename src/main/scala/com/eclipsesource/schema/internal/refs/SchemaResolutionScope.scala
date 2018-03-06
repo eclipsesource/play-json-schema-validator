@@ -8,9 +8,8 @@ case class SchemaResolutionScope(documentRoot: SchemaType,
                                  schemaPath: JsPath = JsPath \ "#",
                                  instancePath: JsPath = JsPath,
                                  depth: Int = 0,
-                                 origin: Option[JsPath] = None,
-                                 schemaUri: Option[String] = None
-                             ) {
+                                 referrer: Option[JsPath] = None
+                                ) {
 
   lazy val subSchemas: Map[String, SchemaType] =
     collectSchemas(documentRoot.asInstanceOf[SchemaType], id, Map())

@@ -16,7 +16,7 @@ class SchemaValidatorSpec extends PlaySpecification { self =>
 
   import Version4._
 
-  val schema = JsonSource.schemaFromString(
+  val schema: SchemaType = JsonSource.schemaFromString(
     """{
       |  "type": "object",
       |  "properties": {
@@ -155,8 +155,7 @@ class SchemaValidatorSpec extends PlaySpecification { self =>
   "Remote ref" should {
     "validate" in new WithServer(app = createApp, port = 1234) {
       val resourceUrl: URL = new URL("http://localhost:1234/talk.json")
-      val result = SchemaValidator(Some(Version4)).validate(resourceUrl, instance)
-      result.isSuccess must beTrue
+      SchemaValidator(Some(Version4)).validate(resourceUrl, instance).isSuccess must beTrue
     }
   }
 
@@ -379,7 +378,7 @@ class SchemaValidatorSpec extends PlaySpecification { self =>
     val commonSchema = JsonSource.schemaFromString(
       """|{
          |  "definitions": {
-         |    "foo": {"type": "integer"}
+         |    "foo": { "type": "integer" }
          |  }
          |}
       """.stripMargin
@@ -405,8 +404,8 @@ class SchemaValidatorSpec extends PlaySpecification { self =>
       )
     val errors = result.asEither.left.get
     val error = errors.toJson(0)
-    error \ "errors" \ "/allOf/0" \ 0 \ "origin" must beEqualTo(JsDefined(JsString("#/allOf/0/properties/something")))
-    error \ "errors" \ "/allOf/0" \ 0 \ "schemaURI" must beEqualTo(JsDefined(JsString("common-schema.json")))
+    error \ "errors" \ "/allOf/0" \ 0 \ "referrer" must beEqualTo(JsDefined(JsString("#/allOf/0/properties/something")))
+    error \ "errors" \ "/allOf/0" \ 0 \ "resolutionScope" must beEqualTo(JsDefined(JsString("common-schema.json")))
     error \ "errors" \ "/allOf/0" \ 0 \ "schemaPath" must beEqualTo(JsDefined(JsString("#/definitions/foo")))
 
     result.isSuccess must beFalse
