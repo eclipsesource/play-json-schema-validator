@@ -23,7 +23,6 @@ case class ResolvedResult(resolved: SchemaType, scope: SchemaResolutionScope)
 case class SchemaRefResolver
 (
   version: SchemaVersion,
-  // TODO: try to avoid vars here
   resolverFactory: UrlStreamResolverFactory = UrlStreamResolverFactory(),
   private[schema] val cache: DocumentCache = DocumentCache(),
 ) {
@@ -230,7 +229,7 @@ case class SchemaRefResolver
       url <- createUrl(ref.documentName)
       fetchedSchema <- fetch(url, scope)
       result <- resolve(fetchedSchema,
-        ref.fragments.getOrElse(Refs.`#`),
+        ref.pointer.getOrElse(Refs.`#`),
         scope.copy(
           id = Some(Ref(url.toString)),
           documentRoot = fetchedSchema,
@@ -254,7 +253,7 @@ case class SchemaRefResolver
         .replace("~1", "/")
         .replace("~0", "~")
 
-    ref.fragments.map(_.value)
+    ref.pointer.map(_.value)
       .getOrElse(ref.value)
       .split("/").toList
       .map(escape)
@@ -270,7 +269,6 @@ case class SchemaRefResolver
   def findScopeRefinement(schema: SchemaType): Option[Ref] = schema.constraints.id.map(Ref(_))
 
   private def resolveConstraint[A <: Constraint](constraints: A, constraint: String)
-                                                // TODO: is the version still necessary with a typeclass?
                                                 (implicit lang: Lang): Either[JsonValidationError, SchemaType] = {
     constraints.resolvePath(constraint).fold[Either[JsonValidationError, SchemaType]](
       Left(JsonValidationError(Messages("err.unresolved.ref", constraint)))

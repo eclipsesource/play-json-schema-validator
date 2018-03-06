@@ -14,9 +14,6 @@ trait RuleLike[I, O] {
   def validate(data: I): VA[O]
 }
 
-/**
-  * A Rule is
-  */
 trait Rule[I, O] extends RuleLike[I, O] {
 
 //  /**
@@ -103,9 +100,6 @@ trait Rule[I, O] extends RuleLike[I, O] {
 object Rule {
   import scala.language.experimental.macros
 
-//  def gen[I, O]: Rule[I, O] = macro MappingMacros.rule[I, O]
-
-  // TODO: rename (keepAnd ?)
   def keepAnd[E, EE >: E, A, B](a: Validated[E, A], o: Validated[E, B]): Validated[EE, B] = (a, o) match {
     case (Success(_), Success(v)) => Success(v)
     case (Success(_), Failure(e)) => Failure(e)

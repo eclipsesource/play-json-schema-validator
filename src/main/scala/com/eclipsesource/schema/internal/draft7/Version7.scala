@@ -10,7 +10,6 @@ object Version7 extends Version7 {
   val schemaLocation: String = SchemaUrl
   val options: SchemaConfigOptions = new SchemaConfigOptions {
     override def supportsCanonicalReferencing: Boolean = false
-    // TODO
     override def formats: Map[String, SchemaFormat] = DefaultFormats.formats
   }
 

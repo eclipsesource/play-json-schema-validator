@@ -45,16 +45,16 @@ trait SchemaWrites { self: SchemaVersion =>
   }
 
   lazy val compoundWrites: Writes[CompoundSchemaType] = OWrites[CompoundSchemaType] { compound =>
-    // TODO: casts
     compound.alternatives.map(schemaTypeWriter.writes)
-      .foldLeft(Json.obj("type" -> Seq()))((o, json) => {
-        val typesSoFar = (o \ "type").as[JsArray]
-        val types = json \ "type" match {
-          case JsDefined(t) => typesSoFar :+ t
-          case _ => typesSoFar
-        }
-        o ++ json.asInstanceOf[JsObject] ++ Json.obj("type" -> types)
-      })
+      .foldLeft(Json.obj("type" -> Seq())) {
+        case (o, json@JsObject(_)) =>
+          val typesSoFar = (o \ "type").as[JsArray]
+          val types = json \ "type" match {
+            case JsDefined(t) => typesSoFar :+ t
+            case _ => typesSoFar
+          }
+          o ++ json ++ Json.obj("type" -> types)
+      }
   }
 
   lazy val nullWrites: Writes[SchemaNull] = Writes[SchemaNull] { n =>

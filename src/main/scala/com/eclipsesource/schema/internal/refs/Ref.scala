@@ -92,19 +92,16 @@ trait Ref {
   private final val WithProtocol = "^([^:\\/?]+):.+"
   private final val ProtocolPattern = WithProtocol.r.pattern
 
-  def endsWith(s: String) = value.endsWith(s)
+  def endsWith(s: String): Boolean = value.endsWith(s)
 
   /**
     * Whether the ref contains any #.
     *
     * @return true, if the ref contains a # character
     */
-  def hasFragment = value.contains("#")
+  def hasFragment: Boolean = value.contains("#")
 
-  def isAbsolute = Try { new URI(value) }.map(_.isAbsolute).getOrElse(false)
-
-  // TODO
-  def fragments: Option[Ref] = {
+  def pointer: Option[Ref] = {
     if (hasFragment) Some(Ref(value.substring(value.indexOf("#"))))
     else None
   }

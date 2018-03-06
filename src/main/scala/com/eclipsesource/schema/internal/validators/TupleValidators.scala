@@ -23,10 +23,9 @@ object TupleValidators {
             validateItems(instanceSize, schemaSize, additionalItems, schema, values, context, json)
 
           if (results.exists(_.isFailure)) {
-            // TODO
-            val x: Seq[(JsPath, Seq[JsonValidationError])] = results.collect { case Failure(err) => err }.reduceLeft(_ ++ _)
-            val y = x.flatMap(_._2)
-            Failure(y)
+            val failures = results.collect { case Failure(err) => err }.reduceLeft(_ ++ _)
+              .flatMap(_._2)
+            Failure(failures)
           } else {
             val updatedArr = JsArray(results.collect { case Success(js) => js })
             Success(updatedArr)
