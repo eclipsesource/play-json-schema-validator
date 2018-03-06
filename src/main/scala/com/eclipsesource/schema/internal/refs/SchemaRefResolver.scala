@@ -73,10 +73,14 @@ case class SchemaRefResolver
         case l@LocalRef(_) =>
           resolveLocal(splitFragment(l), scope, current)
 
-          // check if ref is contained in knownSchemas
+        case r if cache.contains(r) =>
+          ResolvedResult(cache(r), scope).right[JsonValidationError]
+
+          // check if ref is contained in a subschema
           // can also apply to relative URLs if not resolution scope is available
-        case r if scope.knownSchemas.keySet.contains(r) =>
-          ResolvedResult(scope.knownSchemas(r), scope).right[JsonValidationError]
+        case r if scope.subSchemas.keySet.contains(r.value) =>
+          cache.mapping ++= scope.subSchemas
+          ResolvedResult(scope.subSchemas(r.value), scope).right[JsonValidationError]
 
         // check if any prefix of ref matches current element
         case a@AbsoluteRef(absoluteRef)  =>
