@@ -121,16 +121,17 @@ case class SchemaRefResolver
         val (file, localRef) = relativeRef.splitAt(relativeRef.indexOf("#"))
         val result = for {
           schema <- cache.get(file)
-        } yield resolve(
-          schema,
-          LocalRef(localRef),
-          scope.copy(
-            documentRoot = schema,
-            id = updateResolutionScope(scope, schema).id,
-            origin = Some(scope.schemaPath),
-            schemaUri = Some(file)
+        } yield {
+          resolve(
+            schema,
+            LocalRef(localRef),
+            scope.copy(
+              documentRoot = schema,
+              id = updateResolutionScope(scope, schema).id orElse Some(Ref(file)),
+              referrer = Some(scope.schemaPath)
+            )
           )
-        )
+        }
         result.getOrElse(resolutionFailure(r)(scope).left)
     }
   }
@@ -231,10 +232,9 @@ case class SchemaRefResolver
       result <- resolve(fetchedSchema,
         ref.fragments.getOrElse(Refs.`#`),
         scope.copy(
-          id = updateResolutionScope(scope, fetchedSchema).id,
+          id = Some(Ref(url.toString)),
           documentRoot = fetchedSchema,
-          origin = Some(scope.schemaPath),
-          schemaUri = Some(url.toString)
+          referrer = Some(scope.schemaPath)
         )
       )
     } yield result

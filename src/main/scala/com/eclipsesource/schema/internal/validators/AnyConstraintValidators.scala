@@ -230,9 +230,9 @@ object AnyConstraintValidators {
   private def collectFailures(results: Seq[VA[JsValue]], prefix: String): JsObject = {
 
     def repath(prefix: String)(obj: JsObject): JsObject = {
-      // prefix either schemaPath or origin, if it exists
+      // prefix either schemaPath or referrer, if it exists
       val prefixedField = obj.fields
-        .find(field => field._1 == "origin")
+        .find(field => field._1 == "referrer")
         .orElse(obj.fields.find(field => field._1 == "schemaPath"))
         .map {
           case (name, JsString(schemaPath)) if schemaPath.startsWith("#") =>

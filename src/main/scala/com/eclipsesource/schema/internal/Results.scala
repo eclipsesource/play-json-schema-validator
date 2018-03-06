@@ -46,10 +46,8 @@ object Results {
           "errors" ->  additionalInfo
         ) ++ context.scope.id.fold(Json.obj())(id =>
           Json.obj("resolutionScope" -> id.value)
-        ) ++ context.scope.origin.fold(Json.obj())(origin =>
-          Json.obj("origin" -> dropSlashIfAny(origin.toString()))
-        ) ++ context.scope.schemaUri.fold(Json.obj())(uri =>
-          Json.obj("schemaURI" -> dropSlashIfAny(uri.toString))
+        ) ++ context.scope.referrer.fold(Json.obj())(referrer =>
+          Json.obj("referrer" -> dropSlashIfAny(referrer.toString()))
         )
       ))
     ))
