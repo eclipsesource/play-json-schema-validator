@@ -24,7 +24,7 @@ case class SchemaRefResolver
 (
   version: SchemaVersion,
   resolverFactory: UrlStreamResolverFactory = UrlStreamResolverFactory(),
-  private[schema] val cache: DocumentCache = DocumentCache(),
+  private[schema] val cache: DocumentCache = DocumentCache()
 ) {
 
   import version._
@@ -185,7 +185,7 @@ case class SchemaRefResolver
     val ref = Ref(url.toString)
     cache.get(ref.value) match {
       case Some(a) => a.right
-      case _ if url.getProtocol == null || version.options.supportsCanonicalReferencing => for {
+      case _ if url.getProtocol == null || version.options.supportsExternalReferences => for {
         source <- \/.fromEither(Try { Source.fromURL(url) }.toJsonEither)
         read <- readSource(source)
       } yield {

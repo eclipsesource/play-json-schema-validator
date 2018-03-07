@@ -145,7 +145,7 @@ class RefRemoteSpec extends Specification with JsonSpec { self =>
       """{"$ref": "http://localhost:1234/remotes/subSchemas.json#/integer"}"""
     ).get
     private val options = new SchemaConfigOptions  {
-      override def supportsCanonicalReferencing: Boolean = true
+      override def supportsExternalReferences: Boolean = true
       override def formats: Map[String, SchemaFormat] = DefaultFormats.formats
     }
     val validator = SchemaValidator(Some(Version7(options)))

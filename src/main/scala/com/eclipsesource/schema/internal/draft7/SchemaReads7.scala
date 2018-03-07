@@ -140,6 +140,7 @@ trait SchemaReads7 extends SchemaReads { self: SchemaVersion =>
             && additionalItems.isEmpty
             && minItems.isEmpty
             && maxItems.isEmpty
+            && contains.isEmpty
             && uniqueItems.isEmpty)) {
           Reads.apply(_ => JsError("Expected array"))
         } else {

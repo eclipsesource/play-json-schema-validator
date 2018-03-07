@@ -20,7 +20,7 @@ import scala.util.Try
   * Allows customizations of the validation process.
   */
 trait SchemaConfigOptions {
-  def supportsCanonicalReferencing: Boolean
+  def supportsExternalReferences: Boolean
   def formats: Map[String, SchemaFormat]
 }
 

@@ -39,9 +39,8 @@ trait SchemaReads4 extends SchemaReads { self: SchemaVersion =>
     Keywords.Array.Items,
     Keywords.Array.MaxItems,
     Keywords.Array.MinItems,
-    Keywords.Array.UniqueItems,
+    Keywords.Array.UniqueItems
   ) ++ anyKeywords
-
 
   override lazy val schemaReadsSeq: Seq[Reads[SchemaType]] = Seq(
     delegatingRefReads.map(asSchemaType),

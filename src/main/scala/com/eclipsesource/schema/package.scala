@@ -39,8 +39,6 @@ package object schema {
     implicit val booleanValidator: SchemaTypeValidator[SchemaBoolean] = noValidator[SchemaBoolean]
     implicit val nullValidator: SchemaTypeValidator[SchemaNull] = noValidator[SchemaNull]
 
-    def prettyPrint: String = SchemaUtil.prettyPrint(schemaType)
-
     private def resolveRefAndValidate(json: JsValue, schemaRef: SchemaRef, context: SchemaResolutionContext)
                                      (implicit lang: Lang): VA[JsValue] = {
 
