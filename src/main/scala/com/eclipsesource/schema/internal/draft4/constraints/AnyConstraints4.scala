@@ -22,8 +22,6 @@ case class AnyConstraints4(schemaType: Option[String] = None,
                           )
   extends AnyConstraints {
 
-  type A = AnyConstraints
-
   override def subSchemas: Set[SchemaType] =
     (definitions.map(_.values.toSet) |+| allOf.map(_.toSet) |+| anyOf.map(_.toSet) |+| oneOf.map(_.toSet))
       .getOrElse(Set.empty[SchemaType])

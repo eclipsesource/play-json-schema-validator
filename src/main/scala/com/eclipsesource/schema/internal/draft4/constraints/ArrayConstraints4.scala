@@ -17,8 +17,6 @@ case class ArrayConstraints4(maxItems: Option[Int] = None,
 
   import com.eclipsesource.schema.internal.validators.ArrayConstraintValidators._
 
-  override def toString = "array 4"
-
   override def subSchemas: Set[SchemaType] =
     additionalItems.map(Set(_)).getOrElse(Set.empty) ++ any.subSchemas
 

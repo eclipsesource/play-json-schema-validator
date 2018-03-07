@@ -9,7 +9,7 @@ object Version4 extends SchemaVersion with SchemaReads4 with SchemaWrites4 {
   private[schema] val SchemaUrl = "http://json-schema.org/draft-04/schema#"
   val schemaLocation: String = SchemaUrl
   val options: SchemaConfigOptions = new SchemaConfigOptions {
-    override def supportsCanonicalReferencing: Boolean = true
+    override def supportsExternalReferences: Boolean = true
     override def formats: Map[String, SchemaFormat] = DefaultFormats.formats
   }
   def apply(schemaOptions: SchemaConfigOptions): Version4 = {

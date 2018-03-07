@@ -22,8 +22,6 @@ case class ObjectConstraints7(additionalProps: Option[SchemaType] = None,
                               any: AnyConstraints = AnyConstraints7()
                              ) extends HasAnyConstraint with ObjectConstraints {
 
-  type A = ObjectConstraints7
-
   import com.eclipsesource.schema.internal.validators.ObjectValidators._
 
   def additionalPropertiesOrDefault: SchemaType =
