@@ -2,6 +2,7 @@ package com.eclipsesource.schema.internal.serialization
 
 import com.eclipsesource.schema._
 import com.eclipsesource.schema.internal.constraints.Constraints.{Maximum, Minimum}
+import com.eclipsesource.schema.drafts.{Version4, Version7}
 import com.eclipsesource.schema.internal.draft4.constraints.{AnyConstraints4, ArrayConstraints4, NumberConstraints4, ObjectConstraints4}
 import com.eclipsesource.schema.internal.draft7.constraints.NumberConstraints7
 import com.eclipsesource.schema.internal.refs.Ref
@@ -12,7 +13,7 @@ class SchemaWritesSpec extends Specification {
 
   "Schema Writes for draft 4" should {
 
-    import com.eclipsesource.schema.internal.draft4.Version4._
+    import Version4._
 
     "write string" in {
       val stringConstraint = """{ "maxLength": 2 }""".stripMargin
@@ -123,7 +124,7 @@ class SchemaWritesSpec extends Specification {
 
   "Schema Writes for draft 7" should {
 
-    import com.eclipsesource.schema.internal.draft7.Version7._
+    import Version7._
 
     "write boolean schema" in {
       val schema: SchemaType = SchemaValue(JsBoolean(true))

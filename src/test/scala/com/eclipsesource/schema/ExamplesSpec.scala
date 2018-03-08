@@ -1,6 +1,6 @@
 package com.eclipsesource.schema
 
-import com.eclipsesource.schema.internal.draft4.Version4
+import com.eclipsesource.schema.drafts.Version4
 import org.specs2.mutable.Specification
 
 class ExamplesSpec extends Specification {

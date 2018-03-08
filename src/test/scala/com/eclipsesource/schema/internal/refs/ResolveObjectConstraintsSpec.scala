@@ -1,7 +1,7 @@
 package com.eclipsesource.schema.internal.refs
 
 import com.eclipsesource.schema.JsonSource
-import com.eclipsesource.schema.internal.draft4.Version4
+import com.eclipsesource.schema.drafts.Version4
 import org.specs2.mutable.Specification
 import play.api.libs.json.{JsBoolean, JsObject, JsString, JsValue}
 

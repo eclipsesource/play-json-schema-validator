@@ -1,7 +1,6 @@
 package com.eclipsesource.schema
 
-import com.eclipsesource.schema.internal.draft4.Version4
-import com.eclipsesource.schema.internal.draft7.Version7
+import com.eclipsesource.schema.drafts.{Version4, Version7}
 import com.eclipsesource.schema.test.JsonSpec
 import org.specs2.mutable.Specification
 import play.api.libs.json._
@@ -21,7 +20,7 @@ class MaxLengthSpec extends Specification with JsonSpec {
   }
 
   "MaxLength" should {
-    import com.eclipsesource.schema.internal.draft4.Version4._
+    import Version4._
     "fail with an error in case the string is too long" in {
       val schema = JsonSource.schemaFromString(
         """{
