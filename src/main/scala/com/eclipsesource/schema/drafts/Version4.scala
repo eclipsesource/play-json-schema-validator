@@ -1,12 +1,13 @@
-package com.eclipsesource.schema.internal.draft4
+package com.eclipsesource.schema.drafts
 
+import com.eclipsesource.schema.internal.draft4.{SchemaReads4, SchemaWrites4}
 import com.eclipsesource.schema.internal.validators.DefaultFormats
 import com.eclipsesource.schema.{SchemaConfigOptions, SchemaFormat, SchemaVersion}
 
 trait Version4 extends SchemaVersion with SchemaReads4 with SchemaWrites4
 
 object Version4 extends SchemaVersion with SchemaReads4 with SchemaWrites4 {
-  private[schema] val SchemaUrl = "http://json-schema.org/draft-04/schema#"
+  val SchemaUrl = "http://json-schema.org/draft-04/schema#"
   val schemaLocation: String = SchemaUrl
   val options: SchemaConfigOptions = new SchemaConfigOptions {
     override def supportsExternalReferences: Boolean = true

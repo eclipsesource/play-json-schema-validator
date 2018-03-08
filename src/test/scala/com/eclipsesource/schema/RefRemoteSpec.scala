@@ -2,8 +2,7 @@ package com.eclipsesource.schema
 
 import java.net.URL
 
-import com.eclipsesource.schema.internal.draft4.Version4
-import com.eclipsesource.schema.internal.draft7.Version7
+import com.eclipsesource.schema.drafts.{Version4, Version7}
 import com.eclipsesource.schema.internal.validators.DefaultFormats
 import com.eclipsesource.schema.test.{Assets, JsonSpec}
 import org.specs2.mutable.Specification

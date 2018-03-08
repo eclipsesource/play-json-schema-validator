@@ -1,13 +1,11 @@
 package com.eclipsesource.schema
 
-import com.eclipsesource.schema.internal.draft4.Version4
-import com.eclipsesource.schema.internal.draft7.Version7
+import com.eclipsesource.schema.drafts.{Version4, Version7}
 import com.eclipsesource.schema.test.JsonSpec
 import org.specs2.mutable.Specification
 import play.api.libs.json.{JsArray, JsNumber}
 
 class AdditionalItemsSpec extends Specification with JsonSpec {
-
 
   "validate draft4" in {
     import Version4._

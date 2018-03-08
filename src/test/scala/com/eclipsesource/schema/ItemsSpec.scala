@@ -1,7 +1,6 @@
 package com.eclipsesource.schema
 
-import com.eclipsesource.schema.internal.draft4.Version4
-import com.eclipsesource.schema.internal.draft7.Version7
+import com.eclipsesource.schema.drafts.{Version4, Version7}
 import com.eclipsesource.schema.internal.refs.{SchemaRefResolver, SchemaResolutionScope}
 import com.eclipsesource.schema.internal.validators.ArrayValidator
 import com.eclipsesource.schema.test.JsonSpec
@@ -43,7 +42,7 @@ class ItemsSpec extends Specification with JsonSpec {
   }
 
   "validate array with wrong json type" in {
-    import com.eclipsesource.schema.internal.draft4.Version4._
+    import Version4._
     val schema = JsonSource.schemaFromString(
       """{
         |  "type": "array",

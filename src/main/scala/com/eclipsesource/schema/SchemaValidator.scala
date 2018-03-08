@@ -2,9 +2,8 @@ package com.eclipsesource.schema
 
 import java.net.{URL, URLStreamHandler}
 
+import com.eclipsesource.schema.drafts.{Version4, Version7}
 import com.eclipsesource.schema.internal._
-import com.eclipsesource.schema.internal.draft4.Version4
-import com.eclipsesource.schema.internal.draft7.Version7
 import com.eclipsesource.schema.internal.refs.{DocumentCache, Ref, SchemaRefResolver, SchemaResolutionScope}
 import com.eclipsesource.schema.internal.url.UrlStreamResolverFactory
 import com.eclipsesource.schema.internal.validators.DefaultFormats

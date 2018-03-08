@@ -1,7 +1,7 @@
 package com.eclipsesource.schema.internal.refs
 
 import com.eclipsesource.schema._
-import com.eclipsesource.schema.internal.draft4.Version4
+import com.eclipsesource.schema.drafts.Version4
 import com.eclipsesource.schema.internal.draft4.constraints.{ArrayConstraints4, ObjectConstraints4}
 import com.eclipsesource.schema.test.Assets
 import com.osinka.i18n.Lang
