@@ -100,35 +100,12 @@ class SchemaValidator(
     )
   }
 
-  private def buildContext(refResolver: SchemaRefResolver, schema: SchemaType, schemaUrl: URL): SchemaResolutionContext =
+  private def buildContext(refResolver: SchemaRefResolver, schema: SchemaType, schemaUrl: Option[URL]): SchemaResolutionContext =
     SchemaResolutionContext(
       refResolver,
-      SchemaResolutionScope(schema, schema.constraints.id.map(Ref(_)) orElse Some(Ref(schemaUrl.toString))),
+      SchemaResolutionScope(schema, schema.constraints.id.map(Ref(_)) orElse schemaUrl.map(url => Ref(url.toString))),
       formats = formats
     )
-
-  /**
-    * Validate the given JsValue against the schema located at the given URL.
-    *
-    * @param schemaUrl an URL pointing to a schema
-    * @param input the value to be validated
-    * @return a JsResult holding the validation result
-    */
-  def validate(schemaUrl: URL, input: => JsValue): JsResult[JsValue] = {
-    val ref = Ref(schemaUrl.toString)
-    parseJson(Source.fromURL(schemaUrl)).toJsResult.flatMap {
-      json =>
-        val version = obtainVersion(json)
-        import version._
-        val refResolver = SchemaRefResolver(version, resolverFactory, cache)
-        val schema = cache.get(ref.value).fold(readJson(json).toJsResult)(JsSuccess(_))
-        for {
-          s <- schema
-          context = buildContext(refResolver, s, schemaUrl)
-          result <- s.validate(input, context).toJsResult
-        } yield result
-    }
-  }
 
   private[schema] def readJson(json: JsValue)(implicit reads: Reads[SchemaType], lang: Lang): \/[JsonValidationError, SchemaType] = {
     \/.fromEither(Json.fromJson[SchemaType](json).asEither)
@@ -157,6 +134,44 @@ class SchemaValidator(
     }
     val version = schemaVersion orElse $schema
     version.getOrElse(DefaultVersion)
+  }
+
+  /**
+    * Validate the given JsValue against the schema located at the given URL.
+    *
+    * @param schemaUrl an URL pointing to a schema
+    * @param input the value to be validated
+    * @return a JsResult holding the validation result
+    */
+  def validate(schemaUrl: URL, input: => JsValue): JsResult[JsValue] = {
+    val ref = Ref(schemaUrl.toString)
+    parseJson(Source.fromURL(schemaUrl)).toJsResult.flatMap {
+      json =>
+        val version = obtainVersion(json)
+        import version._
+        val refResolver = SchemaRefResolver(version, resolverFactory, cache)
+        val schema = cache.get(ref.value).fold(readJson(json).toJsResult)(JsSuccess(_))
+        for {
+          s <- schema
+          context = buildContext(refResolver, s, Some(schemaUrl))
+          result <- s.validate(input, context).toJsResult
+        } yield result
+    }
+  }
+
+  def validate(schemaSource: Source, input: => JsValue): JsResult[JsValue] = {
+    parseJson(schemaSource).toJsResult.flatMap {
+      json =>
+        val version = obtainVersion(json)
+        import version._
+        val refResolver = SchemaRefResolver(version, resolverFactory, cache)
+        val schema = readJson(json).toJsResult
+        for {
+          s <- schema
+          context = buildContext(refResolver, s, None)
+          result <- s.validate(input, context).toJsResult
+        } yield result
+    }
   }
 
   /**
