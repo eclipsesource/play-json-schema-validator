@@ -1,7 +1,6 @@
 package com.eclipsesource.schema
 
 import com.eclipsesource.schema.drafts.Version4
-import com.eclipsesource.schema.internal.serialization.SchemaReads
 import org.specs2.mutable.Specification
 import play.api.libs.json.Json
 
