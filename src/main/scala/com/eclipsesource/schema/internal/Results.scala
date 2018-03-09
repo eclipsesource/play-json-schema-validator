@@ -19,10 +19,11 @@ object Results {
 
   def aggregateAsObject(validatedProps: Seq[(String, VA[JsValue])], context: SchemaResolutionContext): VA[JsValue] = {
     validatedProps.foldLeft[VA[JsValue]](Success(Json.obj()))((va, result) => (va, result._2) match {
-      case (Success(_), f@Failure(err)) => f
+      case (Success(_), f@Failure(_)) => f
       case (f@Failure(_), Success(_)) => f
-      case (f1@Failure(errs1), f2@Failure(errs2)) => Failure(errs1 ++ errs2)
-      case (Success(obj@JsObject(fields)), Success(s2)) => Success(JsObject(obj.fields :+ (result._1, s2)))
+      case (Failure(errs1), Failure(errs2)) => Failure(errs1 ++ errs2)
+      case (Success(obj@JsObject(_)), Success(s2)) => Success(JsObject(obj.fields :+ (result._1, s2)))
+      case (_, _) => va
     })
   }
 

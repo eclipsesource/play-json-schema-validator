@@ -7,6 +7,7 @@ import com.eclipsesource.schema.internal.validation.VA
 import com.eclipsesource.schema.internal.validators.TupleValidators
 import com.osinka.i18n.Lang
 import play.api.libs.json.{JsBoolean, JsNumber, JsValue}
+import scalaz.Success
 
 case class ArrayConstraints4(maxItems: Option[Int] = None,
                              minItems: Option[Int] = None,
@@ -22,6 +23,7 @@ case class ArrayConstraints4(maxItems: Option[Int] = None,
 
   override def validate(schema: SchemaType, json: JsValue, resolutionContext: SchemaResolutionContext)
                        (implicit lang: Lang): VA[JsValue] = {
+
     val reader = for {
       minItemsRule <- validateMinItems(minItems)
       maxItemsRule <- validateMaxItems(maxItems)
@@ -30,14 +32,21 @@ case class ArrayConstraints4(maxItems: Option[Int] = None,
       minItemsRule |+| maxItemsRule |+| uniqueRule
     }
 
-    val r = schema match {
-      case t: SchemaTuple => TupleValidators.validateTuple(additionalItems, t).flatMap(x => reader.map(f => f |+| x))
-      case _: SchemaArray => reader
+    schema match {
+      case t: SchemaTuple =>
+        TupleValidators
+          .validateTuple(additionalItems, t)
+          .flatMap(x => reader.map(f => f |+| x))
+          .run(resolutionContext)
+          .repath(_.compose(resolutionContext.instancePath))
+          .validate(json)
+      case _: SchemaArray =>
+        reader.run(resolutionContext)
+          .repath(_.compose(resolutionContext.instancePath))
+          .validate(json)
+      case _ => Success(json)
     }
-
-    r.run(resolutionContext).repath(_.compose(resolutionContext.instancePath)).validate(json)
   }
-
 
   def resolvePath(path: String): Option[SchemaType] = path match {
     case Keywords.Array.MinItems => minItems.map(min => SchemaValue(JsNumber(min)))

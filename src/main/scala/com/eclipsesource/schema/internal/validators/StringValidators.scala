@@ -45,6 +45,7 @@ object StringValidators {
             )
           case None => Success(json)
         }
+        case json => Success(json)
       }
     }
 
@@ -64,6 +65,7 @@ object StringValidators {
               json
             )
           }
+        case json => Success(json)
       }
     }
 
@@ -85,6 +87,7 @@ object StringValidators {
               )
             }
         }
+        case json => Success(json)
       }
     }
 

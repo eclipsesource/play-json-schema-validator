@@ -45,7 +45,8 @@ trait SchemaWrites { self: SchemaVersion =>
   }
 
   lazy val compoundWrites: Writes[CompoundSchemaType] = OWrites[CompoundSchemaType] { compound =>
-    compound.alternatives.map(schemaTypeWriter.writes)
+    compound.alternatives
+      .map(schemaTypeWriter.writes)
       .foldLeft(Json.obj("type" -> Seq())) {
         case (o, json@JsObject(_)) =>
           val typesSoFar = (o \ "type").as[JsArray]
@@ -54,6 +55,7 @@ trait SchemaWrites { self: SchemaVersion =>
             case _ => typesSoFar
           }
           o ++ json ++ Json.obj("type" -> types)
+        case (o, _) => o
       }
   }
 
