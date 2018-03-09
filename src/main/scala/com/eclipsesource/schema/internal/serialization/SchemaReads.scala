@@ -9,15 +9,25 @@ import play.api.libs.functional.syntax._
 import play.api.libs.json.Reads._
 import play.api.libs.json._
 
+object Severe {
+  override def toString = "severe"
+}
+
 trait SchemaReads {
   self: SchemaVersion =>
 
   // entry point
   implicit val schemaTypeReads: Reads[SchemaType] = rootReads.map(asSchemaType)
 
-  lazy val schemaReads: Reads[SchemaType] =
-    schemaReadsSeq.reduceLeft(_ or _) orElse
-      Reads.apply(json => JsError(s"Invalid JSON schema. Could not read\n${Json.prettyPrint(json)}\n"))
+  lazy val schemaReads: Reads[SchemaType] = (json: JsValue) => {
+    schemaReadsSeq.foldLeft[JsResult[SchemaType]](JsError("Invalid JSON schema")) {
+      case (acc, reads) => acc match {
+        case err@JsError(errs) if errs.exists(_._2.exists(_.args.contains(Severe))) => err
+        case succ@JsSuccess(_, _) => succ
+        case _ => reads.reads(json)
+      }
+    }
+  }
 
   def schemaReadsSeq: Seq[Reads[SchemaType]]
   def anyConstraintReads: Reads[AnyConstraints]
@@ -171,4 +181,28 @@ trait SchemaReads {
   def anyJsValue: ElementCheck = ((_: JsValue) => true, None)
 
   def asSchemaType[A <: SchemaType](s: A): SchemaType = s
+
+  def readStrictOption[A : Reads](keyword: String): Reads[Option[A]] = (json: JsValue) => {
+    (__ \ keyword).readNullable[A].reads(json) match {
+      case JsError(errs) =>
+        JsError(errs.map { case (p, errors) => p -> errors.map(err =>
+          JsonValidationError(
+            err.messages,
+            Json.obj(
+              "errors" -> "Invalid schema"
+            ),
+            Severe)
+        )
+        })
+      case succ => succ
+    }
+  }
+
+  def lazyReadStrictOption[A](r: Reads[A], keyword: String): Reads[Option[A]] = (json: JsValue) => {
+    (__ \ keyword).lazyReadNullable[A](r).reads(json) match {
+      case JsError(errs) =>
+        JsError(errs.map { case (p, errors) => p -> errors.map(err => JsonValidationError(err.messages, Severe)) })
+      case succ => succ
+    }
+  }
 }

@@ -79,11 +79,11 @@ trait SchemaReads7 extends SchemaReads { self: SchemaVersion =>
 
   override lazy val arrayReads: Reads[SchemaArray] = {
     (
-      (__ \ Keywords.Array.Items).lazyReadNullable[SchemaType](schemaReads) and
-        (__ \ Keywords.Array.AdditionalItems).lazyReadNullable[SchemaType](withSchemaValueReader) and
-        (__ \ Keywords.Array.MinItems).readNullable[Int] and
-        (__ \ Keywords.Array.MaxItems).readNullable[Int] and
-        (__ \ Keywords.Array.UniqueItems).readNullable[Boolean] and
+      lazyReadStrictOption[SchemaType](schemaReads, Keywords.Array.Items) and
+        lazyReadStrictOption[SchemaType](withSchemaValueReader, Keywords.Array.AdditionalItems) and
+        readStrictOption[Int](Keywords.Array.MinItems) and
+        readStrictOption[Int](Keywords.Array.MaxItems) and
+        readStrictOption[Boolean](Keywords.Array.UniqueItems) and
         (__ \ "contains").lazyReadNullable(schemaReads) and
         anyConstraintReads
       ).tupled.flatMap(
@@ -115,11 +115,12 @@ trait SchemaReads7 extends SchemaReads { self: SchemaVersion =>
 
   override lazy val tupleReads: Reads[SchemaTuple] = {
     (
+
       (__ \ Keywords.Array.Items).lazyReadNullable[Seq[SchemaType]](schemaTypeSeqReader(anyJsValue)) and
-        (__ \ Keywords.Array.AdditionalItems).lazyReadNullable[SchemaType](withSchemaValueReader) and
-        (__ \ Keywords.Array.MinItems).readNullable[Int] and
-        (__ \ Keywords.Array.MaxItems).readNullable[Int] and
-        (__ \ Keywords.Array.UniqueItems).readNullable[Boolean] and
+        lazyReadStrictOption[SchemaType](withSchemaValueReader, Keywords.Array.AdditionalItems) and
+        readStrictOption[Int](Keywords.Array.MinItems) and
+        readStrictOption[Int](Keywords.Array.MaxItems) and
+        readStrictOption[Boolean](Keywords.Array.UniqueItems) and
         (__ \ "contains").lazyReadNullable(schemaReads) and
         anyConstraintReads
       ).tupled.flatMap(
@@ -167,15 +168,15 @@ trait SchemaReads7 extends SchemaReads { self: SchemaVersion =>
   override lazy val anyConstraintReads: Reads[AnyConstraints] = {
     (
       (__ \ Keywords.Any.Type).readNullable[String] and
-        (__ \ Keywords.Any.AllOf).lazyReadNullable[Seq[SchemaType]](schemaTypeSeqReader()) and
-        (__ \ Keywords.Any.AnyOf).lazyReadNullable[Seq[SchemaType]](schemaTypeSeqReader()) and
-        (__ \ Keywords.Any.OneOf).lazyReadNullable[Seq[SchemaType]](schemaTypeSeqReader()) and
-        (__ \ Keywords.Any.Definitions).lazyReadNullable(schemaTypeMapReader) and
-        (__ \ Keywords.Any.Enum).readNullable[Seq[JsValue]] and
+        lazyReadStrictOption[Seq[SchemaType]](schemaTypeSeqReader(), Keywords.Any.AllOf) and
+        lazyReadStrictOption[Seq[SchemaType]](schemaTypeSeqReader(), Keywords.Any.AnyOf) and
+        lazyReadStrictOption[Seq[SchemaType]](schemaTypeSeqReader(), Keywords.Any.OneOf) and
+        lazyReadStrictOption(schemaTypeMapReader, Keywords.Any.Definitions) and
+        readStrictOption[Seq[JsValue]](Keywords.Any.Enum) and
         readJsNull(__ \ "const") and
-        (__ \ Keywords.Any.Not).lazyReadNullable(schemaReads) and
-        (__ \ Keywords.Any.Description).readNullable[String] and
-        (__ \ "$id").readNullable[String] and
+        lazyReadStrictOption(schemaReads, Keywords.Any.Not) and
+        readStrictOption[String](Keywords.Any.Description) and
+        readStrictOption[String]("$id") and
         (__ \ "if").lazyReadNullable(schemaReads) and
         (__ \ "then").lazyReadNullable(schemaReads) and
         (__ \ "else").lazyReadNullable(schemaReads)
@@ -188,15 +189,15 @@ trait SchemaReads7 extends SchemaReads { self: SchemaVersion =>
 
   lazy val objectConstraintReads: Reads[ObjectConstraints] = {
     (
-      (__ \ Keywords.Object.PatternProperties).lazyReadNullable[Map[String, SchemaType]](schemaTypeMapReader) and
-        (__ \ Keywords.Object.AdditionalProperties).lazyReadNullable[SchemaType](withSchemaValueReader) and
-        (__ \ Keywords.Object.Required).readNullable[List[String]] and
-        (__ \ Keywords.Object.Dependencies).lazyReadNullable[Map[String, SchemaType]](mapReadsInstanceWithJsValueReader) and
-        (__ \ Keywords.Object.MinProperties).readNullable[Int] and
-        (__ \ Keywords.Object.MaxProperties).readNullable[Int] and
+      lazyReadStrictOption[Map[String, SchemaType]](schemaTypeMapReader, Keywords.Object.PatternProperties) and
+        lazyReadStrictOption(withSchemaValueReader, Keywords.Object.AdditionalProperties) and
+        readStrictOption[List[String]](Keywords.Object.Required) and
+        lazyReadStrictOption[Map[String, SchemaType]](mapReadsInstanceWithJsValueReader, Keywords.Object.Dependencies) and
+        readStrictOption[Int](Keywords.Object.MinProperties) and
+        readStrictOption[Int](Keywords.Object.MaxProperties) and
         (__ \ "propertyNames").lazyReadNullable(schemaReads) and
         anyConstraintReads
-      ).tupled.flatMap { read =>
+        ).tupled.flatMap { read =>
 
       val (
         patternProperties,
@@ -225,11 +226,12 @@ trait SchemaReads7 extends SchemaReads { self: SchemaVersion =>
 
 
   lazy val stringConstraintReads: Reads[StringConstraints] = {
-    ((__ \ Keywords.String.MinLength).readNullable[Int] and
-      (__ \ Keywords.String.MaxLength).readNullable[Int] and
-      (__ \ Keywords.String.Pattern).readNullable[String] and
-      (__ \ Keywords.String.Format).readNullable[String] and
-      anyConstraintReads
+    (
+      readStrictOption[Int](Keywords.String.MinLength) and
+        readStrictOption[Int](Keywords.String.MaxLength) and
+        readStrictOption[String](Keywords.String.Pattern) and
+        readStrictOption[String](Keywords.String.Format) and
+        anyConstraintReads
       ).tupled.flatMap(read => {
 
       val (minLength, maxLength, pattern, format, anyConstraints) = read
@@ -245,12 +247,12 @@ trait SchemaReads7 extends SchemaReads { self: SchemaVersion =>
 
   lazy val numberConstraintReads: Reads[NumberConstraints] = {
     (
-      (__ \ Keywords.Number.Min).readNullable[BigDecimal] and
-        (__ \ Keywords.Number.Max).readNullable[BigDecimal] and
-        (__ \ Keywords.Number.ExclusiveMin).readNullable[BigDecimal] and
-        (__ \ Keywords.Number.ExclusiveMax).readNullable[BigDecimal] and
-        (__ \ Keywords.Number.MultipleOf).readNullable[BigDecimal] and
-        (__ \ Keywords.String.Format).readNullable[String] and
+      readStrictOption[BigDecimal](Keywords.Number.Min) and
+        readStrictOption[BigDecimal](Keywords.Number.Max) and
+        readStrictOption[BigDecimal](Keywords.Number.ExclusiveMin) and
+        readStrictOption[BigDecimal](Keywords.Number.ExclusiveMax) and
+        readStrictOption[BigDecimal](Keywords.Number.MultipleOf) and
+        readStrictOption[String](Keywords.String.Format) and
         anyConstraintReads
       ).tupled.flatMap { read =>
 
