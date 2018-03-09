@@ -20,7 +20,7 @@ num.multiple.of      = {0} is not a multiple of {1}.
 num.max              = {0} exceeds maximum value of {1}.
 num.max.exclusive    = {0} exceeds exclusive maximum value of {1}.
 num.min              = {0} is smaller than required minimum value of {1}.
-num.min.exclusive    = {0} is smaller that required exclusive minimum value of {1}.
+num.min.exclusive    = {0} is smaller than required exclusive minimum value of {1}.
 
 any.not              = Instance matches schema although it must not.
 any.all              = Instance does not match all schemas.
