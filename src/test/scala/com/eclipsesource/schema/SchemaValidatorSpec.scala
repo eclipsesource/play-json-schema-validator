@@ -10,6 +10,8 @@ import play.api.libs.functional.syntax._
 import play.api.libs.json._
 import play.api.test.{PlaySpecification, WithServer}
 
+import scala.io.Source
+
 class SchemaValidatorSpec extends PlaySpecification { self =>
 
   def createApp: Application = new GuiceApplicationBuilder().routes(Assets.routes(getClass)).build()
@@ -290,54 +292,53 @@ class SchemaValidatorSpec extends PlaySpecification { self =>
   }
 
   "merge properties with oneOf sub-schemas (#54)" in {
-    val schema = JsonSource.schemaFromString(
-      """
-        |{
-        |    "type" : "object",
-        |    "properties" : {
-        |        "name" : { "type": "string"},
-        |        "name2": { "type": "string"}
-        |    },
-        |    "enum": [
-        |        { "name":  "foo" },
-        |        { "name2": "bar" }
-        |    ],
-        |    "oneOf" : [
-        |        {
-        |            "required": ["name"]
-        |        },
-        |        {
-        |            "required": ["name2"]
-        |        }
-        |    ]
-        |}
-      """.stripMargin).get
+    val schema = """
+                   |{
+                   |    "type" : "object",
+                   |    "properties" : {
+                   |        "name" : { "type": "string"},
+                   |        "name2": { "type": "string"}
+                   |    },
+                   |    "enum": [
+                   |        { "name":  "foo" },
+                   |        { "name2": "bar" }
+                   |    ],
+                   |    "oneOf" : [
+                   |        {
+                   |            "required": ["name"]
+                   |        },
+                   |        {
+                   |            "required": ["name2"]
+                   |        }
+                   |    ]
+                   |}
+                 """.stripMargin
     val validator = SchemaValidator(Some(Version4))
 
     // invalid since empty object matches no schema
-    validator.validate(schema)(Json.obj()) must beLike {
+    validator.validate(Source.fromString(schema), Json.obj()) must beLike {
       case JsError(errors) => errors.head._2.head.message must beEqualTo(s"Instance does not match any schema.")
     }
 
     // invalid since object with both fields matches both schemas
-    validator.validate(schema)(Json.obj("name" -> "foo", "name2" -> "bar")) must beLike {
+    validator.validate(Source.fromString(schema), Json.obj("name" -> "foo", "name2" -> "bar")) must beLike {
       case JsError(errors) => errors.head._2.head.message must beEqualTo(s"Instance matches more than one schema.")
     }
 
     // valid with name field
-    validator.validate(schema)(Json.obj("name" -> "foo")).isSuccess must beTrue
+    validator.validate(Source.fromString(schema), Json.obj("name" -> "foo")).isSuccess must beTrue
 
     // valid with name2 field
-    validator.validate(schema)(Json.obj("name2" -> "bar")).isSuccess must beTrue
+    validator.validate(Source.fromString(schema), Json.obj("name2" -> "bar")).isSuccess must beTrue
 
     // invalid because not listed in enum
-    SchemaValidator(Some(Version4)).validate(schema)(Json.obj("name" -> "quux")).isError must beTrue
+    SchemaValidator(Some(Version4)).validate(Source.fromString(schema), Json.obj("name" -> "quux")).isError must beTrue
   }
 
   "verify cache hit (issue #98)" in {
     val talk = Talk(Location("Munich"))
     val validator = SchemaValidator(Some(Version4))
-    val result = validator.validate(resourceUrl, talk)
+    validator.validate(resourceUrl, talk)
     validator.cache.mapping.isEmpty must beFalse
   }
 

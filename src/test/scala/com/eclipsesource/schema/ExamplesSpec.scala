@@ -5,16 +5,14 @@ import org.specs2.mutable.Specification
 
 class ExamplesSpec extends Specification {
 
-  import Version4._
   val validator = SchemaValidator(Some(Version4))
   val swaggerSchemaUrl = "/test-schemas/swagger-2.0"
 
   private def validateExample(schema: String, url: String) = {
     val schemaUrl = getClass.getResource(url)
     val instanceUrl = getClass.getResource(url)
-    val schema   = JsonSource.schemaFromUrl(schemaUrl)
     val instance = JsonSource.fromUrl(instanceUrl)
-    val result   = validator.validate(schema.get)(instance.get)
+    val result   = validator.validate(schemaUrl, instance.get)
     result.isSuccess must beTrue
     result.get must beEqualTo(instance.get)
   }
