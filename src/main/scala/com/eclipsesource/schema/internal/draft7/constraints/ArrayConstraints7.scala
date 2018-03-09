@@ -7,6 +7,7 @@ import com.eclipsesource.schema.internal.validators.TupleValidators
 import com.eclipsesource.schema.{SchemaArray, SchemaResolutionContext, SchemaTuple, SchemaType, SchemaValue}
 import com.osinka.i18n.Lang
 import play.api.libs.json._
+import scalaz.Success
 import scalaz.std.option._
 import scalaz.std.set._
 import scalaz.syntax.semigroup._
@@ -37,12 +38,20 @@ case class ArrayConstraints7(maxItems: Option[Int] = None,
       minItemsRule |+| maxItemsRule |+| uniqueRule |+| containsRule
     }
 
-    val r = schema match {
-      case t: SchemaTuple => TupleValidators.validateTuple(additionalItems, t).flatMap(x => reader.map(f => f |+| x))
-      case _: SchemaArray => reader
+    schema match {
+      case t: SchemaTuple =>
+        TupleValidators
+          .validateTuple(additionalItems, t)
+          .flatMap(x => reader.map(f => f |+| x))
+          .run(resolutionContext)
+          .repath(_.compose(resolutionContext.instancePath))
+          .validate(json)
+      case _: SchemaArray =>
+        reader.run(resolutionContext)
+          .repath(_.compose(resolutionContext.instancePath))
+          .validate(json)
+      case _ => Success(json)
     }
-
-    r.run(resolutionContext).repath(_.compose(resolutionContext.instancePath)).validate(json)
   }
 
   override def resolvePath(path: String): Option[SchemaType] = path match {
