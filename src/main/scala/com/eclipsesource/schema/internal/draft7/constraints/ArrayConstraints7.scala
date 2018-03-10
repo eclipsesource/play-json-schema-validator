@@ -59,6 +59,7 @@ case class ArrayConstraints7(maxItems: Option[Int] = None,
     case Keywords.Array.MaxItems => maxItems.map(max => SchemaValue(JsNumber(max)))
     case Keywords.Array.AdditionalItems => additionalItems
     case Keywords.Array.UniqueItems => unique.map(u => SchemaValue(JsBoolean(u)))
+    case "contains" => contains
     case other => any.resolvePath(other)
   }
 }

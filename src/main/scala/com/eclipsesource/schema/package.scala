@@ -30,11 +30,11 @@ package object schema {
   implicit class SchemaTypeExtensionOps[S <: SchemaType](schemaType: S) {
 
     implicit val compoundValidator: SchemaTypeValidator[CompoundSchemaType] = CompoundValidator
-    implicit val objectValidator: SchemaTypeValidator[SchemaObject] = ObjectValidator
-    implicit val tupleValidator: SchemaTypeValidator[SchemaTuple] = TupleValidator
-    implicit val numberValidator: SchemaTypeValidator[SchemaNumber] = NumberValidator
-    implicit val integerValidator: SchemaTypeValidator[SchemaInteger] = IntegerValidator
-    implicit val stringValidator: SchemaTypeValidator[SchemaString] = StringValidator
+    implicit val objectValidator: SchemaTypeValidator[SchemaObject] = new DefaultValidator[SchemaObject]
+    implicit val tupleValidator: SchemaTypeValidator[SchemaTuple] = new DefaultValidator[SchemaTuple]
+    implicit val numberValidator: SchemaTypeValidator[SchemaNumber] = new DefaultValidator[SchemaNumber]
+    implicit val integerValidator: SchemaTypeValidator[SchemaInteger] = new DefaultValidator[SchemaInteger]
+    implicit val stringValidator: SchemaTypeValidator[SchemaString] = new DefaultValidator[SchemaString]
     implicit val arrayValidator: SchemaTypeValidator[SchemaArray] = ArrayValidator
     implicit val booleanValidator: SchemaTypeValidator[SchemaBoolean] = noValidator[SchemaBoolean]
     implicit val nullValidator: SchemaTypeValidator[SchemaNull] = noValidator[SchemaNull]

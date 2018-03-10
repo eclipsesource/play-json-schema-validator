@@ -1,13 +1,12 @@
 package com.eclipsesource.schema.internal.validators
 
-import com.eclipsesource.schema.{SchemaResolutionContext, SchemaString}
 import com.eclipsesource.schema.internal.validation.VA
+import com.eclipsesource.schema.{SchemaResolutionContext, SchemaType}
 import com.osinka.i18n.Lang
 import play.api.libs.json.JsValue
 
-object StringValidator extends SchemaTypeValidator[SchemaString] {
-
-  override def validate(schema: SchemaString, json: => JsValue, context: SchemaResolutionContext)
+class DefaultValidator[A <: SchemaType] extends SchemaTypeValidator[A] {
+  override def validate(schema: A, json: => JsValue, context: SchemaResolutionContext)
                        (implicit lang: Lang): VA[JsValue] = {
     schema.constraints.validate(schema, json, context)
   }

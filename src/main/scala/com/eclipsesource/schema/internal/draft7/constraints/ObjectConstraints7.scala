@@ -24,10 +24,7 @@ case class ObjectConstraints7(additionalProps: Option[SchemaType] = None,
 
   import com.eclipsesource.schema.internal.validators.ObjectValidators._
 
-  def additionalPropertiesOrDefault: SchemaType =
-    additionalProps.fold(ObjectConstraints7.emptyObject)(identity)
-
-  override def subSchemas: Set[SchemaType] =
+   override def subSchemas: Set[SchemaType] =
     (additionalProps.map(Set(_)) |+| dependencies.map(_.values.toSet) |+| patternProps.map(_.values.toSet))
       .getOrElse(Set.empty[SchemaType]) ++ any.subSchemas
 
@@ -41,9 +38,10 @@ case class ObjectConstraints7(additionalProps: Option[SchemaType] = None,
     )
     case Keywords.Object.MinProperties => minProperties.map(min => SchemaValue(JsNumber(min)))
     case Keywords.Object.MaxProperties => maxProperties.map(max => SchemaValue(JsNumber(max)))
+    case "propertyNames" => propertyNames
     case other => any.resolvePath(other)
   }
-//  (schema: SchemaObject, deps: Option[Map[String, SchemaType]], json: JsObject)
+
   override def validate(schema: SchemaType, json: JsValue, context: SchemaResolutionContext)
                        (implicit lang: Lang): VA[JsValue] =
     (schema, json) match {
@@ -62,8 +60,4 @@ case class ObjectConstraints7(additionalProps: Option[SchemaType] = None,
         result
       case _ => Success(json)
     }
-}
-
-object ObjectConstraints7 {
-  def emptyObject: SchemaType = SchemaObject(Seq.empty, ObjectConstraints7())
 }
