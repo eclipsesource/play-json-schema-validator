@@ -11,7 +11,7 @@ case class StringConstraints7(minLength: Option[Int] = None,
                              maxLength: Option[Int] = None,
                              pattern: Option[String] = None,
                              format: Option[String] = None,
-                             any: AnyConstraints
+                             any: AnyConstraints = AnyConstraints7()
                             ) extends HasAnyConstraint with StringConstraints {
 
   import com.eclipsesource.schema.internal.validators.StringValidators._

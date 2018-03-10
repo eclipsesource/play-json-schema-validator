@@ -2,7 +2,6 @@ package com.eclipsesource.schema.internal.validators
 
 import java.util.regex.Pattern
 
-import com.eclipsesource.schema.internal.draft4.constraints.ObjectConstraints4
 import com.eclipsesource.schema.{SchemaProp, SchemaResolutionContext, SchemaType, SchemaValue}
 import com.eclipsesource.schema.internal.validation.VA
 import com.eclipsesource.schema.internal.{Keywords, Props, Results, ValidationStep}
@@ -131,11 +130,6 @@ object ObjectValidators {
   def validateAdditionalProps(additionalProps: Option[SchemaType], unmatchedFields: Props, json: JsValue)
                              (implicit lang: Lang): ValidationStep[Unit] = {
 
-
-    def additionalPropertiesOrDefault: SchemaType =
-      additionalProps.fold(ObjectConstraints4.emptyObject)(identity)
-
-
     def validateUnmatched(schemaType: SchemaType, context: SchemaResolutionContext): VA[JsValue] = {
       val validated = unmatchedFields.map { attr =>
         attr._1 -> schemaType.validate(
@@ -156,8 +150,8 @@ object ObjectValidators {
       if (unmatchedFields.isEmpty) {
         resultOnly(status)
       } else {
-        additionalPropertiesOrDefault match {
-          case SchemaValue(JsBoolean(enabled)) =>
+        additionalProps match {
+          case Some(SchemaValue(JsBoolean(enabled))) =>
             if (enabled) resultOnly(Results.merge(status, Success(JsObject(unmatchedFields))))
             else resultOnly(
               Results.merge(status,
@@ -168,9 +162,11 @@ object ObjectValidators {
                   json
                 )
               ))
-          case additionalProp =>
+          case Some(additionalProp) =>
             val validationStatus = validateUnmatched(additionalProp, context)
             resultOnly(Results.merge(status, validationStatus))
+          // shouldn't happen
+          case _ => resultOnly(status)
         }
       }
     }
