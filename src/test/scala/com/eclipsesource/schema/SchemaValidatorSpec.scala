@@ -121,7 +121,6 @@ class SchemaValidatorSpec extends PlaySpecification { self =>
     "validate via file based URL and Writes" in {
       val talk = Talk(Location("Munich"))
       val result = SchemaValidator(Some(Version4)).validate(resourceUrl, talk, talkWrites)
-      println(result)
       result.isSuccess must beTrue
     }
 
@@ -183,9 +182,10 @@ class SchemaValidatorSpec extends PlaySpecification { self =>
     val result: JsResult[Foo] = SchemaValidator(Some(Version4))
       .addSchema("http://localhost:1234/location.json", locationSchema)
       .validate(schema, fooInstance, lr)
-    result.asEither must beLeft.like { case error =>
-      (error.toJson(0) \ "instancePath") must beEqualTo(JsDefined(JsString("/loc")))
+    result.asEither must beLeft.which {
+      _.head._2.head.message must beEqualTo("error.path.missing")
     }
+    result.isError must beTrue
   }
 
   "should fail with message in case a ref can not be resolved" in {

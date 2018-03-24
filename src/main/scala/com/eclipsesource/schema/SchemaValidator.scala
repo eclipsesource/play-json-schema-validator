@@ -177,7 +177,7 @@ class SchemaValidator(
   def validate[A](schemaSource: Source, input: => JsValue, reads: Reads[A]): JsResult[A] = {
     validate(schemaSource)(input).fold(
       valid = readWith(reads),
-      invalid = errors => JsError(essentialErrorInfo(errors, Some(input)))
+      invalid = errors => JsError(errors)
     )
   }
 
@@ -193,7 +193,7 @@ class SchemaValidator(
   def validate[A](schemaUrl: URL, input: => JsValue, reads: Reads[A]): JsResult[A] = {
     validate(schemaUrl)(input).fold(
       valid = readWith(reads),
-      invalid = errors => JsError(essentialErrorInfo(errors, Some(input)))
+      invalid = errors => JsError(errors)
     )
   }
 
@@ -236,7 +236,7 @@ class SchemaValidator(
     val reads = implicitly[Reads[A]]
     validate(schemaSource, input, writes).fold(
       valid = readWith(reads),
-      invalid = errors => JsError(essentialErrorInfo(errors, None))
+      invalid = errors => JsError(errors)
     )
   }
 
@@ -253,7 +253,7 @@ class SchemaValidator(
     val reads = implicitly[Reads[A]]
     validate(schemaUrl, input, writes).fold(
       valid = readWith(reads),
-      invalid = errors => JsError(essentialErrorInfo(errors, None))
+      invalid = errors => JsError(errors)
     )
   }
 
@@ -294,7 +294,7 @@ class SchemaValidator(
     val result = validate(schema)(input)
     result.fold(
       valid = readWith(reads),
-      invalid  = errors => JsError(essentialErrorInfo(errors, Some(input)))
+      invalid  = errors => JsError(errors)
     )
   }
 
@@ -326,41 +326,13 @@ class SchemaValidator(
     val result = validate(schema)(inputJs)
     result.fold(
       valid = readWith(reads),
-      invalid = errors => JsError(essentialErrorInfo(errors, Some(inputJs)))
+      invalid = errors => JsError(errors)
     )
   }
 
   private def readWith[A](reads: Reads[A]): JsValue => JsResult[A] = json =>
     reads.reads(json) match {
       case JsSuccess(success, _) => JsSuccess(success)
-      case JsError(errors) => JsError(essentialErrorInfo(errors, Some(json)))
+      case JsError(errors) => JsError(errors)
     }
-
-  private def essentialErrorInfo(errors: Seq[(JsPath, Seq[JsonValidationError])], json: Option[JsValue]): Seq[(JsPath, Seq[JsonValidationError])] = {
-
-    def dropObjPrefix(path: String): String = {
-      if (path.startsWith("/obj")) {
-        "/" + path.substring(5)
-      } else {
-        path
-      }
-    }
-
-    errors.map { case (path, validationErrors) =>
-      path ->
-        validationErrors.map(err =>
-          err.args.size match {
-            case 0 => JsonValidationError(err.message,
-              Json.obj(
-                "schemaPath" -> "n/a",
-                "instancePath" -> dropObjPrefix(path.toString()),
-                "value" -> json.fold[JsValue](Json.obj())(identity),
-                "errors" -> Json.obj()
-              )
-            )
-            case _ => err
-          }
-        )
-    }
-  }
 }
