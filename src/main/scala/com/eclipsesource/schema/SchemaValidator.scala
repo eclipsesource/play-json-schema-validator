@@ -43,6 +43,7 @@ class SchemaValidator(
 
   val DefaultVersion: SchemaVersion = Version7
 
+
   /**
     * Add a URLStreamHandler that is capable of handling absolute with a specific scheme.
     *
@@ -97,13 +98,14 @@ class SchemaValidator(
       formats,
       resolverFactory,
       cache.add(Ref(id))(schema)
+        .addAll(collectSchemas(schema, Some(Ref(id))))
     )
   }
 
-  private def buildContext(refResolver: SchemaRefResolver, schema: SchemaType, schemaUrl: Option[URL]): SchemaResolutionContext =
+  private def buildContext(refResolver: SchemaRefResolver, schema: SchemaType, schemaUrl: Option[Ref]): SchemaResolutionContext =
     SchemaResolutionContext(
       refResolver,
-      SchemaResolutionScope(schema, schema.constraints.id.map(Ref(_)) orElse schemaUrl.map(url => Ref(url.toString))),
+      SchemaResolutionScope(schema, schema.constraints.id.map(Ref(_)) orElse schemaUrl),
       formats = formats
     )
 
@@ -136,42 +138,31 @@ class SchemaValidator(
     version.getOrElse(DefaultVersion)
   }
 
-  /**
-    * Validate the given JsValue against the schema located at the given URL.
-    *
-    * @param schemaUrl an URL pointing to a schema
-    * @param input the value to be validated
-    * @return a JsResult holding the validation result
-    */
-  def validate(schemaUrl: URL, input: => JsValue): JsResult[JsValue] = {
-    val ref = Ref(schemaUrl.toString)
-    parseJson(Source.fromURL(schemaUrl)).toJsResult.flatMap {
-      json =>
-        val version = obtainVersion(json)
-        import version._
-        val refResolver = SchemaRefResolver(version, resolverFactory, cache)
-        val schema = cache.get(ref.value).fold(readJson(json).toJsResult)(JsSuccess(_))
-        for {
-          s <- schema
-          context = buildContext(refResolver, s, Some(schemaUrl))
-          result <- s.validate(input, context).toJsResult
-        } yield result
-    }
+  def validate(schemaUrl: URL): JsValue => JsResult[JsValue] = {
+    doValidate(Source.fromURL(schemaUrl), Some(Ref(schemaUrl.toString)))
   }
 
-  def validate(schemaSource: Source, input: => JsValue): JsResult[JsValue] = {
-    parseJson(schemaSource).toJsResult.flatMap {
+  def validate(schemaSource: Source): JsValue => JsResult[JsValue] = {
+    doValidate(schemaSource, None)
+  }
+
+  private def doValidate(schemaSource: Source, schemaUrl: Option[Ref] = None): JsValue => JsResult[JsValue] = {
+    val context: JsResult[SchemaResolutionContext] = parseJson(schemaSource).toJsResult.flatMap {
       json =>
         val version = obtainVersion(json)
         import version._
-        val refResolver = SchemaRefResolver(version, resolverFactory, cache)
         val schema = readJson(json).toJsResult
-        for {
-          s <- schema
-          context = buildContext(refResolver, s, None)
-          result <- s.validate(input, context).toJsResult
-        } yield result
+        val id = schema.asOpt.flatMap(s => s.constraints.id.map(Ref(_))) orElse schemaUrl
+        val refResolver = SchemaRefResolver(
+          version,
+          schema.fold(_ => cache, s => cache.addAll(collectSchemas(s, id))),
+          resolverFactory
+        )
+        schema.map(s => buildContext(refResolver, s, id))
     }
+    (input: JsValue) =>
+      context
+        .flatMap(ctx => ctx.scope.documentRoot.validate(input, ctx).toJsResult)
   }
 
   /**
@@ -179,12 +170,28 @@ class SchemaValidator(
     * and convert the result via the specified Reads instance in case
     * it has been successful.
     *
-    * @param schemaUrl an URL pointing to a schema
+    * @param schemaSource source from where to read the schema from
+    * @param input the value to be validated
+    * @return a JsResult holding the validation result
+    */
+  def validate[A](schemaSource: Source, input: => JsValue, reads: Reads[A]): JsResult[A] = {
+    validate(schemaSource)(input).fold(
+      valid = readWith(reads),
+      invalid = errors => JsError(essentialErrorInfo(errors, Some(input)))
+    )
+  }
+
+  /**
+    * Validate the given JsValue against the schema located at the given URL
+    * and convert the result via the specified Reads instance in case
+    * it has been successful.
+    *
+    * @param schemaUrl the URL from where to read the schema from
     * @param input the value to be validated
     * @return a JsResult holding the validation result
     */
   def validate[A](schemaUrl: URL, input: => JsValue, reads: Reads[A]): JsResult[A] = {
-    validate(schemaUrl, input).fold(
+    validate(schemaUrl)(input).fold(
       valid = readWith(reads),
       invalid = errors => JsError(essentialErrorInfo(errors, Some(input)))
     )
@@ -194,20 +201,50 @@ class SchemaValidator(
     * Convert the given value via the specified Writes instance to a JsValue
     * and validate it against the schema located at the given URL.
     *
-    * @param schemaUrl an URL pointing to a schema
+    * @param schemaSource source from where to read the scheam from
     * @param input the value to be validated
     * @return a JsResult holding the valid result
     */
-  def validate[A](schemaUrl: URL, input: A, writes: Writes[A]): JsResult[JsValue] = {
+  def validate[A](schemaSource: Source, input: => A, writes: Writes[A]): JsResult[JsValue] = {
     val inputJs = writes.writes(input)
-    validate(schemaUrl, inputJs)
+    validate(schemaSource)(inputJs)
+  }
+
+  /**
+    * Convert the given value via the specified Writes instance to a JsValue
+    * and validate it against the schema located at the given URL.
+    *
+    * @param schemaUrl the URL from where to read the schema from
+    * @param input the value to be validated
+    * @return a JsResult holding the valid result
+    */
+  def validate[A](schemaUrl: URL, input: => A, writes: Writes[A]): JsResult[JsValue] = {
+    val inputJs = writes.writes(input)
+    validate(schemaUrl)(inputJs)
   }
 
   /**
     * Convert the given value via the specified Format instance to a JsValue,
     * validate it against the schema at the given URL, and convert it back.
     *
-    * @param schemaUrl an URL pointing to a schema
+    * @param schemaSource source from where to read the scheam from
+    * @param input the value to be validated
+    * @return a JsResult holding the valid result
+    */
+  def validate[A : Format](schemaSource: Source, input: A): JsResult[A] = {
+    val writes = implicitly[Writes[A]]
+    val reads = implicitly[Reads[A]]
+    validate(schemaSource, input, writes).fold(
+      valid = readWith(reads),
+      invalid = errors => JsError(essentialErrorInfo(errors, None))
+    )
+  }
+
+  /**
+    * Convert the given value via the specified Format instance to a JsValue,
+    * validate it against the schema at the given URL, and convert it back.
+    *
+    * @param schemaUrl source from where to read the scheam from
     * @param input the value to be validated
     * @return a JsResult holding the valid result
     */
@@ -234,7 +271,8 @@ class SchemaValidator(
   def validate(schema: SchemaType)(input: => JsValue): JsResult[JsValue] = {
     val ref: Option[Ref] = schema.constraints.id.map(Ref(_))
     val version: SchemaVersion = obtainVersion(schema)
-    val refResolver = SchemaRefResolver(version, resolverFactory, cache)
+    val id = schema.constraints.id.map(Ref(_))
+    val refResolver = SchemaRefResolver(version, cache.addAll(collectSchemas(schema, id)), resolverFactory)
     val context = SchemaResolutionContext(
       refResolver,
       SchemaResolutionScope(schema, ref),
@@ -275,7 +313,7 @@ class SchemaValidator(
 
   /**
     * Convert the given value via the specified Format instance to a JsValue,
-    * validate it against the schema at the given URL, and convert it back.
+    * validate it against the given schema and convert it back.
     *
     * @param schema the schema to validate against
     * @param input the value to be validated

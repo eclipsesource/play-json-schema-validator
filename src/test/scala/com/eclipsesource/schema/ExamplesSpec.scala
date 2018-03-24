@@ -12,7 +12,7 @@ class ExamplesSpec extends Specification {
     val schemaUrl = getClass.getResource(url)
     val instanceUrl = getClass.getResource(url)
     val instance = JsonSource.fromUrl(instanceUrl)
-    val result   = validator.validate(schemaUrl, instance.get)
+    val result   = validator.validate(schemaUrl)(instance.get)
     result.isSuccess must beTrue
     result.get must beEqualTo(instance.get)
   }

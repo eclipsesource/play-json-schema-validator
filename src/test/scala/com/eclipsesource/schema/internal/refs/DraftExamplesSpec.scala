@@ -1,6 +1,7 @@
 package com.eclipsesource.schema.internal.refs
 
 import com.eclipsesource.schema.drafts.Version4
+import com.eclipsesource.schema.internal._
 import com.eclipsesource.schema.{JsonSource, SchemaInteger}
 import org.specs2.mutable.Specification
 import play.api.libs.json.{JsString, JsValue, Json}
@@ -131,7 +132,10 @@ class DraftExamplesSpec extends Specification {
         |}""".
         stripMargin
     ).get
-    val resolver = SchemaRefResolver(Version4)
+    val resolver = SchemaRefResolver(
+      Version4,
+      DocumentCache().addAll(collectSchemas(mySiteSchema, Some(Ref("http://my.site/myschema#"))))
+    )
     val scope = SchemaResolutionScope(mySiteSchema)
 
     "resolve schema1 via plain name fragment" in {

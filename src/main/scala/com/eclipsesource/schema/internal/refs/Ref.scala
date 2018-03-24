@@ -138,4 +138,3 @@ object Ref {
 case class LocalRef(value: String) extends Ref
 case class RelativeRef(value: String) extends Ref
 case class AbsoluteRef(value: String) extends Ref
-
