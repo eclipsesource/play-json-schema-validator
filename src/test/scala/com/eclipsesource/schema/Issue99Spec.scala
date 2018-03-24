@@ -1,6 +1,6 @@
 package com.eclipsesource.schema
 
-import com.eclipsesource.schema.drafts.{Version4, Version7}
+import com.eclipsesource.schema.drafts.Version4
 import org.specs2.mutable.Specification
 import play.api.libs.json.Json
 
@@ -35,7 +35,7 @@ class Issue99Spec extends Specification { self =>
     "validate issue 99-1 test case via URL" in {
       val schemaUrl = self.getClass.getResource("/issue-99-1.json")
       val validator = SchemaValidator(Some(Version4))
-      val result = validator.validate(schemaUrl, Json.obj(
+      val result = validator.validate(schemaUrl)(Json.obj(
         "mything" -> "test"
       ))
       result.isSuccess must beTrue
@@ -45,7 +45,7 @@ class Issue99Spec extends Specification { self =>
       val schemaUrl = self.getClass.getResource("/issue-99-5.json")
       val validator = SchemaValidator(Some(Version4))
       // must terminate
-      validator.validate(schemaUrl, Json.obj(
+      validator.validate(schemaUrl)(Json.obj(
         "mything" -> "test"
       )).isError must beTrue
     }

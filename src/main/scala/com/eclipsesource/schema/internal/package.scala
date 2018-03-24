@@ -1,5 +1,6 @@
 package com.eclipsesource.schema
 
+import com.eclipsesource.schema.internal.refs.{Ref, Refs}
 import com.eclipsesource.schema.internal.validation.{VA, Validated}
 import play.api.libs.json._
 
@@ -7,9 +8,44 @@ import scala.language.reflectiveCalls
 import scalaz.Failure
 import scalaz.{ReaderWriterState, Semigroup}
 
-import scala.util.{Success => ScalaSuccess, Failure => ScalaFailure, Try}
+import scala.util.{Try, Failure => ScalaFailure, Success => ScalaSuccess}
 
 package object internal {
+
+
+  /**
+    * Traverse the given schema and returns a Map of Refs representing the resolution scope of the mapped
+    * schema elements.
+    * @param schema the schema element to be traversed
+    * @param resolutionScope the current resolution scope
+    * @param knownSchemas Map containing all found scopes so far
+    * @return Map containing all found scopes
+    */
+  def collectSchemas(
+                      schema: SchemaType,
+                      resolutionScope: Option[Ref],
+                      knownSchemas: Map[String, SchemaType] = Map.empty): Map[String, SchemaType] = {
+
+    val currentScope = schema.constraints.id.map(i => Refs.mergeRefs(Ref(i), resolutionScope))
+    val updatedMap = currentScope.fold(knownSchemas)(id => knownSchemas + (id.value -> schema))
+    val m = schema match {
+      case SchemaObject(props, _, _) => props.foldLeft(updatedMap) {
+        (schemas, prop) => {
+          collectSchemas(prop.schemaType, currentScope orElse resolutionScope, schemas)
+        }
+      }
+      case SchemaArray(item, _, _) => collectSchemas(item, currentScope, updatedMap)
+      case SchemaTuple(items, _, _) => items.foldLeft(updatedMap) {
+        (schemas, item) =>  collectSchemas(item, currentScope, schemas)
+      }
+      case SchemaRoot(_ ,s) => collectSchemas(s, resolutionScope, updatedMap)
+      case _ => updatedMap
+    }
+
+    schema.constraints.subSchemas.foldLeft(m) {
+      (schemas, s) => collectSchemas(s, currentScope orElse resolutionScope, schemas)
+    }
+  }
 
   def failure(keyword: String,
               msg: String,

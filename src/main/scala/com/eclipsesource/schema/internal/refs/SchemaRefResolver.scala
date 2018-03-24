@@ -23,8 +23,8 @@ case class ResolvedResult(resolved: SchemaType, scope: SchemaResolutionScope)
 case class SchemaRefResolver
 (
   version: SchemaVersion,
-  resolverFactory: UrlStreamResolverFactory = UrlStreamResolverFactory(),
-  private[schema] val cache: DocumentCache = DocumentCache()
+  cache: DocumentCache = DocumentCache(),
+  resolverFactory: UrlStreamResolverFactory = UrlStreamResolverFactory()
 ) {
 
   import version._
@@ -74,12 +74,6 @@ case class SchemaRefResolver
 
         case r if cache.contains(r) =>
           ResolvedResult(cache(r), scope).right[JsonValidationError]
-
-          // check if ref is contained in a subschema
-          // can also apply to relative URLs if not resolution scope is available
-        case r if scope.subSchemas.keySet.contains(r.value) =>
-          cache.mapping ++= scope.subSchemas
-          ResolvedResult(scope.subSchemas(r.value), scope).right[JsonValidationError]
 
         // check if any prefix of ref matches current element
         case a@AbsoluteRef(absoluteRef)  =>

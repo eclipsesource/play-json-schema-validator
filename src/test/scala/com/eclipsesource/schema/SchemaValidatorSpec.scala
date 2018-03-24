@@ -106,7 +106,7 @@ class SchemaValidatorSpec extends PlaySpecification { self =>
     }
 
     "be validated via file based resource URL" in {
-      SchemaValidator(Some(Version4)).validate(resourceUrl, instance).isSuccess must beTrue
+      SchemaValidator(Some(Version4)).validate(resourceUrl)(instance).isSuccess must beTrue
     }
 
     "validate via file based URL and Reads" in {
@@ -121,6 +121,7 @@ class SchemaValidatorSpec extends PlaySpecification { self =>
     "validate via file based URL and Writes" in {
       val talk = Talk(Location("Munich"))
       val result = SchemaValidator(Some(Version4)).validate(resourceUrl, talk, talkWrites)
+      println(result)
       result.isSuccess must beTrue
     }
 
@@ -157,7 +158,7 @@ class SchemaValidatorSpec extends PlaySpecification { self =>
   "Remote ref" should {
     "validate" in new WithServer(app = createApp, port = 1234) {
       val resourceUrl: URL = new URL("http://localhost:1234/talk.json")
-      SchemaValidator(Some(Version4)).validate(resourceUrl, instance).isSuccess must beTrue
+      SchemaValidator(Some(Version4)).validate(resourceUrl)(instance).isSuccess must beTrue
     }
   }
 
