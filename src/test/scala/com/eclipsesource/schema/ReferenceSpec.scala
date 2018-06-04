@@ -16,9 +16,7 @@ class ReferenceSpec extends Specification with JsonSpec { self =>
 
   "validate draft7" in {
     import Version7._
-    val jsonSchema = JsonSource.schemaFromStream(self.getClass.getResourceAsStream("/refs/json-schema-draft-07.json")).get
     implicit val validator: SchemaValidator = SchemaValidator(Some(Version7))
-      .addSchema("http://json-schema.org/draft-07/schema", jsonSchema)
     validate("ref", "draft7")
   }
 

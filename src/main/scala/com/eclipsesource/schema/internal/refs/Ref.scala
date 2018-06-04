@@ -31,7 +31,6 @@ object Refs {
         ).getOrElse(l)
 
       case r@RelativeRef(relativeRef) =>
-
         if (relativeRef.startsWith("#")) {
           // ref is plain name fragment
           currentScope.map(url =>

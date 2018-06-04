@@ -49,24 +49,17 @@ package object internal {
 
   def failure(keyword: String,
               msg: String,
-              schemaPath: JsPath,
+              schemaPath: Option[JsPath],
               instancePath: JsPath,
               instance: JsValue,
               additionalInfo: JsObject = Json.obj()
              ): Validated[JsonValidationError, JsValue] = {
 
-    def dropSlashIfAny(path: String) = if (path.startsWith("/#")) path.substring(1) else path
-
     Failure(
       Seq(
-        JsonValidationError(msg,
-          Json.obj(
-            "keyword" -> keyword,
-            "schemaPath" -> dropSlashIfAny(schemaPath.toString()),
-            "instancePath" -> instancePath.toString(),
-            "value" -> instance,
-            "errors" ->  additionalInfo
-          )
+        JsonValidationError(
+          msg,
+          SchemaUtil.createErrorObject(keyword, schemaPath, instancePath, instance, additionalInfo)
         )
       )
     )

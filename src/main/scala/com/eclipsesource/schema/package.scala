@@ -15,7 +15,7 @@ package object schema {
                                      scope: SchemaResolutionScope,
                                      formats: Map[String, SchemaFormat] = DefaultFormats.formats) {
 
-    def schemaPath: JsPath = scope.schemaPath
+    def schemaPath: Option[JsPath] = scope.schemaJsPath
     def instancePath: JsPath = scope.instancePath
     def updateScope(scopeUpdateFn: SchemaResolutionScope => SchemaResolutionScope): SchemaResolutionContext =
       copy(scope = scopeUpdateFn(scope))
@@ -43,10 +43,10 @@ package object schema {
                                      (implicit lang: Lang): VA[JsValue] = {
 
       context.refResolver.resolve(schemaRef, schemaRef.ref, context.scope) match {
-        case -\/(JsonValidationError(_, _*)) =>
+        case -\/(error@JsonValidationError(_, _*)) =>
           Results.failureWithPath(
             Keywords.Ref,
-            Messages("err.unresolved.ref", schemaRef.ref.value),
+            error.message,
             context,
             json)
         case \/-(ResolvedResult(resolved, scope)) =>
@@ -135,16 +135,6 @@ package object schema {
       }
 
     }
-  }
-
-  private implicit class SchemaObjectExtension(schemaObject: SchemaObject) {
-    def hasRef(resolutionContext: SchemaResolutionContext): Boolean = {
-      resolutionContext.refResolver.findRef(schemaObject)
-        .isDefined
-    }
-
-    def findRef(resolutionContext: SchemaResolutionContext): Option[Ref] =
-      resolutionContext.refResolver.findRef(schemaObject)
   }
 
   implicit class VAExtensions[O](va: VA[O]) {

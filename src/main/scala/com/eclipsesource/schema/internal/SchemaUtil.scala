@@ -7,29 +7,35 @@ import scalaz.Failure
 
 object SchemaUtil {
 
+  def dropSlashIfAny(path: String): String = if (path.startsWith("/#")) path.substring(1) else path
+
   def failure(keyword: String,
               msg: String,
-              schemaPath: JsPath,
+              schemaPath: Option[JsPath],
               instancePath: JsPath,
               instance: JsValue,
               additionalInfo: JsObject = Json.obj()
-             ): Validated[JsonValidationError, JsValue] = {
-
-    def dropSlashIfAny(path: String) = if (path.startsWith("/#")) path.substring(1) else path
-
+             ): Validated[JsonValidationError, JsValue] =
     Failure(
       Seq(
-        JsonValidationError(msg,
-          Json.obj(
-            "keyword" -> keyword,
-            "schemaPath" -> dropSlashIfAny(schemaPath.toString()),
-            "instancePath" -> instancePath.toString(),
-            "value" -> instance,
-            "errors" ->  additionalInfo
-          )
+        JsonValidationError(
+          msg,
+          createErrorObject(keyword, schemaPath, instancePath, instance, additionalInfo)
         )
       )
     )
+
+  def createErrorObject(keyword: String, schemaPath: Option[JsPath], instancePath: JsPath, instance: JsValue, additionalInfo: JsObject): JsObject = {
+    Json.obj(
+      "keyword" -> keyword
+    ).deepMerge(schemaPath.fold(Json.obj("schemaPath" -> ""))(p => Json.obj("schemaPath" -> dropSlashIfAny(p.toString()))))
+      .deepMerge(
+        Json.obj(
+          "instancePath" -> instancePath.toString(),
+          "value" -> instance,
+          "errors" ->  additionalInfo
+        )
+      )
   }
 
   def typeOfAsString(json: JsValue): String = {
