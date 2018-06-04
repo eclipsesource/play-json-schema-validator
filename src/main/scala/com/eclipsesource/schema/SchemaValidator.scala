@@ -7,7 +7,6 @@ import com.eclipsesource.schema.internal._
 import com.eclipsesource.schema.internal.refs.{DocumentCache, Ref, SchemaRefResolver, SchemaResolutionScope}
 import com.eclipsesource.schema.internal.url.UrlStreamResolverFactory
 import com.eclipsesource.schema.internal.validators.DefaultFormats
-import com.eclipsesource.schema.urlhandlers.UrlHandler
 import com.osinka.i18n.{Lang, Messages}
 import play.api.libs.json._
 import scalaz.\/
@@ -23,10 +22,18 @@ trait SchemaConfigOptions {
   def formats: Map[String, SchemaFormat]
 }
 
-object SchemaValidator {
+object SchemaValidator { self =>
+
   def apply(version: Option[SchemaVersion] = None)
            (implicit lang: Lang = Lang.Default): SchemaValidator = {
-    new SchemaValidator(version, version.map(_.options.formats).getOrElse(DefaultFormats.formats))
+    val validator = new SchemaValidator(version, version.map(_.options.formats).getOrElse(DefaultFormats.formats))
+    version.fold(validator) {
+      case _: Version4 => validator.addSchema(Version4.SchemaUrl, Version4.Schema)
+      case _: Version7 => validator.addSchema(Version7.SchemaUrl, Version7.Schema)
+      case other =>
+        throw new RuntimeException(s"Could not read schema file $other.")
+    }
+
   }
 }
 
@@ -60,24 +67,6 @@ class SchemaValidator(
   }
 
   /**
-    * Add a relative URLStreamHandler that is capable of resolving relative references.
-    * Optionally takes a protocol that determines for which schemes the
-    * handler should be triggered.
-    *
-    * @param handler the relative handler to be added
-    * @return the validator instance with the handler being added
-    */
-  def addRelativeUrlHandler(handler: URLStreamHandler, scheme: String = UrlHandler.ProtocolLessScheme): SchemaValidator = {
-    new SchemaValidator(
-      schemaVersion,
-      formats,
-      resolverFactory.addRelativeUrlHandler(scheme, handler),
-      cache
-    )
-  }
-
-
-  /**
     * Add a custom format
     *
     * @param format the custom format
@@ -105,7 +94,11 @@ class SchemaValidator(
   private def buildContext(refResolver: SchemaRefResolver, schema: SchemaType, schemaUrl: Option[Ref]): SchemaResolutionContext =
     SchemaResolutionContext(
       refResolver,
-      SchemaResolutionScope(schema, schema.constraints.id.map(Ref(_)) orElse schemaUrl),
+      SchemaResolutionScope(
+        schema,
+        schema.constraints.id.map(Ref(_)) orElse schemaUrl,
+        Some(JsPath \ "#")
+      ),
       formats = formats
     )
 
@@ -160,7 +153,7 @@ class SchemaValidator(
         )
         schema.map(s => buildContext(refResolver, s, id))
     }
-    (input: JsValue) =>
+    input: JsValue =>
       context
         .flatMap(ctx => ctx.scope.documentRoot.validate(input, ctx).toJsResult)
   }
@@ -275,7 +268,7 @@ class SchemaValidator(
     val refResolver = SchemaRefResolver(version, cache.addAll(collectSchemas(schema, id)), resolverFactory)
     val context = SchemaResolutionContext(
       refResolver,
-      SchemaResolutionScope(schema, ref),
+      SchemaResolutionScope(schema, ref, Some(JsPath \ "#")),
       formats = formats
     )
 

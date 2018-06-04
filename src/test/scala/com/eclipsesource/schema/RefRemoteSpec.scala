@@ -53,7 +53,6 @@ class RefRemoteSpec extends Specification with JsonSpec { self =>
     result.isError must beTrue
   }
 
-
   "ref within remote ref - ref within ref invalid" in {
     import Version4._
     val resourceUrl: URL = self.getClass.getResource("/remotes/subSchemas.json")
@@ -71,7 +70,7 @@ class RefRemoteSpec extends Specification with JsonSpec { self =>
     result.isError must beTrue
   }
 
-  "change resolution scope - change scope ref invalid" in {
+  "change resolution scope - change scope ref invalid" in new WithServer(createApp, port = 1234) {
     import Version4._
     val schema = JsonSource.schemaFromString(
       """{
@@ -86,9 +85,9 @@ class RefRemoteSpec extends Specification with JsonSpec { self =>
     val result     = validator.validate(schema, instance)
     val errors     = result.asEither.left.get
     val firstError = errors.toJson(0)
+    result.isError must beTrue
     (firstError \ "resolutionScope").get.as[String] must beEqualTo("http://localhost:1234/folder/")
     (firstError \ "msgs").get.as[JsArray].value.head.as[String] must beEqualTo("Could not resolve ref folderInteger.json.")
-    result.isError must beTrue
   }
 
   "change resolution scope - change scope ref invalid" in {

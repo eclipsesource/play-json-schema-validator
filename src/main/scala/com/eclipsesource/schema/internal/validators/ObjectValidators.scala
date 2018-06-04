@@ -24,7 +24,7 @@ object ObjectValidators {
               JsString(field._1),
               context.updateScope(
                 _.copy(
-                  schemaPath = context.schemaPath \ "propertyNames",
+                  schemaJsPath = context.schemaPath.map(_ \ "propertyNames"),
                   instancePath = context.instancePath \ field._1
                 )
               )
@@ -61,7 +61,7 @@ object ObjectValidators {
                 value,
                 context.updateScope(
                   _.copy(
-                    schemaPath = context.schemaPath \ "properties" \ attr.name,
+                    schemaJsPath = context.schemaPath.map(_ \ "properties" \ attr.name),
                     instancePath = context.instancePath \ attr.name
                   )
                 )
@@ -110,7 +110,7 @@ object ObjectValidators {
           matchedPatternProperties.map(pp => {
             prop._1 -> pp._2.validate(prop._2, context.updateScope(
               _.copy(
-                schemaPath = context.schemaPath \ "properties" \ prop._1,
+                schemaJsPath = context.schemaPath.map(_ \ "properties" \ prop._1),
                 instancePath = context.instancePath \ prop._1
               )
             ))
@@ -136,7 +136,7 @@ object ObjectValidators {
           attr._2,
           context.updateScope(
             _.copy(
-              schemaPath = context.schemaPath \ Keywords.Object.AdditionalProperties,
+              schemaJsPath = context.schemaPath.map(_ \ Keywords.Object.AdditionalProperties),
               instancePath = context.instancePath \ attr._1
             )
           )
@@ -189,7 +189,7 @@ object ObjectValidators {
           Keywords.Object.Dependencies,
           Messages("obj.missing.prop.dep", prop),
           context.updateScope(_.copy(
-            schemaPath = context.schemaPath \ prop,
+            schemaJsPath = context.schemaPath.map(_ \ prop),
             instancePath = context.instancePath \ prop
           )),
           json

@@ -15,7 +15,4 @@ case class UrlStreamResolverFactory(
   def addUrlHandler(protocolEntry: (String, URLStreamHandler)): UrlStreamResolverFactory =
     copy(protocolUrlHandlers = protocolUrlHandlers + protocolEntry)
 
-  def addRelativeUrlHandler(handler: (String, URLStreamHandler)): UrlStreamResolverFactory =
-    copy(relativeUrlHandlers = relativeUrlHandlers + (handler._1 -> handler._2))
-
 }

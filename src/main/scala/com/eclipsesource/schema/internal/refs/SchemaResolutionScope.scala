@@ -6,12 +6,15 @@ import com.eclipsesource.schema.internal._
 
 case class SchemaResolutionScope(documentRoot: SchemaType,
                                  id: Option[Ref] = None, // current resolution scope
-                                 schemaPath: JsPath = JsPath \ "#",
+                                 schemaJsPath: Option[JsPath] = None,
                                  instancePath: JsPath = JsPath,
                                  depth: Int = 0,
                                  referrer: Option[JsPath] = None
                                 ) {
-  lazy val subSchemas: Map[String, SchemaType] = collectSchemas(documentRoot, id, Map())
+
+
+  def schemaPath: Option[String] = schemaJsPath.map(jsPath => SchemaUtil.dropSlashIfAny(jsPath.toString()))
+
 }
 
 case class DocumentCache(mapping: collection.concurrent.Map[String, SchemaType] = collection.concurrent.TrieMap.empty[String, SchemaType]) {

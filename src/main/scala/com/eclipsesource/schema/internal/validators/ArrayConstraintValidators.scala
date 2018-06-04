@@ -21,7 +21,7 @@ object ArrayConstraintValidators {
                 .getOrElse(SchemaUtil.failure(
                   "contains",
                   Messages("err.contains"),
-                  context.schemaPath \ "contains",
+                  context.schemaPath.map(_ \ "contains"),
                   context.instancePath,
                   json
                 ))

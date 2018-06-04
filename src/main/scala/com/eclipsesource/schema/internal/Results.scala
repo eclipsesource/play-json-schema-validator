@@ -35,21 +35,12 @@ object Results {
                       instance: JsValue,
                       additionalInfo: JsObject = Json.obj()): VA[JsValue] = {
 
-    def dropSlashIfAny(path: String) = if (path.startsWith("/#")) path.substring(1) else path
-
     Failure(Seq(context.instancePath ->
-      Seq(JsonValidationError(msg,
-        Json.obj(
-          "keyword" -> keyword,
-          "schemaPath" -> dropSlashIfAny(context.schemaPath.toString()),
-          "instancePath" -> context.instancePath.toString(),
-          "value" -> instance,
-          "errors" ->  additionalInfo
-        ) ++ context.scope.id.fold(Json.obj())(id =>
-          Json.obj("resolutionScope" -> id.value)
-        ) ++ context.scope.referrer.fold(Json.obj())(referrer =>
-          Json.obj("referrer" -> dropSlashIfAny(referrer.toString()))
-        )
+      Seq(JsonValidationError(
+        msg,
+        SchemaUtil.createErrorObject(keyword, context.schemaPath, context.instancePath, instance, additionalInfo)
+          ++ context.scope.id.fold(Json.obj())(id => Json.obj("resolutionScope" -> id.value))
+          ++ context.scope.referrer.fold(Json.obj())(referrer => Json.obj("referrer" -> SchemaUtil.dropSlashIfAny(referrer.toString())))
       ))
     ))
   }

@@ -34,7 +34,8 @@ class ResolveAnyConstraintsSpec extends Specification { self =>
 
     val resolver = SchemaRefResolver(Version4)
       .copy(cache = DocumentCache()
-        .add(Ref("http://localhost:1234/talk.json"))(talkSchema)
+        .add(Ref(Version4.SchemaUrl))(Version4.Schema)
+        .add(Ref("http://localhost:1234/talk.json#"))(talkSchema)
       )
 
     "resolve oneOf constraint" in {
@@ -100,8 +101,8 @@ class ResolveAnyConstraintsSpec extends Specification { self =>
       val scope = SchemaResolutionScope(schema)
       val arrayDef = resolver.resolveFromRoot("#/definitions/schemaArray", scope)
       val anyOf = resolver.resolveFromRoot("#/properties/anyOf", scope)
-      anyOf.map(_.resolved) must beRight[SchemaType].which(_.isInstanceOf[SchemaArray])
       arrayDef.map(_.resolved) must beRight[SchemaType].which(_.isInstanceOf[SchemaArray])
+      anyOf.map(_.resolved) must beRight[SchemaType].which(_.isInstanceOf[SchemaArray])
     }
 
     "resolve definitions constraint" in {
@@ -167,7 +168,8 @@ class ResolveAnyConstraintsSpec extends Specification { self =>
         def formats: Map[String, SchemaFormat] = DefaultFormats.formats
       }))
       .copy(cache = DocumentCache()
-        .add(Ref("http://localhost:1234/talk.json"))(talkSchema)
+        .add(Ref(Version7.SchemaUrl))(JsonSource.schemaFromUrl(self.getClass.getResource("/json-schema-draft-07.json")).get)
+        .add(Ref("http://localhost:1234/talk.json#"))(talkSchema)
       )
 
     "resolve oneOf constraint" in {

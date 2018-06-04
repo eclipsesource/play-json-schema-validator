@@ -2,10 +2,10 @@ package com.eclipsesource.schema.internal.refs
 
 import java.net.{URL, URLDecoder, URLStreamHandler}
 
+import com.eclipsesource.schema._
 import com.eclipsesource.schema.internal._
 import com.eclipsesource.schema.internal.constraints.Constraints.Constraint
 import com.eclipsesource.schema.internal.url.UrlStreamResolverFactory
-import com.eclipsesource.schema._
 import com.osinka.i18n.{Lang, Messages}
 import play.api.libs.json._
 import scalaz.syntax.either._
@@ -73,17 +73,21 @@ case class SchemaRefResolver
           resolveLocal(splitFragment(l), scope, current)
 
         case r if cache.contains(r) =>
-          ResolvedResult(cache(r), scope).right[JsonValidationError]
+          ResolvedResult(cache(r), scope.copy(id = Some(Refs.mergeRefs(r, updatedScope.id)))).right[JsonValidationError]
 
         // check if any prefix of ref matches current element
         case a@AbsoluteRef(absoluteRef)  =>
           val currentResolutionScope = findScopeRefinement(current)
 
-          currentResolutionScope.collectFirst { case id if absoluteRef.startsWith(id.value) =>
-            absoluteRef.drop(id.value.length - 1)
-          }
-            .map(remaining => resolve(current, Ref(remaining), updatedScope))
-            .getOrElse(resolveAbsolute(a, updatedScope))
+          currentResolutionScope.collectFirst {
+            case id if absoluteRef.startsWith(id.value) => absoluteRef.drop(id.value.length)
+          }.map(remaining =>
+            resolve(
+              current,
+              Ref(if (remaining.startsWith("#")) remaining else "#" + remaining),
+              updatedScope
+            )
+          ).getOrElse(resolveAbsolute(a, updatedScope))
 
         case r@RelativeRef(_) =>
           resolveRelative(r, updatedScope, current)
@@ -96,13 +100,11 @@ case class SchemaRefResolver
             .fold(result)(foundRef =>
               resolve(resolvedResult.resolved, foundRef, resolvedResult.scope)
             )
-        case _ => resolutionFailure(ref)(updatedScope).left
+        case _ => resolutionFailure(ref).left
       }
     }
   }
-
-  private[schema] def resolutionFailure(ref: Ref)(scope: SchemaResolutionScope)
-                               (implicit lang: Lang): JsonValidationError =
+  private[schema] def resolutionFailure(ref: Ref)(implicit lang: Lang): JsonValidationError =
     JsonValidationError(Messages("err.unresolved.ref", ref.value))
 
   private def resolveRelative(ref: RelativeRef, scope: SchemaResolutionScope, instance: SchemaType)
@@ -121,17 +123,16 @@ case class SchemaRefResolver
             scope.copy(
               documentRoot = schema,
               id = updateResolutionScope(scope, schema).id orElse Some(Ref(file)),
-              referrer = Some(scope.schemaPath)
+              referrer = scope.schemaJsPath
             )
           )
         }
-        result.getOrElse(resolutionFailure(r)(scope).left)
+        result.getOrElse(resolutionFailure(r).left)
     }
   }
 
   private[schema] def resolveLocal(schemaPath: List[String], scope: SchemaResolutionScope, instance: SchemaType)
-                                  (implicit lang: Lang): \/[JsonValidationError, ResolvedResult] = {
-
+                                  (implicit lang: Lang): \/[JsonValidationError, ResolvedResult] =
     (schemaPath, instance) match {
       case (Nil, _) =>
         \/.fromEither(
@@ -144,49 +145,62 @@ case class SchemaRefResolver
         )
       case (schemaProp :: rest, resolvable) =>
         schemaProp match {
-          case "#" => resolveLocal(rest, scope.copy(schemaPath = JsPath \ "#"), scope.documentRoot)
+          case "#" => resolveLocal(rest, scope.copy(schemaJsPath = Some(JsPath \ "#")), scope.documentRoot)
           case _ => \/.fromEither(resolveSchema(resolvable, schemaProp)).flatMap { r =>
+            val newScope = updateResolutionScope(scope, r)
             resolveLocal(
               rest,
-              updateResolutionScope(scope, r).copy(
-                schemaPath = scope.schemaPath.compose(JsPath \ schemaProp)
+              newScope.copy(
+                schemaJsPath =
+                  if (resolutionScopeChanged(newScope.id, scope.id)) None
+                  else scope.schemaJsPath.map(_.compose(JsPath \ schemaProp))
               ),
               r
             )
           }
         }
     }
+
+  private def resolutionScopeChanged(oldScope: Option[Ref], newScope: Option[Ref]) = {
+    val changed = for {
+      n <- newScope
+      o <- oldScope
+    } yield n != o
+    changed.getOrElse(false)
   }
 
-  private def createUrl(ref: Ref): \/[JsonValidationError, URL] = {
+  private def createUrl(ref: Ref)(implicit lang: Lang): \/[JsonValidationError, URL] = {
     // use handlers for protocol-ful absolute refs or fall back to default behaviour via null
     val handler: URLStreamHandler = ref.scheme.map(resolverFactory.createURLStreamHandler).orNull
     val triedUrl = Try { new URL(null, ref.value, handler) }
     triedUrl match {
       case Success(url) => url.right
-      case _            => JsonValidationError(s"Could not resolve ref ${ref.value}").left
+      case _ => resolutionFailure(ref).left
     }
   }
 
   /**
     * Fetch the instance located at the given URL and eventually cache it as well.
     *
-    * @param url the URL to fetch from
+    * @param ref the ref to fetch from
     * @param scope the current resolution scope
     * @return the fetched instance, if any
     */
-  private[schema] def fetch(url: URL, scope: SchemaResolutionScope)(implicit lang: Lang): \/[JsonValidationError, SchemaType] = {
-    val ref = Ref(url.toString)
-    cache.get(ref.value) match {
+  private[schema] def fetch(ref: Ref, scope: SchemaResolutionScope)(implicit lang: Lang): \/[JsonValidationError, SchemaType] = {
+    cache.get(ref.value) orElse cache.get(ref.value + "#") match {
       case Some(a) => a.right
-      case _ if url.getProtocol == null || version.options.supportsExternalReferences => for {
-        source <- \/.fromEither(Try { Source.fromURL(url) }.toJsonEither)
+      case _ => for {
+        url <- createUrl(ref)
+        source <- if (url.getProtocol == null || version.options.supportsExternalReferences) {
+          \/.fromEither(Try { Source.fromURL(url) }.toJsonEither)
+        } else {
+          JsonValidationError(Messages("err.unresolved.ref")).left
+        }
         read <- readSource(source)
       } yield {
         cache.add(Refs.mergeRefs(ref, scope.id, Some(resolverFactory)))(read)
         read
       }
-      case _ => JsonValidationError(Messages("err.unresolved.ref")).left
     }
   }
 
@@ -220,14 +234,14 @@ case class SchemaRefResolver
   private def resolveAbsolute(ref: AbsoluteRef, scope: SchemaResolutionScope)
                              (implicit lang: Lang): \/[JsonValidationError, ResolvedResult] = {
     for {
-      url <- createUrl(ref.documentName)
-      fetchedSchema <- fetch(url, scope)
+      fetchedSchema <- fetch(ref.documentName, scope)
       result <- resolve(fetchedSchema,
         ref.pointer.getOrElse(Refs.`#`),
         scope.copy(
-          id = Some(Ref(url.toString)),
+          id = Some(ref.documentName),
           documentRoot = fetchedSchema,
-          referrer = Some(scope.schemaPath)
+          referrer = scope.schemaJsPath
+
         )
       )
     } yield result
@@ -358,5 +372,4 @@ case class SchemaRefResolver
 
     }
   }
-
 }

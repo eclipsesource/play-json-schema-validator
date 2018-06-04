@@ -10,7 +10,7 @@ class DraftExamplesSpec extends Specification {
 
   import Version4._
 
-  "Example from draft 4 - section7.2.2" should {
+  "Example from draft 4 - section 7.2.2" should {
 
     val schema = JsonSource.schemaFromString(
       """{
@@ -43,7 +43,7 @@ class DraftExamplesSpec extends Specification {
     }
 
     "infer correct resolution scope within schema1" in {
-      resolver.resolveFromRoot("#/schema1/id", scope) must beRight.which(
+      resolver.resolveFromRoot("#/schema1", scope) must beRight.which(
         _.scope.id.contains(Ref("http://x.y.z/rootschema.json#foo"))
       )
     }
@@ -55,19 +55,19 @@ class DraftExamplesSpec extends Specification {
     }
 
     "infer correct resolution scope within schema2/nested" in {
-      resolver.resolveFromRoot("#/schema2/nested/id", scope) must beRight.which(
+      resolver.resolveFromRoot("#/schema2/nested", scope) must beRight.which(
         _.scope.id.contains(Ref("http://x.y.z/otherschema.json#bar"))
       )
     }
 
     "infer correct resolution scope within schema2/alsonested" in {
-      resolver.resolveFromRoot("#/schema2/alsonested/id", scope) must beRight.which(
+      resolver.resolveFromRoot("#/schema2/alsonested", scope) must beRight.which(
         _.scope.id.contains(Ref("http://x.y.z/t/inner.json#a"))
       )
     }
 
     "infer correct resolution scope within schema3" in {
-      resolver.resolveFromRoot("#/schema3/id", scope) must beRight.which(
+      resolver.resolveFromRoot("#/schema3", scope) must beRight.which(
         _.scope.id.contains(Ref("some://where.else/completely#"))
       )
     }

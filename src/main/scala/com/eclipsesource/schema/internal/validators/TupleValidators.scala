@@ -65,7 +65,7 @@ object TupleValidators {
               values(idx),
               context.updateScope(
                 _.copy(
-                  schemaPath = context.schemaPath \ idx.toString,
+                  schemaJsPath = context.schemaPath.map(_ \ idx.toString),
                   instancePath = context.instancePath \ idx.toString
                 )
               )
@@ -77,7 +77,7 @@ object TupleValidators {
                 jsValue,
                 context.updateScope(
                   _.copy(
-                    schemaPath = context.schemaPath \ idx.toString,
+                    schemaJsPath = context.schemaPath.map(_ \ idx.toString),
                     instancePath = context.instancePath \ idx.toString
                   )
                 )
@@ -93,7 +93,7 @@ object TupleValidators {
           jsValue,
           context.updateScope(
             _.copy(
-              schemaPath = context.schemaPath \ idx.toString,
+              schemaJsPath = context.schemaPath.map(p => p \ idx.toString),
               instancePath = context.instancePath \ idx.toString
             )
           )
