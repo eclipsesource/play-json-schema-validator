@@ -49,8 +49,8 @@ object Build extends Build {
 
   val commonSettings = Seq(
       organization := "com.eclipsesource",
-      scalaVersion := "2.12.2",
-      crossScalaVersions := Seq("2.11.11", "2.12.2"),
+      scalaVersion := "2.12.6",
+      crossScalaVersions := Seq("2.11.11", "2.12.6"),
       licenses := Seq("Apache-2.0" -> url("http://www.apache.org/licenses/LICENSE-2.0")),
       Keys.fork in Test := false,
       Keys.parallelExecution in Test := false
