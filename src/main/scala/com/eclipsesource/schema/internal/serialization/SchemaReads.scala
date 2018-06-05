@@ -76,7 +76,8 @@ trait SchemaReads {
       obj \ "type" match {
         case JsDefined(JsArray(values)) =>
           val jsResults: Seq[JsResult[SchemaType]] = values.map(value =>
-            schemaReads.reads(JsObject(List("type" -> value) ++ fields.filterNot(_._1 == "type")))
+            dispatchType(value.as[String]).reads(
+              JsObject(List("type" -> value) ++ fields.filterNot(_._1 == "type")))
           )
           val successes = jsResults.collect { case JsSuccess(success, _) => success }
           JsSuccess(CompoundSchemaType(successes))
@@ -101,17 +102,17 @@ trait SchemaReads {
     init.withProps(remaining.toSeq)
   }
 
-  lazy val typeReader: Reads[SchemaType] = {
-    (__ \ "type").read[String].flatMap {
-      case "boolean" => booleanReader.map(asSchemaType)
-      case "string" => stringReads.map(asSchemaType)
-      case "integer" => integerReads.map(asSchemaType)
-      case "number" => numberReads.map(asSchemaType)
-      case "array" => delegatingArrayReader.map(asSchemaType) orElse delegatingTupleReader.map(asSchemaType)
-      case "object" => delegatingObjectReader.map(asSchemaType)
-      case "null" => nullReader.map(asSchemaType)
-      case other => Reads.apply(_ => JsError(s"Invalid JSON schema. Unknown $other type.")).map(asSchemaType)
-    }
+  lazy val typeReader: Reads[SchemaType] = (__ \ "type").read[String].flatMap(dispatchType)
+
+  def dispatchType: String => Reads[SchemaType] = {
+    case "boolean" => booleanReader.map(asSchemaType)
+    case "string" => stringReads.map(asSchemaType)
+    case "integer" => integerReads.map(asSchemaType)
+    case "number" => numberReads.map(asSchemaType)
+    case "array" => delegatingArrayReader.map(asSchemaType) orElse delegatingTupleReader.map(asSchemaType)
+    case "object" => delegatingObjectReader.map(asSchemaType)
+    case "null" => nullReader.map(asSchemaType)
+    case other => Reads.apply(_ => JsError(s"Invalid JSON schema. Unknown $other type.")).map(asSchemaType)
   }
 
   lazy val delegatingTupleReader: Reads[SchemaTuple] = createDelegateReader(tupleReads, arrayKeywords)

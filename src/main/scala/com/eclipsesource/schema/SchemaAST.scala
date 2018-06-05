@@ -31,7 +31,7 @@ case class SchemaRoot($schema: Option[SchemaVersion], schema: SchemaType) extend
 }
 
 final case class CompoundSchemaType(alternatives: Seq[SchemaType]) extends SchemaType {
-  override def toString: String = alternatives.map(_.toString).mkString(" ")
+  override def toString: String = s"[${alternatives.map(_.toString).mkString(", ")}]"
   override def constraints: Constraint = NoConstraints()
 }
 
