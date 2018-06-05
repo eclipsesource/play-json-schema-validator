@@ -24,7 +24,7 @@ libraryDependencies += "com.eclipsesource"  %% "play-json-schema-validator" % "0
 For using the current 0.9.5 milestone with v7 support, use:
 
 ```Scala
-libraryDependencies += "com.eclipsesource"  %% "play-json-schema-validator" % "0.9.5-M1"
+libraryDependencies += "com.eclipsesource"  %% "play-json-schema-validator" % "0.9.5-M2"
 ```
 
 Please also see the [respective release notes](https://github.com/eclipsesource/play-json-schema-validator/releases/tag/v0.9.5-M1).
