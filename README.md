@@ -2,7 +2,7 @@
 
 [![Build Status](https://travis-ci.org/eclipsesource/play-json-schema-validator.svg?branch=master)](https://travis-ci.org/eclipsesource/play-json-schema-validator) [![Coverage Status](https://coveralls.io/repos/eclipsesource/play-json-schema-validator/badge.svg?branch=master&service=github)](https://coveralls.io/github/eclipsesource/play-json-schema-validator?branch=master)
 
-This is a JSON schema (draft v4) validation library for Scala based on Play's JSON library.
+This is a JSON schema (draft v4/draft v7) validation library for Scala based on Play's JSON library.
 
 If you experience any issues or have feature requests etc., please don't hesitate to [file an issue](https://github.com/eclipsesource/play-json-schema-validator/issues/new). Thanks!
 
