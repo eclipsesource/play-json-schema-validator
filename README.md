@@ -31,23 +31,24 @@ Please also see the [respective release notes](https://github.com/eclipsesource/
  
 ## Usage
 
-Schemas can be parsed by passing the schema string to `Json.fromJson`, for instance like this:
+Schemas can be parsed by passing the schema string to `Json.fromJson`. Starting with 0.9.5 (which adds draft 7 support), `Reads` and `Writes` have become version specific, hence you need to import them via respective Version object:
 
 ```Scala
+  import Version7._ // since 0.9.5 necessary
   val schema = Json.fromJson[SchemaType](Json.parse(
     """{
       |"properties": {
-      |  "id":    { "type": "integer" },
+      |  "$id":    { "type": "integer" },
       |  "title": { "type": "string" },
       |  "body":  { "type": "string" }
       |}
     }""".stripMargin)).get
 ```
 
-With a schema at hand, we can now validate `JsValue`s via the `SchemaValidator` (note that since 0.8.0 the validator is a class and not an object anymore):
+With a schema at hand, we can now validate `JsValue`s via the `SchemaValidator`:
 
 ```Scala 
-val validator = new SchemaValidator()
+val validator = new SchemaValidator(Some(Version7))
 validator.validate(schema, json)
 ```
 
