@@ -10,6 +10,11 @@ class RefsSpec extends Specification {
     "should define resolution scopes" in {
 
       Refs.mergeRefs(
+        Ref("#foo"),
+        Some(Ref("#bar"))
+      ) must beEqualTo(Ref("#foo"))
+
+      Refs.mergeRefs(
         Ref("#"), Some(Ref("http://x.y.z/rootschema.json#"))
       ) must beEqualTo(Ref("http://x.y.z/rootschema.json#"))
 
