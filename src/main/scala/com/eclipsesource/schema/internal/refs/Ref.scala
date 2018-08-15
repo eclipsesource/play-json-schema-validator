@@ -31,6 +31,10 @@ object Refs {
         ).getOrElse(l)
 
       case r@RelativeRef(relativeRef) =>
+        if (relativeRef.startsWith("#") && currentScope.exists(_.value.startsWith("#"))) {
+          // both refs are plain name fragments, switch scope
+          ref
+        } else
         if (relativeRef.startsWith("#")) {
           // ref is plain name fragment
           currentScope.map(url =>
