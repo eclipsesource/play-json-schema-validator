@@ -35,7 +35,7 @@ class ResolveStringConstraintsSpec extends Specification {
   "draft v7" should {
 
     import Version7._
-    val resolver = SchemaRefResolver(Version4)
+    val resolver = SchemaRefResolver(Version7)
 
     "resolve string constraints" in {
       val schema =
