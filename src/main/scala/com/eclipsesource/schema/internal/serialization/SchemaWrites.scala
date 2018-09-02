@@ -20,13 +20,15 @@ trait SchemaWrites { self: SchemaVersion =>
     case n: CompoundSchemaType => compoundWrites.writes(n)
     case s: SchemaMap          => schemaMapWriter.writes(s)
     case v: SchemaValue        => v.value
+    case r: SchemaRoot         => rootWrites.writes(r)
     case other => additionalWrites.writes(other)
   }
 
   def additionalWrites: OWrites[SchemaType] = OWrites[SchemaType](other =>
-    throw new RuntimeException(s"Unknown schema type encountered.\n$other")
+    throw new RuntimeException(s"Unknown schema type encountered: $other")
   )
   def anyConstraintWrites: OWrites[AnyConstraints]
+  def rootWrites: Writes[SchemaRoot]
   def stringWrites: OWrites[SchemaString]
   def numberWrites: OWrites[SchemaNumber]
   def integerWrites: OWrites[SchemaInteger]
@@ -75,6 +77,12 @@ trait SchemaWrites { self: SchemaVersion =>
   def emptyJsonObject: JsObject = Json.obj()
 
   object Default {
+
+    def rootWrites: Writes[SchemaRoot] =
+      Writes[SchemaRoot] { schemaRoot =>
+        Json.toJson(schemaRoot.schema)
+      }
+
     // TODO: default is missing
     def objectWrites(objectConstraintWrites: OWrites[ObjectConstraints]): OWrites[SchemaObject] =
       OWrites[SchemaObject] { schemaObj =>

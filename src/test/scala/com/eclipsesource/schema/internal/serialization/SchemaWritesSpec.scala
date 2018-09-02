@@ -70,6 +70,14 @@ class SchemaWritesSpec extends Specification {
       )
     }
 
+    "write root" in {
+      Json.toJson(
+        SchemaRoot(Some(Version4), SchemaNumber(NumberConstraints4()))
+      ) must beEqualTo(
+          Json.obj("type" -> "number")
+      )
+    }
+
     "write array" in {
       Json.toJson(SchemaArray(SchemaNumber(NumberConstraints4()), ArrayConstraints4())) must beEqualTo(
         Json.obj("items" -> Json.obj("type" -> "number"))

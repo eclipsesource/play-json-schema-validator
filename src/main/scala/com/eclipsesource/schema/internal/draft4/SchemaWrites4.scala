@@ -1,11 +1,11 @@
 package com.eclipsesource.schema.internal.draft4
 
-import com.eclipsesource.schema.{SchemaArray, SchemaInteger, SchemaNumber, SchemaObject, SchemaString, SchemaTuple, SchemaVersion}
+import com.eclipsesource.schema.{SchemaArray, SchemaInteger, SchemaNumber, SchemaObject, SchemaRoot, SchemaString, SchemaTuple, SchemaVersion}
 import com.eclipsesource.schema.internal.Keywords
 import com.eclipsesource.schema.internal.constraints.Constraints._
 import com.eclipsesource.schema.internal.draft4.constraints._
 import com.eclipsesource.schema.internal.serialization.SchemaWrites
-import play.api.libs.json.{Json, OWrites}
+import play.api.libs.json.{Json, OWrites, Writes}
 
 trait SchemaWrites4 extends SchemaWrites { self: SchemaVersion =>
 
@@ -22,6 +22,7 @@ trait SchemaWrites4 extends SchemaWrites { self: SchemaVersion =>
         asJsObject(Keywords.Any.Not, not)
   }
 
+  override lazy val rootWrites: Writes[SchemaRoot] = Default.rootWrites
   override lazy val objectWrites: OWrites[SchemaObject] = Default.objectWrites(objectConstraintWrites)
   override lazy val stringWrites: OWrites[SchemaString] = Default.stringWrites(stringConstraintWrites)
   override lazy val integerWrites: OWrites[SchemaInteger] = Default.integerWrites(numberConstraintWrites)
