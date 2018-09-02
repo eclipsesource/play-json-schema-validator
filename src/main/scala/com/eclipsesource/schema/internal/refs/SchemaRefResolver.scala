@@ -88,13 +88,12 @@ case class SchemaRefResolver
 
           currentResolutionScope.collectFirst {
             case id if absoluteRef.startsWith(id.value) => absoluteRef.drop(id.value.length)
-          }.map(remaining => {
+          }.map(remaining =>
             resolve(
               current,
               Ref(if (remaining.startsWith("#")) remaining else "#" + remaining),
               updatedScope
             )
-          }
           ).getOrElse(resolveAbsolute(a, updatedScope))
 
         case r@RelativeRef(_) =>
