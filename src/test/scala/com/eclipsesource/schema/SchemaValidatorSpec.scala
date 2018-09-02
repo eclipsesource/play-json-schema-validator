@@ -5,6 +5,7 @@ import java.net.URL
 import com.eclipsesource.schema.drafts.Version7
 import com.eclipsesource.schema.internal.validators.DefaultFormats
 import com.eclipsesource.schema.test.Assets
+import com.eclipsesource.schema.urlhandlers.ClasspathUrlHandler
 import play.api.Application
 import play.api.inject.guice.GuiceApplicationBuilder
 import play.api.libs.functional.syntax._
@@ -432,5 +433,38 @@ class SchemaValidatorSpec extends PlaySpecification with ErrorHelper { self =>
       Json.obj("foo" -> JsString("foo"))
     )
     firstErrorOf(res) must beEqualTo("Wrong type. Expected integer, was string.")
+  }
+
+  "Validator" should {
+    "validate a schema" in {
+      val validator: SchemaValidator = SchemaValidator(Some(Version7(new SchemaConfigOptions {
+        override def supportsExternalReferences: Boolean = true
+        override def formats: Map[String, SchemaFormat] = DefaultFormats.formats
+      }))).addUrlHandler(new ClasspathUrlHandler, ClasspathUrlHandler.Scheme)
+
+      val MeterMetaSchema =
+      """{
+        |"type": "object",
+        |"properties": {
+        |  "name": {
+        |    "type": "string",
+        |    "minLength": 1
+        |  },
+        |  "schema": {
+        |    "$ref": "classpath:///refs/json-schema-draft-07.json#"
+        |  }
+        |},
+        |"required": ["name", "schema"]
+        |}
+      """.stripMargin
+
+      type ValidateFn = (=> JsValue) => JsResult[JsValue]
+      val meterMetaSchema = JsonSource.schemaFromString(MeterMetaSchema).get
+      val validate: ValidateFn = validator.validate(meterMetaSchema)
+      val res1 = validate(Json.obj("schema"-> Json.obj("type" -> "number"), "name" -> "test"))
+      res1.isSuccess must beTrue
+      val res2 = validate(Json.obj("schema"-> Json.obj("type" -> "number"), "name" -> "test"))
+      res2.isSuccess must beTrue
+    }
   }
 }

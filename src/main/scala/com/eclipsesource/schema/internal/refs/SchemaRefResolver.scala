@@ -73,7 +73,14 @@ case class SchemaRefResolver
           resolveLocal(splitFragment(l), scope, current)
 
         case r if cache.contains(r) =>
-          ResolvedResult(cache(r), scope.copy(id = Some(Refs.mergeRefs(r, updatedScope.id)))).right[JsonValidationError]
+          val resolvedSchema: SchemaType = cache(r)
+          ResolvedResult(
+            resolvedSchema,
+            scope.copy(
+              id = Some(Refs.mergeRefs(r, updatedScope.id)),
+              documentRoot = resolvedSchema
+            )
+          ).right[JsonValidationError]
 
         // check if any prefix of ref matches current element
         case a@AbsoluteRef(absoluteRef)  =>
@@ -81,12 +88,13 @@ case class SchemaRefResolver
 
           currentResolutionScope.collectFirst {
             case id if absoluteRef.startsWith(id.value) => absoluteRef.drop(id.value.length)
-          }.map(remaining =>
+          }.map(remaining => {
             resolve(
               current,
               Ref(if (remaining.startsWith("#")) remaining else "#" + remaining),
               updatedScope
             )
+          }
           ).getOrElse(resolveAbsolute(a, updatedScope))
 
         case r@RelativeRef(_) =>
