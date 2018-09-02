@@ -1,0 +1,17 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "id": "#statement_object",
+    "type": "object",
+    "oneOf": [
+        {"$ref": "#activity"},
+        {
+            "required": ["objectType"],
+            "oneOf":[
+                {"$ref": "#agent"},
+                {"$ref": "#group"},
+                {"$ref": "#statementref"},
+                {"$ref": "#substatement"}
+            ]
+        }
+    ]
+}

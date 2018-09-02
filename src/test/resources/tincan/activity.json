@@ -1,0 +1,12 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "id": "#activity",
+    "type": "object",
+    "required": ["id"],
+    "additionalProperties": false,
+    "properties": {
+        "objectType": {"enum": ["Activity"]},
+        "id": {"$ref": "#activityid!core"},
+        "definition": {"$ref": "#activity_definition"}
+    }
+}

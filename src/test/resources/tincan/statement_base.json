@@ -1,0 +1,73 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "id": "#statement_base",
+    "type": "object",
+    "required": ["actor", "verb", "object"],
+    "oneOf": [
+        {
+            "required": ["object"],
+            "properties": {
+                "object": {"$ref": "#activity"}
+            }
+        },
+        {
+            "required": ["object"],
+            "properties": {
+                "object": {"not": {"$ref": "#activity"}},
+                "context": {
+                    "properties": {
+                        "revision": {"type": "null"},
+                        "platform": {"type": "null"}
+                    }
+                }
+            }
+        }
+    ],
+    "additionalProperties": false,
+    "properties": {
+        "objectType": {},
+        "id": {
+            "type": "string",
+            "format": "uuid"
+        },
+        "actor": {
+            "oneOf": [
+                {"$ref": "#agent"},
+                {"$ref": "#group"}
+            ]
+        },
+        "verb": {"$ref": "#verb"},
+        "object": {"$ref": "#statement_object"},
+        "result": {"$ref": "#result"},
+        "context": {"$ref": "#context"},
+        "timestamp": {
+            "type": "string",
+            "format": "iso_date"
+        },
+        "stored": {
+            "type": "string",
+            "format": "iso_date"
+        },
+        "authority": {
+            "oneOf": [
+                {"$ref": "#agent"},
+                {
+                    "allOf": [{"$ref": "#anonymousgroup"}],
+                    "properties": {
+                        "member": {
+                            "type": "array",
+                            "items": {"$ref": "#agent"},
+                            "minItems": 2,
+                            "maxItems": 2
+                        }
+                    }
+                }
+            ]
+        },
+        "version": {"$ref": "#version"},
+        "attachments": {
+            "type": "array",
+            "items": {"$ref": "#attachment"}
+        }
+    }
+}
