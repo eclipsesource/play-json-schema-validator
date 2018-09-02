@@ -1,0 +1,40 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "id": "#activity_definition",
+    "type": "object",
+    "oneOf": [
+        {
+            "properties": {
+                "interactionType": {"type": "null"},
+                "correctResponsesPattern": {"type": "null"},
+                "choices": {"type": "null"},
+                "scale": {"type": "null"},
+                "source": {"type": "null"},
+                "target": {"type": "null"},
+                "steps": {"type": "null"}
+            }
+        },
+        {"$ref": "#interactionactivity"}
+    ],
+    "additionalProperties": false,
+    "properties": {
+        "name": {"$ref": "#languagemap"},
+        "description": {"$ref": "#languagemap"},
+        "type": {
+            "type": "string",
+            "format": "iri"
+        },
+        "moreInfo": {
+            "type": "string",
+            "format": "iri"
+        },
+        "interactionType": {},
+        "correctResponsesPattern": {},
+        "choices": {},
+        "scale": {},
+        "source": {},
+        "target": {},
+        "steps": {},
+        "extensions": {"$ref": "#extensions"}
+    }
+}

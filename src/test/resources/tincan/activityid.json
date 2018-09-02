@@ -1,0 +1,13 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "id": "#activityid",
+    "type": "object",
+    "required": ["activityId"],
+    "properties": {
+        "activityId": {
+            "id": "#activityid!core",
+            "type": "string",
+            "format": "iri"
+        }
+    }
+}

@@ -1,0 +1,16 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "id": "#mbox",
+    "type": "object",
+    "required": ["mbox"],
+    "properties": {
+        "mbox": {
+            "id": "#mbox!core",
+            "type": "string",
+            "format": "mailto-iri"
+        },
+        "mbox_sha1sum": {"type": "null"},
+        "openid": {"type": "null"},
+        "account": {"type": "null"}
+    }
+}
