@@ -17,7 +17,7 @@ resolvers += "emueller-bintray" at "http://dl.bintray.com/emueller/maven"
 Then add the dependency:
 
 ```Scala
-libraryDependencies += "com.eclipsesource"  %% "play-json-schema-validator" % "0.9.5-M3"
+libraryDependencies += "com.eclipsesource"  %% "play-json-schema-validator" % "0.9.5-M4"
 ```
 
 Please also see the [respective release notes](https://github.com/eclipsesource/play-json-schema-validator/releases/tag/v0.9.5-M1).
