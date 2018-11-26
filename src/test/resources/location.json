@@ -7,6 +7,6 @@
       },
       "required": []
     },
-    { "$ref": "http://json-schema.org/geo" }
+    { "$ref": "http://json-schema.org/learn/examples/geographical-location.schema.json" }
   ]
 }
