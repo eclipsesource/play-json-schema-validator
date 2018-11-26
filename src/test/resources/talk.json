@@ -14,5 +14,6 @@
     "type": { "$ref": "talk_type.json" },
     "date": { "$ref": "date.json" },
     "location": { "$ref": "location.json" }
-  }
+  },
+  "required": ["location"]
 }

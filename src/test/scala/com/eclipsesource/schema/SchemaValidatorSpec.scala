@@ -37,7 +37,7 @@ class SchemaValidatorSpec extends PlaySpecification with ErrorHelper { self =>
       |  }
       |}""".stripMargin).get
 
-  case class Location(name: String)
+  case class Location(name: String, latitude: Double, longitude: Double)
   case class Talk(location: Location)
 
   implicit val locationReads: Reads[Location] = Json.reads[Location]
@@ -47,9 +47,13 @@ class SchemaValidatorSpec extends PlaySpecification with ErrorHelper { self =>
   implicit val talkFormat: OFormat[Talk] = Json.format[Talk]
 
   val talkUrl: URL = getClass.getResource("/talk.json")
+  val latitude = 48.137154
+  val longitude = 11.576124
   val instance: JsObject = Json.obj(
     "location" -> Json.obj(
-      "name" -> "Munich"
+      "name" -> "Munich",
+      "latitude" -> latitude,
+      "longitude" -> longitude
     )
   )
 
@@ -57,7 +61,7 @@ class SchemaValidatorSpec extends PlaySpecification with ErrorHelper { self =>
 
   private val validator = SchemaValidator(Some(Version7))
     .addSchema("location.json", locationSchema)
-    .addSchema("http://json-schema.org/geo", JsonSource.schemaFromUrl(self.getClass.getResource("/geo")).get)
+    .addSchema("http://json-schema.org/learn/examples/geographical-location.schema.json", JsonSource.schemaFromUrl(self.getClass.getResource("/geo")).get)
 
   "SchemaValidator" should {
 
@@ -122,13 +126,13 @@ class SchemaValidatorSpec extends PlaySpecification with ErrorHelper { self =>
     }
 
     "validate via file based URL and Writes" in {
-      val talk = Talk(Location("Munich"))
+      val talk = Talk(Location("Munich", latitude, longitude))
       val result = validator.validate(talkUrl, talk, talkWrites)
       result.isSuccess must beTrue
     }
 
     "validate via file based URL and Format" in {
-      val talk = Talk(Location("Munich"))
+      val talk = Talk(Location("Munich", latitude, longitude))
       val result: JsResult[Talk] = validator.validate(talkUrl, talk)
       result.isSuccess must beTrue
       result.asOpt must beSome.which(talk => talk.location.name must beEqualTo("Munich"))
@@ -143,7 +147,7 @@ class SchemaValidatorSpec extends PlaySpecification with ErrorHelper { self =>
     }
 
     "validate with Writes" in {
-      val talk = Talk(Location("Munich"))
+      val talk = Talk(Location("Munich", latitude, longitude))
       val result = validator.validate(schema, talk, talkWrites)
       result.isSuccess must beTrue
     }
@@ -167,7 +171,9 @@ class SchemaValidatorSpec extends PlaySpecification with ErrorHelper { self =>
     // location does not match loc
     val fooInstance = Json.obj(
       "location" -> Json.obj(
-        "name" -> "Munich"
+        "name" -> "Munich",
+        "latitude" -> latitude,
+        "longitude" -> longitude
       ),
       "title" -> "Some title"
     )
@@ -325,7 +331,7 @@ class SchemaValidatorSpec extends PlaySpecification with ErrorHelper { self =>
   }
 
   "verify cache hit (issue #98)" in {
-    val talk = Talk(Location("Munich"))
+    val talk = Talk(Location("Munich", latitude, longitude))
     val validator = SchemaValidator(Some(Version7))
     validator.validate(talkUrl, talk)
     validator.cache.mapping.isEmpty must beFalse
