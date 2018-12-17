@@ -41,7 +41,7 @@ Schemas can be parsed by passing the schema string to `Json.fromJson`. Starting 
 With a schema at hand, we can now validate `JsValue`s via the `SchemaValidator`:
 
 ```Scala 
-val validator = new SchemaValidator(Some(Version7))
+val validator = SchemaValidator(Some(Version7))
 validator.validate(schema, json)
 ```
 
