@@ -49,7 +49,7 @@ object SchemaUtil {
     }
   }
 
-  def toJson(errors:  Seq[(JsPath, Seq[JsonValidationError])]): JsArray = {
+  def toJson(errors:  collection.Seq[(JsPath, collection.Seq[JsonValidationError])]): JsArray = {
     val emptyErrors = Json.arr()
     errors.foldLeft(emptyErrors) { case (accumulatedErrors, (_, validationErrors)) =>
       val maybeError = validationErrors.foldLeft(None: Option[JsObject])((aggregatedError, err) => err.args.headOption match {

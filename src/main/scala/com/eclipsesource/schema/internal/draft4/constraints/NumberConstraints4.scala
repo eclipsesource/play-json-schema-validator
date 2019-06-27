@@ -30,7 +30,7 @@ case class NumberConstraints4(min: Option[Minimum] = None,
   def isInt(implicit lang: Lang): scalaz.Reader[SchemaResolutionContext, Rule[JsValue, JsValue]] =
     scalaz.Reader { context =>
       Rule.fromMapping {
-        case json@JsNumber(number) if number.isWhole() => Success(json)
+        case json@JsNumber(number) if number.isWhole => Success(json)
         case other =>
           SchemaUtil.failure(
             Keywords.Any.Type,

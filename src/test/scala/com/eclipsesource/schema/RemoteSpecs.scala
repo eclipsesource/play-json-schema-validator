@@ -8,6 +8,7 @@ import org.specs2.specification.core.Fragments
 import org.specs2.specification.dsl.Online
 import play.api.Application
 import play.api.inject.guice.GuiceApplicationBuilder
+import play.api.mvc.DefaultActionBuilder
 import play.api.test.TestServer
 
 class RemoteSpecs extends Specification with JsonSpec with Online with AfterAll {
@@ -28,7 +29,11 @@ class RemoteSpecs extends Specification with JsonSpec with Online with AfterAll 
   }
 
   def createApp: Application = new GuiceApplicationBuilder()
-    .routes(Assets.routes(getClass, "remotes/")).build()
+    .appRoutes(app => {
+      val Action = app.injector.instanceOf[DefaultActionBuilder]
+      Assets.routes(Action)(getClass, "remotes/")
+    })
+    .build()
 
   lazy val server = TestServer(port = 1234, createApp)
 

@@ -20,7 +20,7 @@ object TupleValidators {
           val schemaSize = schema.items.size
 
           val results: Seq[VA[JsValue]] =
-            validateItems(instanceSize, schemaSize, additionalItems, schema, values, context, json)
+            validateItems(instanceSize, schemaSize, additionalItems, schema, values.toSeq, context, json)
 
           if (results.exists(_.isFailure)) {
             val failures = results.collect { case Failure(err) => err }.reduceLeft(_ ++ _)
@@ -41,9 +41,14 @@ object TupleValidators {
     }
   }
 
-  def validateItems(instanceSize: Int, schemaSize: Int, additionalItems: Option[SchemaType], schema: SchemaTuple,
-                    values: Seq[JsValue], context: SchemaResolutionContext, json: JsValue)
-                   (implicit lang: Lang): Seq[VA[JsValue]] = {
+  def validateItems(instanceSize: Int,
+                    schemaSize: Int,
+                    additionalItems: Option[SchemaType],
+                    schema: SchemaTuple,
+                    values: Seq[JsValue],
+                    context: SchemaResolutionContext,
+                    json: JsValue
+                   )(implicit lang: Lang): Seq[VA[JsValue]] = {
     if (schemaSize == 0) {
       values.map(Success(_))
     } else if (instanceSize > schemaSize) {

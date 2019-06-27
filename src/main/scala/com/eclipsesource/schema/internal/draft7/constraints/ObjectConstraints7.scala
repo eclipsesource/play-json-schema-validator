@@ -49,7 +49,7 @@ case class ObjectConstraints7(additionalProps: Option[SchemaType] = None,
         val validation = for {
           _ <- validateDependencies(schema, dependencies, jsObject)
           remaining <- validateProps(obj.properties, required, jsObject)
-          unmatched <- validatePatternProps(patternProps, jsObject.fields)
+          unmatched <- validatePatternProps(patternProps, jsObject.fields.toSeq)
           _ <- validateAdditionalProps(additionalProps, unmatched.intersect(remaining), json)
           _ <- validateMinProperties(minProperties, jsObject)
           _ <- validateMaxProperties(maxProperties, jsObject)

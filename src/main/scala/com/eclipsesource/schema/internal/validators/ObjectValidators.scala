@@ -17,7 +17,7 @@ object ObjectValidators {
                            (implicit lang: Lang): ValidationStep[Props] =
     ReaderWriterState { (context, status) =>
       val result: Seq[(String, VA[JsValue])] = propertyNames match {
-        case None => jsObject.fields.map(f => f._1 -> Success(f._2))
+        case None => jsObject.fields.toSeq.map(f => f._1 -> Success(f._2))
         case Some(propertyNamesSchema) =>
           jsObject.fields.foldLeft(List.empty[(String, VA[JsValue])])((validatedFields, field) =>
             validatedFields :+ field._1 -> propertyNamesSchema.validate(
@@ -88,9 +88,7 @@ object ObjectValidators {
       val result = validated ++ missing
 
       val validatedProperties = result.map(_._1)
-      val unvalidatedProps: Props = json.fields.filterNot(field =>
-        validatedProperties.contains(field._1)
-      )
+      val unvalidatedProps: Props = json.fields.toSeq.filterNot(field => validatedProperties.contains(field._1))
 
       ((), unvalidatedProps, Results.merge(status, Results.aggregateAsObject(result, context)))
     }
@@ -206,7 +204,7 @@ object ObjectValidators {
         dep match {
           case (name, SchemaValue(JsArray(values))) =>
             // collecting strings should not be necessary at this point
-            val validated = validatePropertyDependency(name, values.collect { case JsString(str) => str }, context)
+            val validated = validatePropertyDependency(name, values.toSeq.collect { case JsString(str) => str }, context)
             Results.merge(currStatus, validated)
           case (name, dep: SchemaType) if json.keys.contains(name) =>
             val validated = dep.validate(json, context)

@@ -12,7 +12,7 @@ import play.api.libs.functional.syntax._
 
 case class JsonSchemaSpec(description: String, schema: SchemaType, tests: Seq[JsonSchemaTest])
 case class JsonSchemaTest(description: String, data: JsValue, valid: Boolean)
-case class SpecResult(description: String, valid: Boolean, error: Option[Seq[(JsPath, Seq[JsonValidationError])]])
+case class SpecResult(description: String, valid: Boolean, error: Option[scala.collection.Seq[(JsPath, scala.collection.Seq[JsonValidationError])]])
 
 trait JsonSpec extends FragmentBuilder {
 
@@ -65,8 +65,8 @@ trait JsonSpec extends FragmentBuilder {
 
   def fromUrl(url: URL)(implicit reads: Reads[SchemaType], validator: SchemaValidator): Either[String, Seq[(String, Seq[SpecResult])]] = {
     JsonSource.fromUrl(url).getOrElse(Failure(s"Could not read JSON from $url.")) match {
-      case JsArray(specs) => Right(executeSpecs(specs))
-      case json =>
+      case JsArray(specs) => Right(executeSpecs(specs.toSeq))
+      case _ =>
         Left(s"URL $url does not contain any specs or has wrong format. See https://github.com/json-schema/JSON-Schema-Test-Suite for correct format")
     }
   }
