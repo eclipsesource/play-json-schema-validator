@@ -10,13 +10,19 @@ import play.api.Application
 import play.api.inject.guice.GuiceApplicationBuilder
 import play.api.libs.functional.syntax._
 import play.api.libs.json._
+import play.api.mvc.DefaultActionBuilder
 import play.api.test.{PlaySpecification, WithServer}
 
 import scala.io.Source
 
 class SchemaValidatorSpec extends PlaySpecification with ErrorHelper { self =>
 
-  def createApp: Application = new GuiceApplicationBuilder().routes(Assets.routes(getClass)).build()
+  def createApp: Application = new GuiceApplicationBuilder()
+    .appRoutes(app => {
+      val Action = app.injector.instanceOf[DefaultActionBuilder]
+      Assets.routes(Action)(getClass)
+    })
+    .build()
 
   import Version7._
 
@@ -449,20 +455,20 @@ class SchemaValidatorSpec extends PlaySpecification with ErrorHelper { self =>
       }))).addUrlHandler(new ClasspathUrlHandler, ClasspathUrlHandler.Scheme)
 
       val MeterMetaSchema =
-      """{
-        |"type": "object",
-        |"properties": {
-        |  "name": {
-        |    "type": "string",
-        |    "minLength": 1
-        |  },
-        |  "schema": {
-        |    "$ref": "classpath:///refs/json-schema-draft-07.json#"
-        |  }
-        |},
-        |"required": ["name", "schema"]
-        |}
-      """.stripMargin
+        """{
+          |"type": "object",
+          |"properties": {
+          |  "name": {
+          |    "type": "string",
+          |    "minLength": 1
+          |  },
+          |  "schema": {
+          |    "$ref": "classpath:///refs/json-schema-draft-07.json#"
+          |  }
+          |},
+          |"required": ["name", "schema"]
+          |}
+        """.stripMargin
 
       type ValidateFn = (=> JsValue) => JsResult[JsValue]
       val meterMetaSchema = JsonSource.schemaFromString(MeterMetaSchema).get

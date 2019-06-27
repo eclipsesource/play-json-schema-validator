@@ -15,7 +15,7 @@ object ArrayValidator extends SchemaTypeValidator[SchemaArray] {
                        (implicit lang: Lang): VA[JsValue] = {
     json match {
       case JsArray(values) =>
-        val elements: Seq[VA[JsValue]] = values.zipWithIndex.map { case (jsValue, idx) =>
+        val elements: Seq[VA[JsValue]] = values.toSeq.zipWithIndex.map { case (jsValue, idx) =>
           schema.item.validate(
             jsValue,
             context.updateScope(

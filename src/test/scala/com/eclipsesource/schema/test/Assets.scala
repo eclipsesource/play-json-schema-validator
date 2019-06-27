@@ -1,14 +1,14 @@
 package com.eclipsesource.schema.test
 
 import play.api.http.{DefaultFileMimeTypes, FileMimeTypesConfiguration}
-import play.api.mvc.{Action, Handler}
+import play.api.mvc.{DefaultActionBuilder, Handler}
 
 object Assets {
 
   import play.api.mvc.Results._
   implicit val mimeTypes = new DefaultFileMimeTypes(FileMimeTypesConfiguration(Map("json" -> "application/json")))
 
-  def routes(clazz: Class[_], prefix: String = ""): PartialFunction[(String, String), Handler] = {
+  def routes(Action: DefaultActionBuilder)(clazz: Class[_], prefix: String = ""): PartialFunction[(String, String), Handler] = {
     case (_, path) =>
       try {
         val resourceName = prefix + path.substring(1)

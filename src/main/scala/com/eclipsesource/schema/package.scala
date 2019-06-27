@@ -151,7 +151,7 @@ package object schema {
     }
   }
 
-  implicit class FailureExtensions(errors: Seq[(JsPath, Seq[JsonValidationError])]) {
+  implicit class FailureExtensions(errors: collection.Seq[(JsPath, collection.Seq[JsonValidationError])]) {
     def toJson: JsArray = SchemaUtil.toJson(errors)
   }
 }

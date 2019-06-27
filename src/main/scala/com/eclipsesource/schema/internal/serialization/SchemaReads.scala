@@ -75,7 +75,7 @@ trait SchemaReads {
     case obj@JsObject(fields) =>
       obj \ "type" match {
         case JsDefined(JsArray(values)) =>
-          val jsResults: Seq[JsResult[SchemaType]] = values.map(value =>
+          val jsResults: Seq[JsResult[SchemaType]] = values.toSeq.map(value =>
             dispatchType(value.as[String]).reads(
               JsObject(List("type" -> value) ++ fields.filterNot(_._1 == "type")))
           )
@@ -148,7 +148,7 @@ trait SchemaReads {
     (json: JsValue) => json.validate[Map[String, SchemaType]]
 
   val mapReadsInstanceWithJsValueReader: Reads[Map[String, SchemaType]] =
-    (json: JsValue) => json.validate[Map[String, SchemaType]](mapReads(withSchemaValueReader))
+    (json: JsValue) => json.validate[Map[String, SchemaType]](Reads.mapReads(withSchemaValueReader))
 
   /**
     * Read a JsArray of JsObjects as a Seq of SchemaType.
@@ -158,7 +158,7 @@ trait SchemaReads {
       JsError(check._2.getOrElse("Error while reading JsArray."))
     case JsArray(els) =>
       // ignore all non-objects
-      val results: Seq[JsResult[SchemaType]] = els.filter(check._1).map(Json.fromJson[SchemaType])
+      val results: Seq[JsResult[SchemaType]] = els.toSeq.filter(check._1).map(Json.fromJson[SchemaType])
       if (results.exists(_.isError)) mergeErrors(results)
       else JsSuccess(results.collect { case JsSuccess(s, _) => s })
     case other => JsError(s"Expected array of Json objects, got $other.")
