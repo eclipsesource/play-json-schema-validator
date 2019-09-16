@@ -4,8 +4,8 @@ import com.eclipsesource.schema.internal.constraints.Constraints.HasAnyConstrain
 import com.eclipsesource.schema.internal.refs._
 import com.eclipsesource.schema.internal.validation.VA
 import com.eclipsesource.schema.internal.validators._
-import com.eclipsesource.schema.internal.{Keywords, Results, SchemaUtil}
-import com.osinka.i18n.{Lang, Messages}
+import com.eclipsesource.schema.internal.{Keywords, Results, SchemaUtil, ValidatorMessages}
+import com.osinka.i18n.Lang
 import play.api.libs.json._
 import scalaz.{-\/, Failure, Success, \/, \/-}
 
@@ -61,7 +61,7 @@ package object schema {
         case (_, SchemaValue(JsBoolean(false))) =>
           Results.failureWithPath(
             "",
-            Messages("err.false.schema", schemaType, SchemaUtil.typeOfAsString(json)),
+            ValidatorMessages("err.false.schema", schemaType, SchemaUtil.typeOfAsString(json)),
             context,
             json)
 
@@ -105,7 +105,7 @@ package object schema {
         case (_, _) =>
           Results.failureWithPath(
             Keywords.Any.Type,
-            Messages("err.expected.type", schemaType, SchemaUtil.typeOfAsString(json)),
+            ValidatorMessages("err.expected.type", schemaType, SchemaUtil.typeOfAsString(json)),
             context,
             json)
       }

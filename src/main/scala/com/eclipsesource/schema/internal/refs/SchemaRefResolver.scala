@@ -6,7 +6,7 @@ import com.eclipsesource.schema._
 import com.eclipsesource.schema.internal._
 import com.eclipsesource.schema.internal.constraints.Constraints.Constraint
 import com.eclipsesource.schema.internal.url.UrlStreamResolverFactory
-import com.osinka.i18n.{Lang, Messages}
+import com.osinka.i18n.Lang
 import play.api.libs.json._
 import scalaz.syntax.either._
 import scalaz.{\/, \/-}
@@ -65,7 +65,7 @@ case class SchemaRefResolver
     val updatedScope = updateResolutionScope(scope.copy(depth = scope.depth + 1), current)
 
     if (scope.depth >= MaxDepth) {
-      JsonValidationError(Messages("err.max.depth")).left
+      JsonValidationError(ValidatorMessages("err.max.depth")).left
     } else {
       val result: \/[JsonValidationError, ResolvedResult] = ref match {
 
@@ -112,7 +112,7 @@ case class SchemaRefResolver
     }
   }
   private[schema] def resolutionFailure(ref: Ref)(implicit lang: Lang): JsonValidationError =
-    JsonValidationError(Messages("err.unresolved.ref", ref.value))
+    JsonValidationError(ValidatorMessages("err.unresolved.ref", ref.value))
 
   private def resolveRelative(ref: RelativeRef, scope: SchemaResolutionScope, instance: SchemaType)
                              (implicit lang: Lang): \/[JsonValidationError, ResolvedResult] = {
@@ -201,7 +201,7 @@ case class SchemaRefResolver
         source <- if (url.getProtocol == null || version.options.supportsExternalReferences) {
           \/.fromEither(Try { Source.fromURL(url) }.toJsonEither)
         } else {
-          JsonValidationError(Messages("err.unresolved.ref")).left
+          JsonValidationError(ValidatorMessages("err.unresolved.ref")).left
         }
         read <- readSource(source)
       } yield {
@@ -217,7 +217,7 @@ case class SchemaRefResolver
 
   private[schema] def readJson(json: JsValue)(implicit lang: Lang): \/[JsonValidationError, SchemaType] = \/.fromEither(Json.fromJson[SchemaType](json).asEither)
     .leftMap(errors =>
-      JsonValidationError(Messages("err.parse.json"), JsError.toJson(errors))
+      JsonValidationError(ValidatorMessages("err.parse.json"), JsError.toJson(errors))
     )
 
   private[schema] def readSource(source: Source)(implicit lang: Lang): \/[JsonValidationError, SchemaType] = {
@@ -286,7 +286,7 @@ case class SchemaRefResolver
   private def resolveConstraint[A <: Constraint](constraints: A, constraint: String)
                                                 (implicit lang: Lang): Either[JsonValidationError, SchemaType] = {
     constraints.resolvePath(constraint).fold[Either[JsonValidationError, SchemaType]](
-      Left(JsonValidationError(Messages("err.unresolved.ref", constraint)))
+      Left(JsonValidationError(ValidatorMessages("err.unresolved.ref", constraint)))
     )(schema => Right(schema))
   }
 
@@ -294,14 +294,14 @@ case class SchemaRefResolver
                                  (implicit lang: Lang): Either[JsonValidationError, SchemaType] = {
     props.collectFirst {
       case SchemaProp(name, s) if name == propName => s
-    }.toRight(JsonValidationError(Messages("err.prop.not.found", propName)))
+    }.toRight(JsonValidationError(ValidatorMessages("err.prop.not.found", propName)))
   }
 
   private def findOtherProp(props: Seq[(String, SchemaType)], propName: String)
                                  (implicit lang: Lang): Either[JsonValidationError, SchemaType] = {
     props.collectFirst {
       case (name, s) if name == propName => s
-    }.toRight(JsonValidationError(Messages("err.prop.not.found", propName)))
+    }.toRight(JsonValidationError(ValidatorMessages("err.prop.not.found", propName)))
   }
 
 
@@ -317,7 +317,7 @@ case class SchemaRefResolver
     schema match {
 
       case SchemaMap(name, members) =>
-        members.find(_.name == fragmentPart).map(_.schemaType).toRight(JsonValidationError(Messages(s"err.$name.not.found")))
+        members.find(_.name == fragmentPart).map(_.schemaType).toRight(JsonValidationError(ValidatorMessages(s"err.$name.not.found")))
 
       case SchemaSeq(members) =>
         fragmentPart match {
@@ -355,9 +355,9 @@ case class SchemaRefResolver
           if (idx > 0 && idx < arr.value.size) {
             Right(SchemaValue(arr.value(idx)))
           } else {
-            Left(JsonValidationError(Messages("arr.out.of.bounds", index)))
+            Left(JsonValidationError(ValidatorMessages("arr.out.of.bounds", index)))
           }
-        case _ => Left(JsonValidationError(Messages("arr.invalid.index", fragmentPart)))
+        case _ => Left(JsonValidationError(ValidatorMessages("arr.invalid.index", fragmentPart)))
       }
 
       case CompoundSchemaType(alternatives) =>
@@ -366,7 +366,7 @@ case class SchemaRefResolver
         )
         results
           .collectFirst { case r@Right(_) => r }
-          .getOrElse(Left(JsonValidationError(Messages("err.unresolved.ref", fragmentPart))))
+          .getOrElse(Left(JsonValidationError(ValidatorMessages("err.unresolved.ref", fragmentPart))))
 
       case n: SchemaNumber => resolveConstraint(n.constraints, fragmentPart)
       case n: SchemaInteger => resolveConstraint(n.constraints, fragmentPart)

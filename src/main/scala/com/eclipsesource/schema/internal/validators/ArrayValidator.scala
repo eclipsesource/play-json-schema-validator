@@ -1,11 +1,10 @@
 package com.eclipsesource.schema.internal.validators
 
-import com.eclipsesource.schema.{SchemaArray, SchemaResolutionContext}
 import com.eclipsesource.schema.internal.validation.VA
-import com.eclipsesource.schema.internal.{Keywords, Results, SchemaUtil}
-import com.osinka.i18n.{Lang, Messages}
+import com.eclipsesource.schema.internal.{Keywords, Results, SchemaUtil, ValidatorMessages}
+import com.eclipsesource.schema.{SchemaArray, SchemaResolutionContext}
+import com.osinka.i18n.Lang
 import play.api.libs.json.{JsArray, JsValue}
-
 import scalaz.{Failure, Success}
 
 
@@ -32,7 +31,7 @@ object ArrayValidator extends SchemaTypeValidator[SchemaArray] {
       case _ =>
         Results.failureWithPath(
           Keywords.Any.Type,
-          Messages("err.expected.type", SchemaUtil.typeOfAsString(json)),
+          ValidatorMessages("err.expected.type", SchemaUtil.typeOfAsString(json)),
           context,
           json
         )

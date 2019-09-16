@@ -3,11 +3,11 @@ package com.eclipsesource.schema.internal.validators
 import com.eclipsesource.schema.internal._
 import com.eclipsesource.schema.internal.validation.{Rule, VA}
 import com.eclipsesource.schema.{SchemaObject, SchemaResolutionContext, SchemaType}
-import com.osinka.i18n.{Lang, Messages}
+import com.osinka.i18n.Lang
 import play.api.libs.json._
+import scalaz.{Failure, Success}
 
 import scala.annotation.tailrec
-import scalaz.{Failure, Success}
 
 object AnyConstraintValidators {
 
@@ -25,7 +25,7 @@ object AnyConstraintValidators {
             } else {
               SchemaUtil.failure(
                 "else",
-                Messages("err.if.then.else", json),
+                ValidatorMessages("err.if.then.else", json),
                 context.schemaPath,
                 context.instancePath,
                 json
@@ -40,7 +40,7 @@ object AnyConstraintValidators {
             } else {
               SchemaUtil.failure(
                 "then",
-                Messages("err.if.then.else", json),
+                ValidatorMessages("err.if.then.else", json),
                 context.schemaPath,
                 context.instancePath,
                 json
@@ -54,7 +54,7 @@ object AnyConstraintValidators {
             } else {
               SchemaUtil.failure(
                 "else",
-                Messages("err.if.then.else", json),
+                ValidatorMessages("err.if.then.else", json),
                 context.schemaPath,
                 context.instancePath,
                 json
@@ -75,7 +75,7 @@ object AnyConstraintValidators {
           } else {
             SchemaUtil.failure(
               Keywords.Any.Not,
-              Messages("any.not", json),
+              ValidatorMessages("any.not", json),
               context.schemaPath,
               context.instancePath,
               json
@@ -99,7 +99,7 @@ object AnyConstraintValidators {
             } else {
               SchemaUtil.failure(
                 Keywords.Any.AllOf,
-                Messages("any.all"),
+                ValidatorMessages("any.all"),
                 context.schemaPath,
                 context.instancePath,
                 json,
@@ -134,7 +134,7 @@ object AnyConstraintValidators {
                 case Nil => Success(json)
                 case errors => SchemaUtil.failure(
                   Keywords.Any.AnyOf,
-                  Messages("any.any"),
+                  ValidatorMessages("any.any"),
                   context.schemaPath,
                   context.instancePath,
                   json,
@@ -159,7 +159,7 @@ object AnyConstraintValidators {
               case 0 =>
                 SchemaUtil.failure(
                   Keywords.Any.OneOf,
-                  Messages("any.one.of.none"),
+                  ValidatorMessages("any.one.of.none"),
                   context.schemaPath,
                   context.instancePath,
                   json,
@@ -174,7 +174,7 @@ object AnyConstraintValidators {
                 }
                 SchemaUtil.failure(
                   Keywords.Any.OneOf,
-                  Messages("any.one.of.many"),
+                  ValidatorMessages("any.one.of.many"),
                   context.schemaPath,
                   context.instancePath,
                   json,
@@ -195,7 +195,7 @@ object AnyConstraintValidators {
           case None => Success(json)
           case Some(constValue) => SchemaUtil.failure(
             "const",
-            Messages("any.const"),
+            ValidatorMessages("any.const"),
             context.schemaPath,
             context.instancePath,
             json,
@@ -215,7 +215,7 @@ object AnyConstraintValidators {
           case Some(values) =>
             SchemaUtil.failure(
               Keywords.Any.Enum,
-              Messages("any.enum"),
+              ValidatorMessages("any.enum"),
               context.schemaPath,
               context.instancePath,
               json,

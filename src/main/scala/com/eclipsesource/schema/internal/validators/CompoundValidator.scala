@@ -1,8 +1,8 @@
 package com.eclipsesource.schema.internal.validators
-import com.eclipsesource.schema.{CompoundSchemaType, _}
-import com.eclipsesource.schema.internal.{Keywords, Results}
 import com.eclipsesource.schema.internal.validation.VA
-import com.osinka.i18n.{Lang, Messages}
+import com.eclipsesource.schema.internal.{Keywords, Results, ValidatorMessages}
+import com.eclipsesource.schema.{CompoundSchemaType, _}
+import com.osinka.i18n.Lang
 import play.api.libs.json.JsValue
 
 object CompoundValidator extends SchemaTypeValidator[CompoundSchemaType] {
@@ -15,7 +15,7 @@ object CompoundValidator extends SchemaTypeValidator[CompoundSchemaType] {
     result.getOrElse(
         Results.failureWithPath(
           Keywords.Any.Type,
-          Messages("comp.no.schema"),
+          ValidatorMessages("comp.no.schema"),
           context,
           json
         )

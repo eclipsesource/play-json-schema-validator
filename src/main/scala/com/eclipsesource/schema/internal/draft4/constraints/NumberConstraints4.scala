@@ -1,10 +1,10 @@
 package com.eclipsesource.schema.internal.draft4.constraints
 
 import com.eclipsesource.schema.{SchemaInteger, SchemaNumber, SchemaResolutionContext, SchemaType, SchemaValue}
-import com.eclipsesource.schema.internal.{Keywords, SchemaUtil}
+import com.eclipsesource.schema.internal.{Keywords, SchemaUtil, ValidatorMessages}
 import com.eclipsesource.schema.internal.constraints.Constraints._
 import com.eclipsesource.schema.internal.validation.{Rule, VA}
-import com.osinka.i18n.{Lang, Messages}
+import com.osinka.i18n.Lang
 import play.api.libs.json.{JsNumber, JsString, JsValue}
 import scalaz.Success
 
@@ -34,7 +34,7 @@ case class NumberConstraints4(min: Option[Minimum] = None,
         case other =>
           SchemaUtil.failure(
             Keywords.Any.Type,
-            Messages("err.expected.type", "integer", SchemaUtil.typeOfAsString(other)),
+            ValidatorMessages("err.expected.type", "integer", SchemaUtil.typeOfAsString(other)),
             context.schemaPath,
             context.instancePath,
             other
