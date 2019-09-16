@@ -3,10 +3,9 @@ package com.eclipsesource.schema.internal.validators
 import com.eclipsesource.schema.SchemaResolutionContext
 import com.eclipsesource.schema.internal.constraints.Constraints.{Maximum, Minimum}
 import com.eclipsesource.schema.internal.validation.Rule
-import com.eclipsesource.schema.internal.{Keywords, SchemaUtil}
-import com.osinka.i18n.{Lang, Messages}
+import com.eclipsesource.schema.internal.{Keywords, SchemaUtil, ValidatorMessages}
+import com.osinka.i18n.Lang
 import play.api.libs.json.{JsNumber, JsValue}
-
 import scalaz.Success
 
 object NumberValidators {
@@ -31,9 +30,9 @@ object NumberValidators {
             } else {
               val isExclusive = min.isExclusive.getOrElse(false)
               val msg = if (isExclusive) {
-                Messages("num.min.exclusive", number, min.min)
+                ValidatorMessages("num.min.exclusive", number, min.min)
               } else {
-                Messages("num.min", number, min.min)
+                ValidatorMessages("num.min", number, min.min)
               }
               SchemaUtil.failure(
                 Keywords.Number.Min,
@@ -69,9 +68,9 @@ object NumberValidators {
             } else {
               val isExclusive = max.isExclusive.getOrElse(false)
               val msg = if (isExclusive) {
-                Messages("num.max.exclusive", number, max.max)
+                ValidatorMessages("num.max.exclusive", number, max.max)
               } else {
-                Messages("num.max", number, max.max)
+                ValidatorMessages("num.max", number, max.max)
               }
               SchemaUtil.failure(
                 Keywords.Number.Max,
@@ -97,7 +96,7 @@ object NumberValidators {
             } else {
               SchemaUtil.failure(
                 Keywords.Number.MultipleOf,
-                Messages("num.multiple.of", number, factor),
+                ValidatorMessages("num.multiple.of", number, factor),
                 context.schemaPath,
                 context.instancePath,
                 number
@@ -113,7 +112,7 @@ object NumberValidators {
                             (implicit lang: Lang) =
     SchemaUtil.failure(
       Keywords.Any.Type,
-      Messages("err.expected.type", "number", SchemaUtil.typeOfAsString(json)),
+      ValidatorMessages("err.expected.type", "number", SchemaUtil.typeOfAsString(json)),
       context.schemaPath,
       context.instancePath,
       json
@@ -138,7 +137,7 @@ object NumberValidators {
               } else {
                 SchemaUtil.failure(
                   Keywords.String.Format,
-                  Messages("str.format", number, schemaFormat.name),
+                  ValidatorMessages("str.format", number, schemaFormat.name),
                   context.schemaPath,
                   context.instancePath,
                   json

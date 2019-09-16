@@ -1,11 +1,10 @@
 package com.eclipsesource.schema.internal.validators
 
 import com.eclipsesource.schema.internal.validation.Rule
-import com.eclipsesource.schema.internal.{Keywords, SchemaUtil}
+import com.eclipsesource.schema.internal.{Keywords, SchemaUtil, ValidatorMessages}
 import com.eclipsesource.schema.{SchemaResolutionContext, SchemaType}
-import com.osinka.i18n.{Lang, Messages}
+import com.osinka.i18n.Lang
 import play.api.libs.json.{JsArray, JsValue}
-
 import scalaz.Success
 
 object ArrayConstraintValidators {
@@ -20,7 +19,7 @@ object ArrayConstraintValidators {
                 .map(Success(_))
                 .getOrElse(SchemaUtil.failure(
                   "contains",
-                  Messages("err.contains"),
+                  ValidatorMessages("err.contains"),
                   context.schemaPath.map(_ \ "contains"),
                   context.instancePath,
                   json
@@ -42,7 +41,7 @@ object ArrayConstraintValidators {
           } else {
             SchemaUtil.failure(
               Keywords.Array.MaxItems,
-              Messages("arr.max", values.size, max),
+              ValidatorMessages("arr.max", values.size, max),
               context.schemaPath,
               context.instancePath,
               json
@@ -64,7 +63,7 @@ object ArrayConstraintValidators {
           } else {
             SchemaUtil.failure(
               Keywords.Array.MinItems,
-              Messages("arr.min", values.size, minItems),
+              ValidatorMessages("arr.min", values.size, minItems),
               context.schemaPath,
               context.instancePath,
               json
@@ -84,7 +83,7 @@ object ArrayConstraintValidators {
           } else {
             SchemaUtil.failure(
               Keywords.Array.UniqueItems,
-              Messages("arr.dups"),
+              ValidatorMessages("arr.dups"),
               context.schemaPath,
               context.instancePath,
               json
@@ -99,7 +98,7 @@ object ArrayConstraintValidators {
                            (implicit lang: Lang) =
     SchemaUtil.failure(
       Keywords.Any.Type,
-      Messages("err.expected.type", "array", SchemaUtil.typeOfAsString(json)),
+      ValidatorMessages("err.expected.type", "array", SchemaUtil.typeOfAsString(json)),
       context.schemaPath,
       context.instancePath,
       json

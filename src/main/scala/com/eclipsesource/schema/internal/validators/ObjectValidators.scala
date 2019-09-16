@@ -2,10 +2,10 @@ package com.eclipsesource.schema.internal.validators
 
 import java.util.regex.Pattern
 
-import com.eclipsesource.schema.{SchemaProp, SchemaResolutionContext, SchemaType, SchemaValue}
 import com.eclipsesource.schema.internal.validation.VA
-import com.eclipsesource.schema.internal.{Keywords, Props, Results, ValidationStep}
-import com.osinka.i18n.{Lang, Messages}
+import com.eclipsesource.schema.internal.{Keywords, Props, Results, ValidationStep, ValidatorMessages}
+import com.eclipsesource.schema.{SchemaProp, SchemaResolutionContext, SchemaType, SchemaValue}
+import com.osinka.i18n.Lang
 import play.api.libs.json._
 import scalaz.{ReaderWriterState, Success}
 
@@ -48,7 +48,7 @@ object ObjectValidators {
             attr.name ->
               Results.failureWithPath(
                 Keywords.Object.Required,
-                Messages("obj.required.prop", attr.name),
+                ValidatorMessages("obj.required.prop", attr.name),
                 context,
                 json
               ) :: props
@@ -76,7 +76,7 @@ object ObjectValidators {
               val result = req ->
                 Results.failureWithPath(
                   Keywords.Object.Required,
-                  Messages("obj.required.prop", req),
+                  ValidatorMessages("obj.required.prop", req),
                   context,
                   json
                 )
@@ -155,7 +155,7 @@ object ObjectValidators {
               Results.merge(status,
                 Results.failureWithPath(
                   Keywords.Object.AdditionalProperties,
-                  Messages("obj.additional.props", unmatchedFields.map { case (name, _) => s"'$name'" }.mkString(" and ")),
+                  ValidatorMessages("obj.additional.props", unmatchedFields.map { case (name, _) => s"'$name'" }.mkString(" and ")),
                   context,
                   json
                 )
@@ -185,7 +185,7 @@ object ObjectValidators {
       val result = mandatoryProps.map(prop => json.fields.find(_._1 == prop).fold(
         prop -> Results.failureWithPath(
           Keywords.Object.Dependencies,
-          Messages("obj.missing.prop.dep", prop),
+          ValidatorMessages("obj.missing.prop.dep", prop),
           context.updateScope(_.copy(
             schemaJsPath = context.schemaPath.map(_ \ prop),
             instancePath = context.instancePath \ prop
@@ -227,7 +227,7 @@ object ObjectValidators {
           if (size <= max)  Success(json)
           else  Results.failureWithPath(
             Keywords.Object.MaxProperties,
-            Messages("obj.max.props", size, max),
+            ValidatorMessages("obj.max.props", size, max),
             context,
             json
           )
@@ -247,7 +247,7 @@ object ObjectValidators {
         } else {
           Results.failureWithPath(
             Keywords.Object.MinProperties,
-            Messages("obj.min.props", size, min),
+            ValidatorMessages("obj.min.props", size, min),
             context,
             json
           )

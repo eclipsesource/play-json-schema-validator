@@ -1,9 +1,9 @@
 package com.eclipsesource.schema.internal.validators
 
 import com.eclipsesource.schema._
-import com.eclipsesource.schema.internal.{Keywords, Results, SchemaUtil}
 import com.eclipsesource.schema.internal.validation.{Rule, VA}
-import com.osinka.i18n.{Lang, Messages}
+import com.eclipsesource.schema.internal.{Keywords, Results, SchemaUtil, ValidatorMessages}
+import com.osinka.i18n.Lang
 import play.api.libs.json._
 import scalaz.{Failure, Success}
 
@@ -32,7 +32,7 @@ object TupleValidators {
           }
         case json@other => SchemaUtil.failure(
           Keywords.Any.Type,
-          Messages("err.expected.type", "array", SchemaUtil.typeOfAsString(other)),
+          ValidatorMessages("err.expected.type", "array", SchemaUtil.typeOfAsString(other)),
           context.schemaPath,
           context.instancePath,
           json
@@ -58,7 +58,7 @@ object TupleValidators {
           Seq(
             Results.failureWithPath(
               Keywords.Array.AdditionalItems,
-              Messages("arr.max", instanceSize, schemaSize),
+              ValidatorMessages("arr.max", instanceSize, schemaSize),
               context,
               json
             )

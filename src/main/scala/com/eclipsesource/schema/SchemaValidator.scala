@@ -7,7 +7,7 @@ import com.eclipsesource.schema.internal._
 import com.eclipsesource.schema.internal.refs.{DocumentCache, Ref, SchemaRefResolver, SchemaResolutionScope}
 import com.eclipsesource.schema.internal.url.UrlStreamResolverFactory
 import com.eclipsesource.schema.internal.validators.DefaultFormats
-import com.osinka.i18n.{Lang, Messages}
+import com.osinka.i18n.Lang
 import play.api.libs.json._
 import scalaz.\/
 
@@ -105,7 +105,7 @@ class SchemaValidator(
   private[schema] def readJson(json: JsValue)(implicit reads: Reads[SchemaType], lang: Lang): \/[JsonValidationError, SchemaType] = {
     \/.fromEither(Json.fromJson[SchemaType](json).asEither)
       .leftMap(errors =>
-        JsonValidationError(Messages("err.parse.json"), JsError.toJson(errors))
+        JsonValidationError(ValidatorMessages("err.parse.json"), JsError.toJson(errors))
       )
   }
 
