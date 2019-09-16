@@ -55,7 +55,7 @@ object ValidatorMessages {
   def apply(msg: String, args: Any*)(implicit lang: Lang): String = {
     Try(Messages(msg, args:_*))
       .getOrElse(
-        new MessageFormat(DefaultMessages(msg)).format(args.map(_.asInstanceOf[java.lang.Object]).toArray)
+        new MessageFormat(DefaultMessages(msg)).format(args.map(_.asInstanceOf[Object]).toArray)
       )
   }
 

@@ -35,13 +35,13 @@ case class SchemaRefResolver
     * Update the resolution scope based on the current element.
     *
     * @param scope the current resolution scope
-    * @param a the value that might contain scope refinements
+    * @param schema the value that might contain scope refinements
     * @return the updated scope, if the given value contain a scope refinement, otherwise
     *         the not updated scope
     */
-  private[schema] def updateResolutionScope(scope: SchemaResolutionScope, a: SchemaType): SchemaResolutionScope = a match {
-    case _ if refinesScope(a) =>
-      val updatedId = findScopeRefinement(a).map(
+  private[schema] def updateResolutionScope(scope: SchemaResolutionScope, schema: SchemaType): SchemaResolutionScope = schema match {
+    case _ if refinesScope(schema) =>
+      val updatedId = findScopeRefinement(schema).map(
         id => Refs.mergeRefs(id, scope.id, Some(resolverFactory))
       )
       scope.copy(id = updatedId)
