@@ -1,3 +1,10 @@
+## THIS PROJECT IS UNMAINTAINED
+
+Issues will not be fixed and new features will not be implemented unless PRs are submitted. 
+The former maintainer no longer has the time and resources to work on this project further.
+
+If you're interested in taking over, please reply to [#146](https://github.com/eclipsesource/play-json-schema-validator/issues/146).
+
 # Play JSON Schema Validator
 
 [![Build Status](https://travis-ci.org/eclipsesource/play-json-schema-validator.svg?branch=master)](https://travis-ci.org/eclipsesource/play-json-schema-validator) [![Coverage Status](https://coveralls.io/repos/eclipsesource/play-json-schema-validator/badge.svg?branch=master&service=github)](https://coveralls.io/github/eclipsesource/play-json-schema-validator?branch=master)
